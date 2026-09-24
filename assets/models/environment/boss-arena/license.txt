@@ -1,0 +1,11 @@
+Model Information:
+* title:	Space station scene Wip 6 (Test)
+* source:	https://sketchfab.com/3d-models/space-station-scene-wip-6-test-b60f8242025048c29aea070b382470fd
+* author:	3DHaupt (https://sketchfab.com/dennish2010)
+
+Model License:
+* license type:	CC-BY-NC-4.0 (http://creativecommons.org/licenses/by-nc/4.0/)
+* requirements:	Author must be credited. No commercial use.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Space station scene Wip 6 (Test)" (https://sketchfab.com/3d-models/space-station-scene-wip-6-test-b60f8242025048c29aea070b382470fd) by 3DHaupt (https://sketchfab.com/dennish2010) licensed under CC-BY-NC-4.0 (http://creativecommons.org/licenses/by-nc/4.0/)

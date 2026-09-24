@@ -1,256 +1,740 @@
 /* =========================================================
    NOVA CATALYST
    Project Nova
+
    Pre-Alpha v.01
-   Build v0.1
+   Build v0.2
+
+   Escenario y cámara
 ========================================================= */
 
 import * as THREE from "three";
 
 
+import {
+
+    EnvironmentManager,
+
+    ENVIRONMENTS
+
+} from "./environment.js";
+
+
+import {
+
+    CameraManager
+
+} from "./camera.js";
+
+
 /* =========================================================
-   CONFIGURACIÓN
+   ESTADO GENERAL
 ========================================================= */
 
-const CONFIG = {
-    backgroundColor: 0x010204,
-    stars: 2400,
-    distantStars: 1000
+const GAME_STATE = {
+
+    MENU:
+        "menu",
+
+    BRIEFING:
+        "briefing",
+
+    ABOUT:
+        "about",
+
+    LOADING:
+        "loading",
+
+    INSPECTION:
+        "inspection"
+
 };
+
+
+let currentState =
+    GAME_STATE.MENU;
 
 
 /* =========================================================
    HTML
 ========================================================= */
 
-const gameContainer = document.getElementById("game-container");
-const mainMenu = document.getElementById("main-menu");
-const briefingScreen = document.getElementById("briefing-screen");
-const aboutScreen = document.getElementById("about-screen");
+const gameContainer =
+    document.getElementById(
+        "game-container"
+    );
 
-const btnEnter = document.getElementById("btn-enter");
-const btnAbout = document.getElementById("btn-about");
-const btnBackBriefing = document.getElementById("btn-back-from-briefing");
-const btnBackAbout = document.getElementById("btn-back-from-about");
-const btnSurvive = document.getElementById("btn-survive");
-const notification = document.getElementById("notification");
+
+const mainMenu =
+    document.getElementById(
+        "main-menu"
+    );
+
+
+const briefingScreen =
+    document.getElementById(
+        "briefing-screen"
+    );
+
+
+const aboutScreen =
+    document.getElementById(
+        "about-screen"
+    );
+
+
+const loadingScreen =
+    document.getElementById(
+        "loading-screen"
+    );
+
+
+const loadingProgress =
+    document.getElementById(
+        "loading-progress"
+    );
+
+
+const loadingText =
+    document.getElementById(
+        "loading-text"
+    );
+
+
+const inspectionUI =
+    document.getElementById(
+        "inspection-ui"
+    );
+
+
+const btnEnter =
+    document.getElementById(
+        "btn-enter"
+    );
+
+
+const btnAbout =
+    document.getElementById(
+        "btn-about"
+    );
+
+
+const btnBackBriefing =
+    document.getElementById(
+        "btn-back-from-briefing"
+    );
+
+
+const btnBackAbout =
+    document.getElementById(
+        "btn-back-from-about"
+    );
+
+
+const btnSurvive =
+    document.getElementById(
+        "btn-survive"
+    );
+
+
+const notification =
+    document.getElementById(
+        "notification"
+    );
 
 
 /* =========================================================
    ESCENA
 ========================================================= */
 
-const scene = new THREE.Scene();
+const scene =
+    new THREE.Scene();
 
-scene.background = new THREE.Color(CONFIG.backgroundColor);
 
-scene.fog = new THREE.FogExp2(0x010204, 0.0042);
+scene.background =
+    new THREE.Color(
+        0x010204
+    );
 
 
 /* =========================================================
    CÁMARA
 ========================================================= */
 
-const camera = new THREE.PerspectiveCamera(
-    60,
-    window.innerWidth / window.innerHeight,
-    0.1,
-    600
-);
+const camera =
+    new THREE.PerspectiveCamera(
 
-camera.position.set(0, 0, 8);
+        60,
+
+        window.innerWidth /
+        window.innerHeight,
+
+        0.1,
+
+        5000
+
+    );
+
+
+camera.position.set(
+    0,
+    4,
+    10
+);
 
 
 /* =========================================================
    RENDERER
 ========================================================= */
 
-const renderer = new THREE.WebGLRenderer({
-    antialias: true,
-    alpha: false,
-    powerPreference: "high-performance"
-});
+const renderer =
+    new THREE.WebGLRenderer({
 
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 0.92;
+        antialias: true,
 
-gameContainer.appendChild(renderer.domElement);
+        powerPreference:
+            "high-performance"
 
-
-/* =========================================================
-   RELOJ
-========================================================= */
-
-const clock = new THREE.Clock();
-
-
-/* =========================================================
-   GENERADOR DE CAMPOS DE ESTRELLAS
-========================================================= */
-
-function createStarField({
-    count,
-    radius,
-    size,
-    color,
-    opacity
-}) {
-    const positions = new Float32Array(count * 3);
-
-    for (let i = 0; i < count; i++) {
-        const i3 = i * 3;
-
-        positions[i3] = (Math.random() - 0.5) * radius;
-        positions[i3 + 1] = (Math.random() - 0.5) * radius;
-        positions[i3 + 2] = -Math.random() * radius;
-    }
-
-    const geometry = new THREE.BufferGeometry();
-
-    geometry.setAttribute(
-        "position",
-        new THREE.BufferAttribute(positions, 3)
-    );
-
-    const material = new THREE.PointsMaterial({
-        color,
-        size,
-        transparent: true,
-        opacity,
-        sizeAttenuation: true,
-        depthWrite: false
     });
 
-    const points = new THREE.Points(geometry, material);
-    scene.add(points);
 
-    return points;
-}
+renderer.setPixelRatio(
+
+    Math.min(
+        window.devicePixelRatio,
+        2
+    )
+
+);
+
+
+renderer.setSize(
+
+    window.innerWidth,
+
+    window.innerHeight
+
+);
+
+
+renderer.outputColorSpace =
+    THREE.SRGBColorSpace;
+
+
+renderer.toneMapping =
+    THREE.ACESFilmicToneMapping;
+
+
+renderer.toneMappingExposure =
+    1;
+
+
+renderer.shadowMap.enabled =
+    true;
+
+
+renderer.shadowMap.type =
+    THREE.PCFSoftShadowMap;
+
+
+gameContainer.appendChild(
+    renderer.domElement
+);
 
 
 /* =========================================================
-   CAPAS DE ESTRELLAS
+   MANAGERS
 ========================================================= */
 
-const stars = createStarField({
-    count: CONFIG.stars,
-    radius: 180,
-    size: 0.12,
-    color: 0xe4edf0,
-    opacity: 0.82
-});
+const environmentManager =
+    new EnvironmentManager(
+        scene
+    );
 
-const distantStars = createStarField({
-    count: CONFIG.distantStars,
-    radius: 260,
-    size: 0.06,
-    color: 0x7e8b92,
-    opacity: 0.34
-});
 
-const ghostDust = createStarField({
-    count: 280,
-    radius: 120,
-    size: 0.18,
-    color: 0x6e1a16,
-    opacity: 0.16
-});
+const cameraManager =
+    new CameraManager(
+
+        camera,
+
+        renderer
+
+    );
 
 
 /* =========================================================
    LUCES
 ========================================================= */
 
-const ambientLight = new THREE.AmbientLight(0x152126, 0.45);
-scene.add(ambientLight);
+const hemisphereLight =
+    new THREE.HemisphereLight(
 
-const coldLight = new THREE.PointLight(0x6e8b94, 3.5, 60, 2);
-coldLight.position.set(-8, 5, -14);
-scene.add(coldLight);
+        0x8ca9b5,
 
-const redLight = new THREE.PointLight(0x8b1b17, 2.8, 45, 2);
-redLight.position.set(10, -2, -12);
-scene.add(redLight);
+        0x08090c,
+
+        1.2
+
+    );
+
+
+scene.add(
+    hemisphereLight
+);
+
+
+const directionalLight =
+    new THREE.DirectionalLight(
+
+        0xffffff,
+
+        2.5
+
+    );
+
+
+directionalLight.position.set(
+    15,
+    25,
+    10
+);
+
+
+directionalLight.castShadow =
+    true;
+
+
+directionalLight.shadow.mapSize.set(
+    2048,
+    2048
+);
+
+
+scene.add(
+    directionalLight
+);
 
 
 /* =========================================================
-   CONTROL DE PANTALLAS
+   LUCES DE EMERGENCIA
 ========================================================= */
 
-function showScreen(target) {
-    const screens = [mainMenu, briefingScreen, aboutScreen];
+const emergencyLightA =
+    new THREE.PointLight(
 
-    screens.forEach((screen) => {
-        screen.classList.remove("screen-visible");
-        screen.classList.add("hidden-screen");
-    });
+        0xff241f,
 
-    target.classList.remove("hidden-screen");
-    target.classList.add("screen-visible");
+        8,
+
+        80,
+
+        2
+
+    );
+
+
+emergencyLightA.position.set(
+    15,
+    10,
+    0
+);
+
+
+scene.add(
+    emergencyLightA
+);
+
+
+const emergencyLightB =
+    new THREE.PointLight(
+
+        0x245b7a,
+
+        7,
+
+        80,
+
+        2
+
+    );
+
+
+emergencyLightB.position.set(
+    -15,
+    8,
+    5
+);
+
+
+scene.add(
+    emergencyLightB
+);
+
+
+/* =========================================================
+   RELOJ
+========================================================= */
+
+const clock =
+    new THREE.Clock();
+
+
+/* =========================================================
+   PANTALLAS
+========================================================= */
+
+function hideMainScreens() {
+
+    [
+
+        mainMenu,
+
+        briefingScreen,
+
+        aboutScreen
+
+    ].forEach(
+
+        screen => {
+
+            screen.classList.remove(
+                "screen-visible"
+            );
+
+
+            screen.classList.add(
+                "hidden-screen"
+            );
+
+        }
+
+    );
+
+}
+
+
+function showScreen(
+    target
+) {
+
+    hideMainScreens();
+
+
+    loadingScreen.classList.add(
+        "hidden-screen"
+    );
+
+
+    inspectionUI.classList.add(
+        "hidden-interface"
+    );
+
+
+    target.classList.remove(
+        "hidden-screen"
+    );
+
+
+    target.classList.add(
+        "screen-visible"
+    );
+
 }
 
 
 /* =========================================================
-   EVENTOS
+   EVENTOS MENÚ
 ========================================================= */
 
-btnEnter.addEventListener("click", () => {
-    showScreen(briefingScreen);
-});
+btnEnter.addEventListener(
 
-btnAbout.addEventListener("click", () => {
-    showScreen(aboutScreen);
-});
+    "click",
 
-btnBackBriefing.addEventListener("click", () => {
-    showScreen(mainMenu);
-});
+    () => {
 
-btnBackAbout.addEventListener("click", () => {
-    showScreen(mainMenu);
-});
+        currentState =
+            GAME_STATE.BRIEFING;
 
-btnSurvive.addEventListener("click", () => {
-    showNotification(
-        "PROTOCOLO ACEPTADO · CONTROLES Y GAMEPLAY EN LA SIGUIENTE ETAPA"
+
+        showScreen(
+            briefingScreen
+        );
+
+    }
+
+);
+
+
+btnAbout.addEventListener(
+
+    "click",
+
+    () => {
+
+        currentState =
+            GAME_STATE.ABOUT;
+
+
+        showScreen(
+            aboutScreen
+        );
+
+    }
+
+);
+
+
+btnBackBriefing.addEventListener(
+
+    "click",
+
+    () => {
+
+        currentState =
+            GAME_STATE.MENU;
+
+
+        showScreen(
+            mainMenu
+        );
+
+    }
+
+);
+
+
+btnBackAbout.addEventListener(
+
+    "click",
+
+    () => {
+
+        currentState =
+            GAME_STATE.MENU;
+
+
+        showScreen(
+            mainMenu
+        );
+
+    }
+
+);
+
+
+/* =========================================================
+   SOBREVIVIR
+========================================================= */
+
+btnSurvive.addEventListener(
+
+    "click",
+
+    async () => {
+
+        await enterZoneA();
+
+    }
+
+);
+
+
+/* =========================================================
+   ENTRAR A ZONA A
+========================================================= */
+
+async function enterZoneA() {
+
+    currentState =
+        GAME_STATE.LOADING;
+
+
+    hideMainScreens();
+
+
+    loadingScreen.classList.remove(
+        "hidden-screen"
     );
-});
+
+
+    loadingProgress.style.width =
+        "0%";
+
+
+    loadingText.textContent =
+        "Estableciendo conexión con Nova Atlas...";
+
+
+    try {
+
+        const zoneA =
+
+            await environmentManager
+                .activateEnvironment(
+
+                    ENVIRONMENTS.ZONE_A,
+
+                    (percent) => {
+
+                        loadingProgress
+                            .style
+                            .width =
+                            `${percent}%`;
+
+
+                        loadingText.textContent =
+
+                            `Cargando Zona A · ${percent}%`;
+
+                    }
+
+                );
+
+
+        loadingProgress.style.width =
+            "100%";
+
+
+        loadingText.textContent =
+            "Zona A preparada";
+
+
+        /*
+         * Ajustar la cámara automáticamente.
+         */
+
+        cameraManager.focusEnvironment(
+            zoneA
+        );
+
+
+        cameraManager.enable();
+
+
+        /*
+         * Ocultar menú después
+         * de un pequeño retraso.
+         */
+
+        setTimeout(
+
+            () => {
+
+                loadingScreen
+                    .classList
+                    .add(
+                        "hidden-screen"
+                    );
+
+
+                inspectionUI
+                    .classList
+                    .remove(
+                        "hidden-interface"
+                    );
+
+
+                currentState =
+                    GAME_STATE.INSPECTION;
+
+            },
+
+            450
+
+        );
+
+
+        /*
+         * Mientras inspeccionamos Zona A,
+         * comenzamos a cargar en segundo plano
+         * la arena del jefe.
+         */
+
+        environmentManager
+            .preloadEnvironment(
+                ENVIRONMENTS.BOSS_ARENA
+            );
+
+    }
+
+    catch (
+        error
+    ) {
+
+        console.error(
+
+            "No se pudo cargar Nova Atlas Zona A:",
+
+            error
+
+        );
+
+
+        loadingText.textContent =
+            "ERROR AL CARGAR ZONA A";
+
+
+        showNotification(
+
+            "NO SE PUDO CARGAR EL ESCENARIO · REVISA F12"
+
+        );
+
+    }
+
+}
 
 
 /* =========================================================
    NOTIFICACIÓN
 ========================================================= */
 
-let notificationTimeout = null;
+let notificationTimeout =
+    null;
 
-function showNotification(text) {
-    notification.textContent = text;
-    notification.classList.add("visible");
 
-    if (notificationTimeout) {
-        clearTimeout(notificationTimeout);
+function showNotification(
+    text
+) {
+
+    notification.textContent =
+        text;
+
+
+    notification.classList.add(
+        "visible"
+    );
+
+
+    if (
+        notificationTimeout
+    ) {
+
+        clearTimeout(
+            notificationTimeout
+        );
+
     }
 
-    notificationTimeout = setTimeout(() => {
-        notification.classList.remove("visible");
-    }, 3200);
+
+    notificationTimeout =
+        setTimeout(
+
+            () => {
+
+                notification
+                    .classList
+                    .remove(
+                        "visible"
+                    );
+
+            },
+
+            3200
+
+        );
+
 }
-
-
-/* =========================================================
-   MOUSE / PARALLAX
-========================================================= */
-
-let pointerX = 0;
-let pointerY = 0;
-
-window.addEventListener("pointermove", (event) => {
-    pointerX = event.clientX / window.innerWidth - 0.5;
-    pointerY = event.clientY / window.innerHeight - 0.5;
-});
 
 
 /* =========================================================
@@ -258,35 +742,73 @@ window.addEventListener("pointermove", (event) => {
 ========================================================= */
 
 function handleResize() {
-    camera.aspect = window.innerWidth / window.innerHeight;
+
+    camera.aspect =
+
+        window.innerWidth /
+        window.innerHeight;
+
+
     camera.updateProjectionMatrix();
 
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+    renderer.setSize(
+
+        window.innerWidth,
+
+        window.innerHeight
+
+    );
+
+
+    renderer.setPixelRatio(
+
+        Math.min(
+            window.devicePixelRatio,
+            2
+        )
+
+    );
+
 }
 
-window.addEventListener("resize", handleResize);
+
+window.addEventListener(
+
+    "resize",
+
+    handleResize
+
+);
 
 
 /* =========================================================
    UPDATE
 ========================================================= */
 
-function update(deltaTime, elapsedTime) {
-    stars.rotation.y += deltaTime * 0.0018;
-    stars.rotation.x += deltaTime * 0.0005;
+function update(
+    deltaTime,
+    elapsedTime
+) {
 
-    distantStars.rotation.y -= deltaTime * 0.0008;
-    ghostDust.rotation.z += deltaTime * 0.0012;
+    cameraManager.update();
 
-    camera.position.x += ((pointerX * 0.26) - camera.position.x) * deltaTime * 0.55;
-    camera.position.y += ((-pointerY * 0.16) - camera.position.y) * deltaTime * 0.55;
 
-    camera.lookAt(0, 0, -30);
+    /*
+     * Pulsación muy ligera
+     * de iluminación de emergencia.
+     */
 
-    redLight.intensity =
-        2.5 +
-        Math.sin(elapsedTime * 0.7) * 0.25;
+    emergencyLightA.intensity =
+
+        7.5 +
+
+        Math.sin(
+            elapsedTime * 1.6
+        )
+
+        * 1.2;
+
 }
 
 
@@ -295,14 +817,46 @@ function update(deltaTime, elapsedTime) {
 ========================================================= */
 
 function animate() {
-    requestAnimationFrame(animate);
 
-    const deltaTime = Math.min(clock.getDelta(), 0.1);
-    const elapsedTime = clock.elapsedTime;
+    requestAnimationFrame(
+        animate
+    );
 
-    update(deltaTime, elapsedTime);
-    renderer.render(scene, camera);
+
+    const deltaTime =
+
+        Math.min(
+
+            clock.getDelta(),
+
+            0.1
+
+        );
+
+
+    const elapsedTime =
+        clock.elapsedTime;
+
+
+    update(
+
+        deltaTime,
+
+        elapsedTime
+
+    );
+
+
+    renderer.render(
+
+        scene,
+
+        camera
+
+    );
+
 }
+
 
 animate();
 
@@ -312,16 +866,18 @@ animate();
 ========================================================= */
 
 console.log(
+
     "%cNOVA CATALYST",
+
     "color:#d72924;font-size:24px;font-weight:bold;"
+
 );
 
-console.log(
-    "%cProject Nova · Pre-Alpha v.01",
-    "color:#b8c0c2;"
-);
 
 console.log(
-    "%cBuild v0.1 · Menu inicial cargado correctamente",
+
+    "%cBuild v0.2 · Environment System",
+
     "color:#64d78f;"
+
 );

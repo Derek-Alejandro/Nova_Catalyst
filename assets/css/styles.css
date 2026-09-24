@@ -555,3 +555,297 @@ body {
     }
 
 }
+
+/* =========================================================
+   CARGA DE ESCENARIO
+========================================================= */
+
+.loading-screen {
+
+    position: absolute;
+
+    inset: 0;
+
+    z-index: 100;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    background:
+        rgba(
+            1,
+            2,
+            4,
+            0.97
+        );
+
+    transition:
+        opacity 0.5s ease;
+
+}
+
+
+.loading-content {
+
+    width: min(
+        500px,
+        calc(100% - 50px)
+    );
+
+}
+
+
+.loading-classification {
+
+    margin-bottom: 8px;
+
+    color:
+        rgba(
+            215,
+            41,
+            36,
+            0.85
+        );
+
+    font-size: 0.7rem;
+
+    letter-spacing: 0.15rem;
+
+}
+
+
+.loading-content h2 {
+
+    margin-bottom: 22px;
+
+    font-family:
+        "Orbitron",
+        sans-serif;
+
+    font-size:
+        clamp(
+            1.5rem,
+            4vw,
+            2.3rem
+        );
+
+    letter-spacing:
+        0.08em;
+
+}
+
+
+.loading-bar {
+
+    position: relative;
+
+    width: 100%;
+
+    height: 3px;
+
+    background:
+        rgba(
+            255,
+            255,
+            255,
+            0.08
+        );
+
+    overflow: hidden;
+
+}
+
+
+.loading-progress {
+
+    width: 0%;
+
+    height: 100%;
+
+    background:
+        var(--nova-red);
+
+    box-shadow:
+        0 0 12px
+        rgba(
+            215,
+            41,
+            36,
+            0.7
+        );
+
+    transition:
+        width 0.2s ease;
+
+}
+
+
+#loading-text {
+
+    margin-top: 10px;
+
+    color:
+        rgba(
+            215,
+            225,
+            230,
+            0.52
+        );
+
+    font-size: 0.72rem;
+
+    letter-spacing: 0.1em;
+
+}
+
+
+/* =========================================================
+   UI DE INSPECCIÓN
+========================================================= */
+
+.inspection-ui {
+
+    position: absolute;
+
+    inset: 0;
+
+    z-index: 30;
+
+    pointer-events: none;
+
+}
+
+
+.hidden-interface {
+
+    display: none;
+
+}
+
+
+.inspection-location {
+
+    position: absolute;
+
+    top: 24px;
+
+    left: 24px;
+
+    padding-left: 12px;
+
+    border-left:
+        2px solid
+        var(--nova-red);
+
+}
+
+
+.inspection-location span {
+
+    display: block;
+
+    color:
+        rgba(
+            215,
+            225,
+            230,
+            0.40
+        );
+
+    font-size: 0.58rem;
+
+    letter-spacing: 0.17em;
+
+}
+
+
+.inspection-location strong {
+
+    display: block;
+
+    margin-top: 3px;
+
+    color:
+        #eeeeee;
+
+    font-family:
+        "Orbitron",
+        sans-serif;
+
+    font-size: 0.77rem;
+
+    letter-spacing: 0.08em;
+
+}
+
+
+.inspection-controls {
+
+    position: absolute;
+
+    left: 50%;
+
+    bottom: 18px;
+
+    transform:
+        translateX(-50%);
+
+    width: max-content;
+
+    max-width:
+        calc(
+            100% - 30px
+        );
+
+    padding:
+        8px 14px;
+
+    border:
+        1px solid
+        rgba(
+            255,
+            255,
+            255,
+            0.08
+        );
+
+    background:
+        rgba(
+            0,
+            0,
+            0,
+            0.55
+        );
+
+    color:
+        rgba(
+            220,
+            230,
+            232,
+            0.6
+        );
+
+    font-size:
+        0.62rem;
+
+    letter-spacing:
+        0.08em;
+
+    text-align:
+        center;
+
+}
+
+
+.inspection-controls span {
+
+    margin:
+        0 8px;
+
+    color:
+        var(--nova-red);
+
+}
