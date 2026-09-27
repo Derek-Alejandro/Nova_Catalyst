@@ -2,54 +2,93 @@
    NOVA CATALYST
    Environment Manager
 
-   Escenarios:
-   - Nova Atlas: Zona A
-   - Nova Atlas: Boss Arena
+   Build v0.2
 ========================================================= */
+
 
 import * as THREE from "three";
 
+
 import {
+
     GLTFLoader
+
 } from "three/addons/loaders/GLTFLoader.js";
 
 
+
 /* =========================================================
-   RUTAS
+   ESCENARIOS
 ========================================================= */
 
 export const ENVIRONMENTS = {
 
+
     ZONE_A: {
-        id: "zone-a",
-        name: "NOVA ATLAS · ZONA A",
-        path: "./assets/models/environment/zone-a/scene.gltf"
+
+        id:
+            "zone-a",
+
+        name:
+            "NOVA ATLAS · ZONA A",
+
+        path:
+            "./assets/models/environment/zone-a/scene.gltf",
+
+        /*
+         * Diámetro aproximado deseado
+         * después de normalización.
+         */
+
+        targetSize:
+            48
+
     },
 
+
     BOSS_ARENA: {
-        id: "boss-arena",
-        name: "NOVA ATLAS · SECTOR CORE",
-        path: "./assets/models/environment/boss-arena/scene.gltf"
+
+        id:
+            "boss-arena",
+
+        name:
+            "NOVA ATLAS · SECTOR CORE",
+
+        path:
+            "./assets/models/environment/boss-arena/scene.gltf",
+
+        targetSize:
+            42
+
     }
+
 
 };
 
 
+
 /* =========================================================
-   MANAGER
+   ENVIRONMENT MANAGER
 ========================================================= */
 
 export class EnvironmentManager {
 
-    constructor(scene) {
 
-        this.scene = scene;
+    constructor(
+        scene
+    ) {
+
+        this.scene =
+            scene;
+
 
         this.loader =
             new GLTFLoader();
 
+
         this.loaded =
             new Map();
+
 
         this.activeEnvironment =
             null;
@@ -57,8 +96,9 @@ export class EnvironmentManager {
     }
 
 
+
     /* =====================================================
-       CARGAR MODELO
+       CARGAR
     ====================================================== */
 
     async loadEnvironment(
@@ -69,15 +109,18 @@ export class EnvironmentManager {
 
     ) {
 
+
         /*
-         * Si ya se cargó anteriormente,
+         * Si ya está cargado,
          * reutilizamos el modelo.
          */
 
         if (
+
             this.loaded.has(
                 environmentData.id
             )
+
         ) {
 
             return this.loaded.get(
@@ -87,24 +130,38 @@ export class EnvironmentManager {
         }
 
 
+
         console.log(
+
             `[Environment] Cargando ${environmentData.name}...`
+
         );
 
 
+
         const gltf =
+
             await this.loader.loadAsync(
 
                 environmentData.path,
 
+
                 (event) => {
+
 
                     if (
                         !onProgress
                     ) {
+
                         return;
+
                     }
 
+
+                    /*
+                     * Algunos servidores no
+                     * proporcionan event.total.
+                     */
 
                     if (
                         event.total > 0
@@ -121,7 +178,14 @@ export class EnvironmentManager {
 
 
                         onProgress(
-                            Math.round(percent)
+
+                            Math.min(
+                                100,
+                                Math.round(
+                                    percent
+                                )
+                            )
+
                         );
 
                     }
@@ -131,46 +195,82 @@ export class EnvironmentManager {
             );
 
 
+
         const environment =
             gltf.scene;
+
 
 
         environment.name =
             environmentData.name;
 
 
-        /* ================================================
-           SOMBRAS
+
+        /* =================================================
+           SOMBRAS / MATERIALES
         ================================================= */
 
         environment.traverse(
 
-            (object) => {
+            object => {
+
 
                 if (
-                    object.isMesh
+                    !object.isMesh
                 ) {
 
-                    object.castShadow =
-                        true;
+                    return;
 
-                    object.receiveShadow =
-                        true;
+                }
+
+
+                object.castShadow =
+                    true;
+
+
+                object.receiveShadow =
+                    true;
+
+
+
+                if (
+                    object.material
+                ) {
 
 
                     /*
-                     * Evita algunos problemas
-                     * visuales con materiales glTF.
+                     * Algunos GLTF utilizan
+                     * arrays de materiales.
                      */
 
-                    if (
+                    const materials =
+
+                        Array.isArray(
+                            object.material
+                        )
+
+                        ?
+
                         object.material
-                    ) {
 
-                        object.material.needsUpdate =
-                            true;
+                        :
 
-                    }
+                        [
+                            object.material
+                        ];
+
+
+
+                    materials.forEach(
+
+                        material => {
+
+                            material.needsUpdate =
+                                true;
+
+                        }
+
+                    );
 
                 }
 
@@ -179,18 +279,20 @@ export class EnvironmentManager {
         );
 
 
+
         /*
-         * El modelo permanece oculto
-         * hasta que se active.
+         * Inicialmente oculto.
          */
 
         environment.visible =
             false;
 
 
+
         this.scene.add(
             environment
         );
+
 
 
         this.loaded.set(
@@ -202,18 +304,315 @@ export class EnvironmentManager {
         );
 
 
+
+        /*
+         * Información original.
+         */
+
         this.printEnvironmentInfo(
 
             environmentData,
 
-            environment
+            environment,
+
+            "ORIGINAL"
 
         );
+
 
 
         return environment;
 
     }
+
+
+
+    /* =====================================================
+       NORMALIZAR ESCALA Y POSICIÓN
+    ====================================================== */
+
+    normalizeEnvironment(
+
+        environment,
+
+        targetSize
+
+    ) {
+
+
+        /*
+         * No volver a normalizar
+         * el mismo modelo.
+         */
+
+        if (
+            environment.userData
+                .novaNormalized
+        ) {
+
+            return environment
+                .userData
+                .novaNormalization;
+
+        }
+
+
+
+        environment.updateMatrixWorld(
+            true
+        );
+
+
+
+        const originalBox =
+
+            new THREE.Box3()
+                .setFromObject(
+                    environment
+                );
+
+
+
+        const originalSize =
+            new THREE.Vector3();
+
+
+
+        originalBox.getSize(
+            originalSize
+        );
+
+
+
+        const horizontalSize =
+
+            Math.max(
+
+                originalSize.x,
+
+                originalSize.z
+
+            );
+
+
+
+        if (
+            horizontalSize <= 0
+        ) {
+
+            console.warn(
+
+                "[Environment] No se pudo normalizar el escenario."
+
+            );
+
+
+            return null;
+
+        }
+
+
+
+        /*
+         * Escala uniforme.
+         */
+
+        const scaleFactor =
+
+            targetSize /
+            horizontalSize;
+
+
+
+        environment.scale.setScalar(
+            scaleFactor
+        );
+
+
+
+        environment.updateMatrixWorld(
+            true
+        );
+
+
+
+        /*
+         * Caja después de escalar.
+         */
+
+        const scaledBox =
+
+            new THREE.Box3()
+                .setFromObject(
+                    environment
+                );
+
+
+
+        const scaledCenter =
+            new THREE.Vector3();
+
+
+
+        scaledBox.getCenter(
+            scaledCenter
+        );
+
+
+
+        /*
+         * Centramos X/Z.
+         *
+         * El punto más bajo del modelo
+         * pasa a Y = 0.
+         */
+
+        environment.position.x -=
+            scaledCenter.x;
+
+
+        environment.position.z -=
+            scaledCenter.z;
+
+
+        environment.position.y -=
+            scaledBox.min.y;
+
+
+
+        environment.updateMatrixWorld(
+            true
+        );
+
+
+
+        /*
+         * Caja final.
+         */
+
+        const finalBox =
+
+            new THREE.Box3()
+                .setFromObject(
+                    environment
+                );
+
+
+
+        const finalSize =
+            new THREE.Vector3();
+
+
+
+        const finalCenter =
+            new THREE.Vector3();
+
+
+
+        finalBox.getSize(
+            finalSize
+        );
+
+
+        finalBox.getCenter(
+            finalCenter
+        );
+
+
+
+        const normalizationData = {
+
+            scaleFactor,
+
+            box:
+                finalBox,
+
+            size:
+                finalSize,
+
+            center:
+                finalCenter
+
+        };
+
+
+
+        environment.userData
+            .novaNormalized =
+            true;
+
+
+
+        environment.userData
+            .novaNormalization =
+            normalizationData;
+
+
+
+        console.group(
+
+            `📐 NORMALIZACIÓN · ${environment.name}`
+
+        );
+
+
+        console.log(
+
+            "Factor de escala:",
+
+            scaleFactor
+
+        );
+
+
+        console.log(
+
+            "Tamaño final:",
+
+            {
+
+                x:
+                    finalSize.x,
+
+                y:
+                    finalSize.y,
+
+                z:
+                    finalSize.z
+
+            }
+
+        );
+
+
+        console.log(
+
+            "Centro final:",
+
+            {
+
+                x:
+                    finalCenter.x,
+
+                y:
+                    finalCenter.y,
+
+                z:
+                    finalCenter.z
+
+            }
+
+        );
+
+
+        console.groupEnd();
+
+
+
+        return normalizationData;
+
+    }
+
 
 
     /* =====================================================
@@ -228,6 +627,7 @@ export class EnvironmentManager {
 
     ) {
 
+
         const environment =
 
             await this.loadEnvironment(
@@ -239,12 +639,32 @@ export class EnvironmentManager {
             );
 
 
+
+        /*
+         * Normalización.
+         */
+
+        this.normalizeEnvironment(
+
+            environment,
+
+            environmentData.targetSize
+
+        );
+
+
+
         /*
          * Ocultar escenario anterior.
          */
 
         if (
-            this.activeEnvironment
+
+            this.activeEnvironment &&
+
+            this.activeEnvironment !==
+            environment
+
         ) {
 
             this.activeEnvironment.visible =
@@ -253,12 +673,15 @@ export class EnvironmentManager {
         }
 
 
+
         environment.visible =
             true;
 
 
+
         this.activeEnvironment =
             environment;
+
 
 
         return environment;
@@ -266,11 +689,9 @@ export class EnvironmentManager {
     }
 
 
+
     /* =====================================================
        PRELOAD
-
-       Permite cargar Boss Arena
-       en segundo plano.
     ====================================================== */
 
     async preloadEnvironment(
@@ -279,14 +700,18 @@ export class EnvironmentManager {
 
         try {
 
+
             await this.loadEnvironment(
                 environmentData
             );
 
 
             console.log(
+
                 `[Environment] ${environmentData.name} precargado.`
+
             );
+
 
         }
 
@@ -294,9 +719,13 @@ export class EnvironmentManager {
             error
         ) {
 
+
             console.error(
+
                 `[Environment] Error precargando ${environmentData.name}:`,
+
                 error
+
             );
 
         }
@@ -304,34 +733,45 @@ export class EnvironmentManager {
     }
 
 
-    /* =====================================================
-       INFORMACIÓN DEL MODELO
 
-       Nos ayudará a conocer las dimensiones
-       reales de los modelos de Sketchfab.
+    /* =====================================================
+       INFORMACIÓN
     ====================================================== */
 
     printEnvironmentInfo(
 
         environmentData,
 
-        environment
+        environment,
+
+        label = "INFO"
 
     ) {
 
+
+        environment.updateMatrixWorld(
+            true
+        );
+
+
+
         const box =
+
             new THREE.Box3()
                 .setFromObject(
                     environment
                 );
 
 
+
         const size =
             new THREE.Vector3();
 
 
+
         const center =
             new THREE.Vector3();
+
 
 
         box.getSize(
@@ -344,8 +784,11 @@ export class EnvironmentManager {
         );
 
 
+
         console.group(
-            `🌌 ${environmentData.name}`
+
+            `🌌 ${environmentData.name} · ${label}`
+
         );
 
 
@@ -356,13 +799,17 @@ export class EnvironmentManager {
 
         console.log({
 
-            x: size.x,
+            x:
+                size.x,
 
-            y: size.y,
+            y:
+                size.y,
 
-            z: size.z
+            z:
+                size.z
 
         });
+
 
 
         console.log(
@@ -372,18 +819,25 @@ export class EnvironmentManager {
 
         console.log({
 
-            x: center.x,
+            x:
+                center.x,
 
-            y: center.y,
+            y:
+                center.y,
 
-            z: center.z
+            z:
+                center.z
 
         });
 
 
+
         console.log(
+
             "Bounding Box:",
+
             box
+
         );
 
 
@@ -392,13 +846,19 @@ export class EnvironmentManager {
     }
 
 
+
     /* =====================================================
-       OBTENER BOUNDING BOX
+       BOUNDING BOX
     ====================================================== */
 
     getBoundingBox(
         environment
     ) {
+
+        environment.updateMatrixWorld(
+            true
+        );
+
 
         return new THREE.Box3()
             .setFromObject(
@@ -406,5 +866,35 @@ export class EnvironmentManager {
             );
 
     }
+
+
+
+    /* =====================================================
+       TAMAÑO
+    ====================================================== */
+
+    getSize(
+        environment
+    ) {
+
+        const box =
+            this.getBoundingBox(
+                environment
+            );
+
+
+        const size =
+            new THREE.Vector3();
+
+
+        box.getSize(
+            size
+        );
+
+
+        return size;
+
+    }
+
 
 }

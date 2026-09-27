@@ -22,60 +22,143 @@
 
     <title>Nova Catalyst | Pre-Alpha v.01</title>
 
-    <!-- Bootstrap -->
+
+    <!-- =====================================================
+         FAVICON VACÍO
+         Evita el error favicon.ico 404 durante desarrollo.
+    ====================================================== -->
+
+    <link
+        rel="icon"
+        href="data:,"
+    >
+
+
+    <!-- =====================================================
+         BOOTSTRAP
+    ====================================================== -->
+
     <link
         href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css"
         rel="stylesheet"
     >
 
-    <!-- Tipografías -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <!-- =====================================================
+         TIPOGRAFÍAS
+    ====================================================== -->
+
+    <link
+        rel="preconnect"
+        href="https://fonts.googleapis.com"
+    >
+
+    <link
+        rel="preconnect"
+        href="https://fonts.gstatic.com"
+        crossorigin
+    >
+
     <link
         href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;800&family=Rajdhani:wght@400;500;600;700&display=swap"
         rel="stylesheet"
     >
 
-    <!-- Estilos -->
+
+    <!-- =====================================================
+         CSS
+    ====================================================== -->
+
     <link
         rel="stylesheet"
         href="./assets/css/styles.css"
     >
 
-    <!-- Import Map Three.js -->
+
+    <!-- =====================================================
+         THREE.JS
+    ====================================================== -->
+
     <script type="importmap">
+
         {
             "imports": {
-                "three": "https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js",
-                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.0/examples/jsm/"
+
+                "three":
+                "https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js",
+
+                "three/addons/":
+                "https://cdn.jsdelivr.net/npm/three@0.186.0/examples/jsm/"
+
             }
         }
+
     </script>
 
 </head>
 
+
 <body>
 
-    <!-- Escena 3D -->
+
+    <!-- =====================================================
+         THREE.JS
+    ====================================================== -->
+
     <main id="game-container"></main>
 
-    <!-- Capas visuales -->
-    <div class="background-effects">
-        <div class="nebula nebula-main"></div>
-        <div class="nebula nebula-blood"></div>
-        <div class="void-shadow"></div>
-        <div class="vignette"></div>
-        <div class="scanlines"></div>
-        <div class="film-grain"></div>
+
+
+    <!-- =====================================================
+         EFECTOS VISUALES DEL MENÚ
+    ====================================================== -->
+
+    <div
+        id="background-effects"
+        class="background-effects"
+    >
+
+        <div
+            class="nebula nebula-main"
+        ></div>
+
+        <div
+            class="nebula nebula-blood"
+        ></div>
+
+        <div
+            class="void-shadow"
+        ></div>
+
+        <div
+            class="vignette"
+        ></div>
+
+        <div
+            class="scanlines"
+        ></div>
+
+        <div
+            class="film-grain"
+        ></div>
+
     </div>
 
-    <!-- Pantalla principal -->
+
+
+    <!-- =====================================================
+         MENÚ PRINCIPAL
+    ====================================================== -->
+
     <section
         id="main-menu"
         class="screen screen-visible"
     >
 
         <div class="menu-content">
+
+
+            <!-- LOGO -->
 
             <header class="game-logo">
 
@@ -93,6 +176,9 @@
 
             </header>
 
+
+            <!-- BOTONES -->
+
             <nav class="main-menu-buttons">
 
                 <button
@@ -102,6 +188,7 @@
                 >
                     ENTRAR
                 </button>
+
 
                 <button
                     id="btn-about"
@@ -115,51 +202,93 @@
 
         </div>
 
+
+        <!-- VERSIÓN -->
+
         <div class="version-info">
             Pre-Alpha v.01
         </div>
 
+
+        <!-- BUILD -->
+
         <div class="build-info">
-            BUILD v0.1 · MENU INICIAL
+            BUILD v0.2 · NOVA ATLAS
         </div>
 
     </section>
 
-    <!-- Briefing -->
+
+
+    <!-- =====================================================
+         BRIEFING
+    ====================================================== -->
+
     <section
         id="briefing-screen"
         class="screen hidden-screen"
     >
 
-        <div class="interface-panel briefing-panel">
+        <div
+            class="interface-panel briefing-panel"
+        >
 
             <div class="panel-classification">
+
                 NOVA ATLAS // REGISTRO DE EMERGENCIA
+
             </div>
 
+
             <h2>
+
                 PROTOCOLO DE SUPERVIVENCIA
+
             </h2>
 
-            <div class="panel-divider"></div>
+
+            <div
+                class="panel-divider"
+            ></div>
+
 
             <p>
-                La estación espacial Nova Atlas ha dejado de responder.
+
+                La estación espacial Nova Atlas
+                ha dejado de responder.
+
             </p>
 
-            <p>
-                Una infección desconocida se ha propagado por el complejo y gran parte
-                de su tripulación ha sido transformada en entidades hostiles.
-            </p>
 
             <p>
-                Eres uno de los últimos guardias de seguridad con vida dentro de la estación.
+
+                Una infección desconocida se ha
+                propagado por el complejo y gran
+                parte de su tripulación ha sido
+                transformada en entidades hostiles.
+
             </p>
+
+
+            <p>
+
+                Eres uno de los últimos guardias
+                de seguridad con vida dentro de
+                la estación.
+
+            </p>
+
 
             <p class="mission-text">
+
                 Objetivo primario:
-                <strong>sobrevive a la Zona A.</strong>
+
+                <strong>
+                    sobrevive a la Zona A.
+                </strong>
+
             </p>
+
 
             <div class="panel-actions">
 
@@ -170,6 +299,7 @@
                 >
                     VOLVER
                 </button>
+
 
                 <button
                     id="btn-survive"
@@ -185,67 +315,130 @@
 
     </section>
 
-    <!-- Acerca de -->
+
+
+    <!-- =====================================================
+         ACERCA DE
+    ====================================================== -->
+
     <section
         id="about-screen"
         class="screen hidden-screen"
     >
 
-        <div class="interface-panel about-panel">
+        <div
+            class="interface-panel about-panel"
+        >
 
             <div class="panel-classification">
+
                 ARCHIVO // NOVA CATALYST
+
             </div>
 
+
             <h2>
+
                 ACERCA DE
+
             </h2>
 
-            <div class="panel-divider"></div>
+
+            <div
+                class="panel-divider"
+            ></div>
+
 
             <div class="about-grid">
 
                 <div>
-                    <span class="about-label">PROYECTO</span>
-                    <p>Nova Catalyst</p>
+
+                    <span class="about-label">
+                        PROYECTO
+                    </span>
+
+                    <p>
+                        Nova Catalyst
+                    </p>
+
                 </div>
 
-                <div>
-                    <span class="about-label">VERSIÓN</span>
-                    <p>Pre-Alpha v.01</p>
-                </div>
 
                 <div>
-                    <span class="about-label">GÉNERO</span>
-                    <p>Shooter / Survival 3D</p>
+
+                    <span class="about-label">
+                        VERSIÓN
+                    </span>
+
+                    <p>
+                        Pre-Alpha v.01
+                    </p>
+
                 </div>
 
+
                 <div>
-                    <span class="about-label">MISIÓN</span>
-                    <p>Sobrevivir, resistir oleadas y derrotar al jefe.</p>
+
+                    <span class="about-label">
+                        GÉNERO
+                    </span>
+
+                    <p>
+                        Shooter / Survival 3D
+                    </p>
+
+                </div>
+
+
+                <div>
+
+                    <span class="about-label">
+                        MISIÓN
+                    </span>
+
+                    <p>
+                        Sobrevivir a las oleadas
+                        y derrotar al jefe.
+                    </p>
+
                 </div>
 
             </div>
+
 
             <h3>
                 INSPIRACIONES
             </h3>
 
+
             <p>
-                Halo, DOOM, Metroid Prime y Deadzone: Rogue.
+
+                Halo, DOOM, Metroid Prime
+                y Deadzone: Rogue.
+
             </p>
+
 
             <h3>
                 DESARROLLADOR
             </h3>
 
+
             <p>
+
                 Derek Alejandro Vargas Meneses
+
                 <br>
-                Ingeniería en Tecnologías de la Información y Comunicaciones
+
+                Ingeniería en Tecnologías de la
+                Información y Comunicaciones
+
                 <br>
+
                 TecNM Pachuca
+
             </p>
+
 
             <div class="panel-actions">
 
@@ -263,92 +456,136 @@
 
     </section>
 
-    <!-- Notificación -->
+
+
+    <!-- =====================================================
+         PANTALLA DE CARGA
+    ====================================================== -->
+
+    <section
+        id="loading-screen"
+        class="loading-screen hidden-screen"
+    >
+
+        <div class="loading-content">
+
+            <div class="loading-classification">
+
+                NOVA ATLAS // SISTEMA DE TRANSFERENCIA
+
+            </div>
+
+
+            <h2 id="loading-title">
+
+                CARGANDO ZONA A
+
+            </h2>
+
+
+            <div class="loading-bar">
+
+                <div
+                    id="loading-progress"
+                    class="loading-progress"
+                ></div>
+
+            </div>
+
+
+            <div id="loading-text">
+
+                Preparando escenario...
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+
+    <!-- =====================================================
+         INTERFAZ TEMPORAL DE INSPECCIÓN
+    ====================================================== -->
+
+    <div
+        id="inspection-ui"
+        class="inspection-ui hidden-interface"
+    >
+
+        <div class="inspection-location">
+
+            <span>
+                UBICACIÓN
+            </span>
+
+            <strong>
+                NOVA ATLAS · ZONA A
+            </strong>
+
+        </div>
+
+
+        <div
+            id="spawn-debug"
+            class="dev-spawn-info"
+        >
+
+            MARCADOR DE SPAWN TEMPORAL
+
+        </div>
+
+
+        <div class="inspection-controls">
+
+            RATÓN IZQUIERDO · ROTAR
+
+            <span>·</span>
+
+            RUEDA · ZOOM
+
+            <span>·</span>
+
+            RATÓN DERECHO · DESPLAZAR
+
+        </div>
+
+    </div>
+
+
+
+    <!-- =====================================================
+         NOTIFICACIÓN
+    ====================================================== -->
+
     <div
         id="notification"
         class="notification"
     ></div>
 
-    <!-- Juego -->
+
+
+    <!-- =====================================================
+         BOOTSTRAP
+    ====================================================== -->
+
+    <script
+        src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"
+    ></script>
+
+
+
+    <!-- =====================================================
+         NOVA CATALYST
+    ====================================================== -->
+
     <script
         type="module"
         src="./assets/js/main.js"
     ></script>
 
-    <!-- =====================================================
-     PANTALLA DE CARGA DEL ESCENARIO
-====================================================== -->
-
-<section
-    id="loading-screen"
-    class="loading-screen hidden-screen"
->
-
-    <div class="loading-content">
-
-        <div class="loading-classification">
-            NOVA ATLAS // SISTEMA DE TRANSFERENCIA
-        </div>
-
-        <h2 id="loading-title">
-            CARGANDO ZONA A
-        </h2>
-
-        <div class="loading-bar">
-
-            <div
-                id="loading-progress"
-                class="loading-progress"
-            ></div>
-
-        </div>
-
-        <div id="loading-text">
-            Preparando escenario...
-        </div>
-
-    </div>
-
-</section>
-
-
-<!-- =====================================================
-     UI TEMPORAL DE INSPECCIÓN
-====================================================== -->
-
-<div
-    id="inspection-ui"
-    class="inspection-ui hidden-interface"
->
-
-    <div class="inspection-location">
-
-        <span>
-            UBICACIÓN
-        </span>
-
-        <strong>
-            NOVA ATLAS · ZONA A
-        </strong>
-
-    </div>
-
-
-    <div class="inspection-controls">
-
-        RATÓN · ROTAR
-
-        <span>·</span>
-
-        RUEDA · ZOOM
-
-        <span>·</span>
-
-        BOTÓN DERECHO · DESPLAZAR
-
-    </div>
-
-</div>
 
 </body>
+
 </html>
