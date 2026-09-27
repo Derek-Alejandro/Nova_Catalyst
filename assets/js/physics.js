@@ -2,24 +2,17 @@
    NOVA CATALYST
    Physics Manager
 
-   Build v0.4
+   Build v0.5
    Rapier 3D
 ========================================================= */
+
 
 import * as THREE from "three";
 
 
-/*
- * IMPORTANTE:
- *
- * Ya NO usamos Skypack.
- *
- * Utilizamos directamente el módulo ESM oficial
- * distribuido mediante jsDelivr.
- */
-
 import RAPIER from
     "https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.21.0/dist/rapier.mjs";
+
 
 
 export class PhysicsManager {
@@ -39,16 +32,18 @@ export class PhysicsManager {
             false;
 
 
+
         /* =================================================
-           COLLIDERS DEL ESCENARIO
+           ESCENARIO
         ================================================= */
 
         this.environmentColliders =
             [];
 
 
+
         /* =================================================
-           PERSONAJE
+           PLAYER
         ================================================= */
 
         this.characterBody =
@@ -62,10 +57,6 @@ export class PhysicsManager {
         this.characterController =
             null;
 
-
-        /* =================================================
-           DIMENSIONES DEL JUGADOR
-        ================================================= */
 
         this.characterHeight =
             1.8;
@@ -85,8 +76,9 @@ export class PhysicsManager {
             this.characterRadius;
 
 
+
         /* =================================================
-           GRAVEDAD MANUAL DEL CHARACTER CONTROLLER
+           GRAVEDAD PLAYER
         ================================================= */
 
         this.verticalVelocity =
@@ -104,12 +96,21 @@ export class PhysicsManager {
         this.grounded =
             false;
 
+
+
+        /* =================================================
+           OBJETOS DINÁMICOS
+        ================================================= */
+
+        this.dynamicBodies =
+            [];
+
     }
 
 
 
     /* =====================================================
-       INICIALIZAR RAPIER
+       INIT
     ====================================================== */
 
     async init() {
@@ -124,21 +125,15 @@ export class PhysicsManager {
 
 
         console.log(
+
             "[Physics] Inicializando Rapier..."
+
         );
 
-
-        /*
-         * El paquete compat necesita inicialización
-         * asíncrona antes de crear World, colliders, etc.
-         */
 
         await this.RAPIER.init();
 
 
-        /* =================================================
-           MUNDO FÍSICO
-        ================================================= */
 
         this.world =
 
@@ -172,20 +167,11 @@ export class PhysicsManager {
 
 
 
-        /* =================================================
-           DESLIZARSE CONTRA PAREDES
-        ================================================= */
-
         this.characterController
             .setSlideEnabled(
                 true
             );
 
-
-
-        /* =================================================
-           SUBIR PEQUEÑOS ESCALONES
-        ================================================= */
 
         this.characterController
             .enableAutostep(
@@ -199,11 +185,6 @@ export class PhysicsManager {
             );
 
 
-
-        /* =================================================
-           ADHERENCIA AL PISO
-        ================================================= */
-
         this.characterController
             .enableSnapToGround(
 
@@ -211,11 +192,6 @@ export class PhysicsManager {
 
             );
 
-
-
-        /* =================================================
-           PENDIENTES
-        ================================================= */
 
         this.characterController
             .setMaxSlopeClimbAngle(
@@ -240,12 +216,55 @@ export class PhysicsManager {
 
 
 
+        /*
+         * Si la versión de Rapier lo soporta,
+         * el jugador podrá empujar objetos dinámicos.
+         */
+
+        if (
+
+            typeof this.characterController
+                .setApplyImpulsesToDynamicBodies
+            === "function"
+
+        ) {
+
+            this.characterController
+                .setApplyImpulsesToDynamicBodies(
+
+                    true
+
+                );
+
+        }
+
+
+
+        if (
+
+            typeof this.characterController
+                .setCharacterMass
+            === "function"
+
+        ) {
+
+            this.characterController
+                .setCharacterMass(
+                    75
+                );
+
+        }
+
+
+
         this.ready =
             true;
 
 
         console.log(
+
             "[Physics] Rapier ONLINE."
+
         );
 
     }
@@ -253,10 +272,7 @@ export class PhysicsManager {
 
 
     /* =====================================================
-       ELIMINAR COLLIDERS DEL ESCENARIO
-
-       Esto permitirá cambiar posteriormente
-       de Zona A al Boss Arena.
+       CLEAR ENVIRONMENT
     ====================================================== */
 
     clearEnvironmentColliders() {
@@ -293,7 +309,7 @@ export class PhysicsManager {
 
                 console.warn(
 
-                    "[Physics] No fue posible eliminar collider:",
+                    "[Physics] Collider no eliminado:",
 
                     error
 
@@ -312,13 +328,7 @@ export class PhysicsManager {
 
 
     /* =====================================================
-       CREAR FÍSICA DEL ESCENARIO
-
-       Cada Mesh Three.js se convierte a un
-       TriMesh estático de Rapier.
-
-       Esto permite utilizar la geometría real
-       de pisos, paredes y estructuras.
+       ESCENARIO → TRIMESH
     ====================================================== */
 
     createEnvironmentColliders(
@@ -367,10 +377,6 @@ export class PhysicsManager {
 
             object => {
 
-                /* =========================================
-                   SOLO MESHES
-                ========================================= */
-
                 if (
 
                     !object.isMesh ||
@@ -393,7 +399,8 @@ export class PhysicsManager {
 
                 const positionAttribute =
 
-                    geometry.attributes
+                    geometry
+                        .attributes
                         ?.position;
 
 
@@ -410,10 +417,6 @@ export class PhysicsManager {
 
 
 
-                /* =========================================
-                   VÉRTICES EN COORDENADAS GLOBALES
-                ========================================= */
-
                 const vertices =
 
                     new Float32Array(
@@ -429,7 +432,8 @@ export class PhysicsManager {
 
                     let i = 0;
 
-                    i < positionAttribute.count;
+                    i <
+                    positionAttribute.count;
 
                     i++
 
@@ -469,10 +473,6 @@ export class PhysicsManager {
 
 
 
-                /* =========================================
-                   ÍNDICES
-                ========================================= */
-
                 let indices;
 
 
@@ -494,7 +494,8 @@ export class PhysicsManager {
 
                         let i = 0;
 
-                        i < geometry.index.count;
+                        i <
+                        geometry.index.count;
 
                         i++
 
@@ -512,12 +513,6 @@ export class PhysicsManager {
                 }
 
                 else {
-
-                    /*
-                     * Geometría no indexada:
-                     * cada grupo de tres vértices
-                     * representa un triángulo.
-                     */
 
                     const validCount =
 
@@ -570,10 +565,6 @@ export class PhysicsManager {
                 }
 
 
-
-                /* =========================================
-                   COLLIDER TRIMESH
-                ========================================= */
 
                 try {
 
@@ -651,19 +642,12 @@ export class PhysicsManager {
         );
 
 
-
-        /*
-         * Primer step para actualizar las
-         * estructuras internas de Rapier.
-         */
-
         this.world.step();
-
 
 
         console.log(
 
-            "[Physics] Escenario físico generado:",
+            "[Physics] Escenario físico:",
 
             {
 
@@ -673,8 +657,7 @@ export class PhysicsManager {
                 triangles:
                     triangleCount,
 
-                skippedMeshes:
-                    skippedMeshes
+                skippedMeshes
 
             }
 
@@ -685,7 +668,7 @@ export class PhysicsManager {
 
 
     /* =====================================================
-       CREAR PERSONAJE FÍSICO
+       PLAYER
     ====================================================== */
 
     createCharacter(
@@ -709,7 +692,6 @@ export class PhysicsManager {
         }
 
 
-
         this.characterHeight =
             characterHeight;
 
@@ -717,14 +699,6 @@ export class PhysicsManager {
         this.characterRadius =
             0.28;
 
-
-
-        /*
-         * Rapier define capsule(halfHeight, radius).
-         *
-         * halfHeight corresponde únicamente a la
-         * mitad de la parte cilíndrica.
-         */
 
         this.characterHalfHeight =
 
@@ -744,7 +718,6 @@ export class PhysicsManager {
             );
 
 
-
         this.characterFootOffset =
 
             this.characterHalfHeight +
@@ -752,10 +725,6 @@ export class PhysicsManager {
             this.characterRadius;
 
 
-
-        /* =================================================
-           RIGID BODY CINEMÁTICO
-        ================================================= */
 
         const rigidBodyDesc =
 
@@ -777,18 +746,13 @@ export class PhysicsManager {
 
         this.characterBody =
 
-            this.world
-                .createRigidBody(
+            this.world.createRigidBody(
 
-                    rigidBodyDesc
+                rigidBodyDesc
 
-                );
-
+            );
 
 
-        /* =================================================
-           COLLIDER CÁPSULA
-        ================================================= */
 
         const colliderDesc =
 
@@ -822,7 +786,6 @@ export class PhysicsManager {
                 );
 
 
-
         this.verticalVelocity =
             0;
 
@@ -831,48 +794,12 @@ export class PhysicsManager {
             false;
 
 
-
-        /*
-         * Actualizamos una vez antes de comenzar.
-         */
-
         this.world.step();
-
 
 
         console.log(
 
-            "[Physics] Character Controller creado:",
-
-            {
-
-                characterHeight:
-                    this.characterHeight,
-
-                radius:
-                    this.characterRadius,
-
-                halfHeight:
-                    this.characterHalfHeight,
-
-                footOffset:
-                    this.characterFootOffset,
-
-                spawn:
-                    {
-
-                        x:
-                            spawnPosition.x,
-
-                        y:
-                            spawnPosition.y,
-
-                        z:
-                            spawnPosition.z
-
-                    }
-
-            }
+            "[Physics] Character Controller creado."
 
         );
 
@@ -881,10 +808,414 @@ export class PhysicsManager {
 
 
     /* =====================================================
-       MOVER PERSONAJE
+       HELPER DE ROTACIÓN Y
 
-       desiredMovement contiene el movimiento
-       horizontal solicitado por PlayerController.
+       Convierte ángulo Y de Three.js
+       a quaternion compatible con Rapier.
+    ====================================================== */
+
+    applyBodyRotationY(
+
+        body,
+
+        rotationY = 0
+
+    ) {
+
+        if (
+            rotationY === 0
+        ) {
+
+            return;
+
+        }
+
+
+        const quaternion =
+
+            new THREE.Quaternion()
+                .setFromEuler(
+
+                    new THREE.Euler(
+
+                        0,
+
+                        rotationY,
+
+                        0
+
+                    )
+
+                );
+
+
+        body.setRotation(
+
+            {
+
+                x:
+                    quaternion.x,
+
+                y:
+                    quaternion.y,
+
+                z:
+                    quaternion.z,
+
+                w:
+                    quaternion.w
+
+            },
+
+            true
+
+        );
+
+    }
+
+
+
+    /* =====================================================
+       DYNAMIC BOX
+    ====================================================== */
+
+    createDynamicBox({
+
+        position,
+
+        size,
+
+        rotationY = 0,
+
+        density = 1,
+
+        friction = 0.8,
+
+        restitution = 0.05
+
+    }) {
+
+        const bodyDesc =
+
+            this.RAPIER
+                .RigidBodyDesc
+                .dynamic()
+                .setTranslation(
+
+                    position.x,
+
+                    position.y,
+
+                    position.z
+
+                )
+                .setLinearDamping(
+                    0.22
+                )
+                .setAngularDamping(
+                    0.32
+                );
+
+
+        const body =
+
+            this.world
+                .createRigidBody(
+
+                    bodyDesc
+
+                );
+
+
+        this.applyBodyRotationY(
+
+            body,
+
+            rotationY
+
+        );
+
+
+
+        const colliderDesc =
+
+            this.RAPIER
+                .ColliderDesc
+                .cuboid(
+
+                    size.x / 2,
+
+                    size.y / 2,
+
+                    size.z / 2
+
+                )
+                .setDensity(
+                    density
+                )
+                .setFriction(
+                    friction
+                )
+                .setRestitution(
+                    restitution
+                );
+
+
+        this.world.createCollider(
+
+            colliderDesc,
+
+            body
+
+        );
+
+
+        this.dynamicBodies.push(
+            body
+        );
+
+
+        return body;
+
+    }
+
+
+
+    /* =====================================================
+       DYNAMIC CYLINDER
+    ====================================================== */
+
+    createDynamicCylinder({
+
+        position,
+
+        radius,
+
+        height,
+
+        density = 1,
+
+        friction = 0.75,
+
+        restitution = 0.1
+
+    }) {
+
+        const bodyDesc =
+
+            this.RAPIER
+                .RigidBodyDesc
+                .dynamic()
+                .setTranslation(
+
+                    position.x,
+
+                    position.y,
+
+                    position.z
+
+                )
+                .setLinearDamping(
+                    0.18
+                )
+                .setAngularDamping(
+                    0.26
+                );
+
+
+        const body =
+
+            this.world
+                .createRigidBody(
+
+                    bodyDesc
+
+                );
+
+
+
+        const colliderDesc =
+
+            this.RAPIER
+                .ColliderDesc
+                .cylinder(
+
+                    height / 2,
+
+                    radius
+
+                )
+                .setDensity(
+                    density
+                )
+                .setFriction(
+                    friction
+                )
+                .setRestitution(
+                    restitution
+                );
+
+
+        this.world.createCollider(
+
+            colliderDesc,
+
+            body
+
+        );
+
+
+        this.dynamicBodies.push(
+            body
+        );
+
+
+        return body;
+
+    }
+
+
+
+    /* =====================================================
+       DYNAMIC BALL
+    ====================================================== */
+
+    createDynamicBall({
+
+        position,
+
+        radius,
+
+        density = 1,
+
+        friction = 0.4,
+
+        restitution = 0.5
+
+    }) {
+
+        const bodyDesc =
+
+            this.RAPIER
+                .RigidBodyDesc
+                .dynamic()
+                .setTranslation(
+
+                    position.x,
+
+                    position.y,
+
+                    position.z
+
+                )
+                .setLinearDamping(
+                    0.1
+                )
+                .setAngularDamping(
+                    0.12
+                );
+
+
+        const body =
+
+            this.world
+                .createRigidBody(
+
+                    bodyDesc
+
+                );
+
+
+
+        const colliderDesc =
+
+            this.RAPIER
+                .ColliderDesc
+                .ball(
+
+                    radius
+
+                )
+                .setDensity(
+                    density
+                )
+                .setFriction(
+                    friction
+                )
+                .setRestitution(
+                    restitution
+                );
+
+
+        this.world.createCollider(
+
+            colliderDesc,
+
+            body
+
+        );
+
+
+        this.dynamicBodies.push(
+            body
+        );
+
+
+        return body;
+
+    }
+
+
+
+    /* =====================================================
+       IMPULSO
+
+       Lo utilizaremos muchísimo en v0.6:
+       disparos, explosiones y escopeta.
+    ====================================================== */
+
+    applyImpulse(
+
+        rigidBody,
+
+        impulse
+
+    ) {
+
+        if (
+            !rigidBody
+        ) {
+
+            return;
+
+        }
+
+
+        rigidBody.applyImpulse(
+
+            {
+
+                x:
+                    impulse.x,
+
+                y:
+                    impulse.y,
+
+                z:
+                    impulse.z
+
+            },
+
+            true
+
+        );
+
+    }
+
+
+
+    /* =====================================================
+       PLAYER MOVEMENT
     ====================================================== */
 
     moveCharacter(
@@ -910,16 +1241,10 @@ export class PhysicsManager {
         }
 
 
-
-        /* =================================================
-           GRAVEDAD
-        ================================================= */
-
         this.verticalVelocity +=
 
             this.characterGravity *
             deltaTime;
-
 
 
         this.verticalVelocity =
@@ -933,10 +1258,6 @@ export class PhysicsManager {
             );
 
 
-
-        /* =================================================
-           MOVIMIENTO DESEADO
-        ================================================= */
 
         const requestedMovement = {
 
@@ -954,10 +1275,6 @@ export class PhysicsManager {
         };
 
 
-
-        /* =================================================
-           RAPIER CALCULA COLISIONES
-        ================================================= */
 
         this.characterController
             .computeColliderMovement(
@@ -999,10 +1316,6 @@ export class PhysicsManager {
 
 
 
-        /* =================================================
-           POSICIÓN ACTUAL DEL BODY
-        ================================================= */
-
         const currentPosition =
 
             this.characterBody
@@ -1010,31 +1323,22 @@ export class PhysicsManager {
 
 
 
-        /* =================================================
-           SIGUIENTE POSICIÓN CINEMÁTICA
-        ================================================= */
-
         this.characterBody
             .setNextKinematicTranslation({
 
                 x:
 
                     currentPosition.x +
-
                     correctedMovement.x,
-
 
                 y:
 
                     currentPosition.y +
-
                     correctedMovement.y,
-
 
                 z:
 
                     currentPosition.z +
-
                     correctedMovement.z
 
             });
@@ -1060,12 +1364,6 @@ export class PhysicsManager {
         }
 
 
-
-        /*
-         * Limitamos la simulación para evitar
-         * saltos gigantes si cambia de pestaña.
-         */
-
         this.world.timestep =
 
             THREE.MathUtils.clamp(
@@ -1079,7 +1377,6 @@ export class PhysicsManager {
             );
 
 
-
         this.world.step();
 
     }
@@ -1087,7 +1384,7 @@ export class PhysicsManager {
 
 
     /* =====================================================
-       SINCRONIZAR MODELO THREE.JS
+       SYNC PLAYER
     ====================================================== */
 
     syncCharacter(
@@ -1103,20 +1400,11 @@ export class PhysicsManager {
         }
 
 
-
         const position =
 
             this.characterBody
                 .translation();
 
-
-
-        /*
-         * Rapier usa el centro de la cápsula.
-         *
-         * Three.js usa los pies del jugador
-         * como posición del root.
-         */
 
         playerRoot.position.set(
 
@@ -1134,7 +1422,7 @@ export class PhysicsManager {
 
 
     /* =====================================================
-       DEBUG
+       GETTERS
     ====================================================== */
 
     isGrounded() {
@@ -1144,11 +1432,18 @@ export class PhysicsManager {
     }
 
 
-
     isReady() {
 
         return this.ready;
 
     }
+
+
+    getWorld() {
+
+        return this.world;
+
+    }
+
 
 }
