@@ -3,15 +3,16 @@
    Project Nova
    Pre-Alpha v.01
 
-   PERFORMANCE BUILD v0.8.4
+   PERFORMANCE + LIGHTING BUILD v0.8.5
 
+   - High performance renderer
    - FPS Counter
    - Adaptive resolution
-   - Static scene optimization
-   - Real-time shadows disabled
-   - Reduced lights
-   - Cached camera collision
-   - Cached enemy collision
+   - Lightweight real shadows
+   - Lightweight ambient lighting
+   - Static environment optimization
+   - Enemy system
+   - Camera hard room limits
 ========================================================= */
 
 import * as THREE from "three";
@@ -60,22 +61,22 @@ const PERFORMANCE = {
         1.0,
 
     minPixelRatio:
-        0.65,
+        0.70,
 
     adaptiveResolution:
         true,
 
     qualityCheckInterval:
-        1.25,
+        1.5,
 
     fpsCounterInterval:
         0.25,
 
     lowFPSThreshold:
-        48,
+        47,
 
     highFPSThreshold:
-        58,
+        59,
 
     debugInterval:
         0.20
@@ -97,22 +98,17 @@ let currentPixelRatio =
 let qualityTimer =
     0;
 
-
 let qualityFrames =
     0;
-
 
 let fpsTimer =
     0;
 
-
 let fpsFrames =
     0;
 
-
 let displayedFPS =
     60;
-
 
 let debugTimer =
     0;
@@ -176,90 +172,75 @@ const gameContainer =
         "game-container"
     );
 
-
 const backgroundEffects =
     document.getElementById(
         "background-effects"
     );
-
 
 const mainMenu =
     document.getElementById(
         "main-menu"
     );
 
-
 const briefingScreen =
     document.getElementById(
         "briefing-screen"
     );
-
 
 const aboutScreen =
     document.getElementById(
         "about-screen"
     );
 
-
 const loadingScreen =
     document.getElementById(
         "loading-screen"
     );
-
 
 const loadingProgress =
     document.getElementById(
         "loading-progress"
     );
 
-
 const loadingText =
     document.getElementById(
         "loading-text"
     );
-
 
 const inspectionUI =
     document.getElementById(
         "inspection-ui"
     );
 
-
 const spawnDebug =
     document.getElementById(
         "spawn-debug"
     );
-
 
 const notification =
     document.getElementById(
         "notification"
     );
 
-
 const btnEnter =
     document.getElementById(
         "btn-enter"
     );
-
 
 const btnAbout =
     document.getElementById(
         "btn-about"
     );
 
-
 const btnBackBriefing =
     document.getElementById(
         "btn-back-from-briefing"
     );
 
-
 const btnBackAbout =
     document.getElementById(
         "btn-back-from-about"
     );
-
 
 const btnSurvive =
     document.getElementById(
@@ -272,7 +253,6 @@ const btnSurvive =
 ========================================================= */
 
 const fpsCounter =
-
     document.createElement(
         "div"
     );
@@ -311,10 +291,10 @@ Object.assign(
             "4px",
 
         background:
-            "rgba(0,0,0,.52)",
+            "rgba(0,0,0,.50)",
 
         border:
-            "1px solid rgba(255,255,255,.12)",
+            "1px solid rgba(255,255,255,.13)",
 
         color:
             "#8effa8",
@@ -398,11 +378,6 @@ scene.add(
 
 /* =========================================================
    RENDERER
-
-   ANTIALIAS DESACTIVADO:
-   mejor rendimiento.
-
-   Resolución dinámica compensa la calidad.
 ========================================================= */
 
 const renderer =
@@ -447,24 +422,31 @@ renderer.toneMapping =
 
 
 renderer.toneMappingExposure =
-    1.32;
+    1.34;
 
 
 /* =========================================================
-   SHADOWS
+   LIGHTWEIGHT SHADOWS
 
-   Deshabilitadas en Performance Build.
+   Solo una luz genera sombras.
 
-   Conservamos iluminación real, pero evitamos
-   renderizar la escena varias veces por frame.
+   PCFShadowMap:
+   buena relación calidad/rendimiento.
+
+   768x768:
+   mucho más ligero que 2048x2048.
 ========================================================= */
 
 renderer.shadowMap.enabled =
-    false;
+    true;
+
+
+renderer.shadowMap.type =
+    THREE.PCFShadowMap;
 
 
 renderer.shadowMap.autoUpdate =
-    false;
+    true;
 
 
 gameContainer.appendChild(
@@ -481,7 +463,7 @@ const clock =
 
 
 /* =========================================================
-   STARS
+   STAR FIELD
 ========================================================= */
 
 function createStarField(
@@ -521,6 +503,7 @@ function createStarField(
                 Math.random() -
                 0.5
             )
+
             *
             radius;
 
@@ -531,6 +514,7 @@ function createStarField(
                 Math.random() -
                 0.5
             )
+
             *
             radius;
 
@@ -541,6 +525,7 @@ function createStarField(
                 Math.random() -
                 0.5
             )
+
             *
             radius;
 
@@ -585,7 +570,7 @@ function createStarField(
         });
 
 
-    const stars =
+    const starField =
 
         new THREE.Points(
 
@@ -596,16 +581,16 @@ function createStarField(
         );
 
 
-    stars.frustumCulled =
+    starField.frustumCulled =
         false;
 
 
     scene.add(
-        stars
+        starField
     );
 
 
-    return stars;
+    return starField;
 
 }
 
@@ -628,7 +613,7 @@ const stars =
 
 
 /* =========================================================
-   MANAGERS
+   SYSTEMS
 ========================================================= */
 
 const environmentManager =
@@ -707,14 +692,18 @@ const enemyManager =
 
 cameraManager.setADSAnchorProvider(
 
-    () =>
-        weaponManager.getADSAnchor()
+    () => {
+
+        return weaponManager
+            .getADSAnchor();
+
+    }
 
 );
 
 
 /* =========================================================
-   PAUSE
+   PAUSE MENU
 ========================================================= */
 
 const pauseMenu =
@@ -775,16 +764,26 @@ let cachedFirstPerson =
 /* =========================================================
    LIGHTING
 
-   Menos luces = muchos menos cálculos por píxel.
+   Combinación ligera:
+   - Ambient
+   - Hemisphere
+   - 1 Directional con sombra
+   - 1 Point rojo sin sombra
+   - 1 pequeña luz del jugador
+========================================================= */
+
+
+/* =========================================================
+   AMBIENT
 ========================================================= */
 
 const ambientLight =
 
     new THREE.AmbientLight(
 
-        0xb8c7cf,
+        0xb9c8d2,
 
-        1.10
+        0.82
 
     );
 
@@ -794,15 +793,19 @@ scene.add(
 );
 
 
+/* =========================================================
+   HEMISPHERE
+========================================================= */
+
 const hemisphereLight =
 
     new THREE.HemisphereLight(
 
-        0xd5edff,
+        0xd9efff,
 
-        0x15181d,
+        0x11151b,
 
-        1.75
+        1.25
 
     );
 
@@ -812,30 +815,78 @@ scene.add(
 );
 
 
+/* =========================================================
+   MAIN DIRECTIONAL + SHADOW
+========================================================= */
+
 const mainLight =
 
     new THREE.DirectionalLight(
 
-        0xe8f7ff,
+        0xe8f5ff,
 
-        3.4
+        3.65
 
     );
 
 
 mainLight.position.set(
 
-    18,
+    14,
 
-    28,
+    24,
 
-    12
+    10
 
 );
 
 
 mainLight.castShadow =
-    false;
+    true;
+
+
+/*
+ * Única sombra de la escena.
+ */
+mainLight.shadow.mapSize.set(
+
+    768,
+
+    768
+
+);
+
+
+mainLight.shadow.camera.near =
+    1;
+
+
+mainLight.shadow.camera.far =
+    70;
+
+
+mainLight.shadow.camera.left =
+    -25;
+
+
+mainLight.shadow.camera.right =
+    25;
+
+
+mainLight.shadow.camera.top =
+    25;
+
+
+mainLight.shadow.camera.bottom =
+    -25;
+
+
+mainLight.shadow.bias =
+    -0.00025;
+
+
+mainLight.shadow.normalBias =
+    0.035;
 
 
 scene.add(
@@ -844,18 +895,20 @@ scene.add(
 
 
 /* =========================================================
-   RED AMBIENT LIGHT
+   EMERGENCY RED LIGHT
+
+   No genera sombra.
 ========================================================= */
 
 const emergencyLight =
 
     new THREE.PointLight(
 
-        0xff2922,
+        0xff3029,
 
-        42,
+        36,
 
-        28,
+        27,
 
         1.9
 
@@ -866,7 +919,7 @@ emergencyLight.position.set(
 
     0,
 
-    9,
+    8,
 
     0
 
@@ -883,18 +936,18 @@ scene.add(
 
 
 /* =========================================================
-   PLAYER LIGHT
+   PLAYER FILL
 ========================================================= */
 
 const playerLight =
 
     new THREE.PointLight(
 
-        0xbbeaff,
+        0xc6ecff,
 
-        3.8,
+        3.5,
 
-        5.5,
+        5.0,
 
         2
 
@@ -908,6 +961,210 @@ playerLight.castShadow =
 scene.add(
     playerLight
 );
+
+
+/* =========================================================
+   SHADOW HELPERS
+========================================================= */
+
+function configureDynamicShadowCaster(
+    root
+) {
+
+    if (!root) {
+        return;
+    }
+
+
+    root.traverse(
+
+        object => {
+
+            if (
+                !object.isMesh
+            ) {
+                return;
+            }
+
+
+            object.castShadow =
+                true;
+
+
+            /*
+             * El propio personaje no necesita
+             * recibir su sombra.
+             */
+            object.receiveShadow =
+                false;
+
+        }
+
+    );
+
+}
+
+
+/* =========================================================
+   DYNAMIC OBJECT SHADOWS
+========================================================= */
+
+function configureDynamicObjectShadows() {
+
+    if (
+        !objectManager.getDynamicObjects
+    ) {
+        return;
+    }
+
+
+    const objects =
+
+        objectManager.getDynamicObjects();
+
+
+    for (
+        const object
+        of objects
+    ) {
+
+        const mesh =
+            object.mesh;
+
+
+        if (!mesh) {
+            continue;
+        }
+
+
+        mesh.traverse(
+
+            child => {
+
+                if (
+                    !child.isMesh
+                ) {
+                    return;
+                }
+
+
+                child.castShadow =
+                    true;
+
+
+                child.receiveShadow =
+                    true;
+
+            }
+
+        );
+
+    }
+
+}
+
+
+/* =========================================================
+   STATIC ENVIRONMENT OPTIMIZATION
+========================================================= */
+
+function optimizeStaticEnvironment(
+    environment
+) {
+
+    environment.updateMatrixWorld(
+        true
+    );
+
+
+    let count =
+        0;
+
+
+    environment.traverse(
+
+        object => {
+
+            /*
+             * El escenario es estático.
+             */
+            object.matrixAutoUpdate =
+                false;
+
+
+            if (
+                !object.isMesh
+            ) {
+                return;
+            }
+
+
+            count++;
+
+
+            /*
+             * El escenario NO genera shadow map.
+             *
+             * Esto ahorra muchísimo.
+             */
+            object.castShadow =
+                false;
+
+
+            /*
+             * Pero sí recibe sombras del personaje,
+             * enemigos y props.
+             */
+            object.receiveShadow =
+                true;
+
+
+            object.frustumCulled =
+                true;
+
+
+            if (
+                object.geometry
+
+                &&
+
+                !object.geometry.boundingBox
+            ) {
+
+                object.geometry.computeBoundingBox();
+
+            }
+
+
+            if (
+                object.geometry
+
+                &&
+
+                !object.geometry.boundingSphere
+            ) {
+
+                object.geometry.computeBoundingSphere();
+
+            }
+
+        }
+
+    );
+
+
+    environment.updateMatrixWorld(
+        true
+    );
+
+
+    console.log(
+
+        `[Performance] Static environment optimized: ${count} meshes`
+
+    );
+
+}
 
 
 /* =========================================================
@@ -1239,133 +1496,32 @@ function resumeGame() {
 
 
 /* =========================================================
-   STATIC ENVIRONMENT OPTIMIZATION
+   LOADING
 ========================================================= */
 
-function optimizeStaticEnvironment(
-    environment
+function setLoading(
+    percentage,
+    text
 ) {
 
-    environment.updateMatrixWorld(
-        true
-    );
+    if (
+        loadingProgress
+    ) {
+
+        loadingProgress.style.width =
+            `${percentage}%`;
+
+    }
 
 
-    let meshCount =
-        0;
+    if (
+        loadingText
+    ) {
 
+        loadingText.textContent =
+            text;
 
-    environment.traverse(
-
-        object => {
-
-            /*
-             * El escenario nunca se mueve.
-             */
-            object.matrixAutoUpdate =
-                false;
-
-
-            if (!object.isMesh) {
-                return;
-            }
-
-
-            meshCount++;
-
-
-            object.castShadow =
-                false;
-
-
-            object.receiveShadow =
-                false;
-
-
-            object.frustumCulled =
-                true;
-
-
-            if (
-                object.geometry
-
-                &&
-
-                !object.geometry.boundingBox
-            ) {
-
-                object.geometry.computeBoundingBox();
-
-            }
-
-
-            if (
-                object.geometry
-
-                &&
-
-                !object.geometry.boundingSphere
-            ) {
-
-                object.geometry.computeBoundingSphere();
-
-            }
-
-
-            const materials =
-
-                Array.isArray(
-                    object.material
-                )
-
-                    ?
-
-                    object.material
-
-                    :
-
-                    [
-                        object.material
-                    ];
-
-
-            for (
-                const material
-                of materials
-            ) {
-
-                if (!material) {
-                    continue;
-                }
-
-
-                /*
-                 * Reduce trabajo extra.
-                 */
-                material.dithering =
-                    false;
-
-
-                material.needsUpdate =
-                    true;
-
-            }
-
-        }
-
-    );
-
-
-    environment.updateMatrixWorld(
-        true
-    );
-
-
-    console.log(
-
-        `[Performance] Static meshes optimized: ${meshCount}`
-
-    );
+    }
 
 }
 
@@ -1380,10 +1536,6 @@ async function enterZoneA() {
         GAME_STATE.LOADING;
 
 
-    /*
-     * Los efectos HTML/CSS del menú ya no son
-     * necesarios durante gameplay.
-     */
     if (
         backgroundEffects
     ) {
@@ -1392,6 +1544,11 @@ async function enterZoneA() {
             "gameplay-mode"
         );
 
+
+        /*
+         * El fondo HTML ya no necesita seguir
+         * renderizando durante gameplay.
+         */
         backgroundEffects.style.display =
             "none";
 
@@ -1423,37 +1580,38 @@ async function enterZoneA() {
 
         const zoneA =
 
-            await environmentManager.activateEnvironment(
+            await environmentManager
+                .activateEnvironment(
 
-                ENVIRONMENTS.ZONE_A,
+                    ENVIRONMENTS.ZONE_A,
 
-                percent => {
+                    percent => {
 
-                    const adjusted =
+                        const value =
 
-                        Math.round(
+                            Math.round(
 
-                            percent *
-                            0.40
+                                percent *
+                                0.40
+
+                            );
+
+
+                        setLoading(
+
+                            value,
+
+                            `Cargando Zona A · ${value}%`
 
                         );
 
+                    }
 
-                    setLoading(
-
-                        adjusted,
-
-                        `Cargando Zona A · ${adjusted}%`
-
-                    );
-
-                }
-
-            );
+                );
 
 
         /* =================================================
-           FREEZE STATIC SCENE
+           STATIC OPTIMIZATION
         ================================================= */
 
         optimizeStaticEnvironment(
@@ -1462,7 +1620,7 @@ async function enterZoneA() {
 
 
         /* =================================================
-           CAMERA COLLISION CACHE
+           CAMERA COLLISION
         ================================================= */
 
         cameraManager.setEnvironment(
@@ -1486,10 +1644,6 @@ async function enterZoneA() {
         await physicsManager.init();
 
 
-        /* =================================================
-           RAPIER ENVIRONMENT
-        ================================================= */
-
         setLoading(
 
             56,
@@ -1505,7 +1659,7 @@ async function enterZoneA() {
 
 
         /* =================================================
-           PLAYER SPAWN
+           SPAWN
         ================================================= */
 
         setLoading(
@@ -1551,6 +1705,16 @@ async function enterZoneA() {
         );
 
 
+        /*
+         * El jugador sí proyecta sombra.
+         */
+        configureDynamicShadowCaster(
+
+            playerController.getObject()
+
+        );
+
+
         /* =================================================
            WEAPON
         ================================================= */
@@ -1589,6 +1753,9 @@ async function enterZoneA() {
         );
 
 
+        configureDynamicObjectShadows();
+
+
         weaponManager.setEnvironment(
             zoneA
         );
@@ -1624,9 +1791,33 @@ async function enterZoneA() {
         );
 
 
-        enemyManager.spawnTestEnemy(
-            playerSpawn.y
-        );
+        const testEnemy =
+
+            enemyManager.spawnTestEnemy(
+
+                playerSpawn.y
+
+            );
+
+
+        /*
+         * El enemigo también proyecta sombra.
+         */
+        if (
+            testEnemy
+
+            &&
+
+            testEnemy.getModel
+        ) {
+
+            configureDynamicShadowCaster(
+
+                testEnemy.getModel()
+
+            );
+
+        }
 
 
         /* =================================================
@@ -1717,6 +1908,10 @@ async function enterZoneA() {
         );
 
 
+        /* =================================================
+           BOSS PRELOAD
+        ================================================= */
+
         environmentManager.preloadEnvironment(
 
             ENVIRONMENTS.BOSS_ARENA
@@ -1750,37 +1945,6 @@ async function enterZoneA() {
         showNotification(
             "ERROR · REVISA F12"
         );
-
-    }
-
-}
-
-
-/* =========================================================
-   LOADING
-========================================================= */
-
-function setLoading(
-    percentage,
-    text
-) {
-
-    if (
-        loadingProgress
-    ) {
-
-        loadingProgress.style.width =
-            `${percentage}%`;
-
-    }
-
-
-    if (
-        loadingText
-    ) {
-
-        loadingText.textContent =
-            text;
 
     }
 
@@ -1872,7 +2036,7 @@ function calculateZoneASpawn(
 
 
     /*
-     * Este raycast se ejecuta UNA SOLA VEZ.
+     * Solo se ejecuta una vez.
      */
     const intersections =
 
@@ -1916,7 +2080,8 @@ function calculateZoneASpawn(
         spawnX,
 
         box.min.y +
-        size.y * 0.55,
+        size.y *
+        0.55,
 
         spawnZ
 
@@ -2009,9 +2174,6 @@ function updateFPSCounter(
         fpsTimer;
 
 
-    /*
-     * Suavizado para que no parpadee:
-     */
     displayedFPS =
 
         displayedFPS *
@@ -2074,7 +2236,7 @@ function updateFPSCounter(
 
 
 /* =========================================================
-   ADAPTIVE RESOLUTION
+   ADAPTIVE QUALITY
 ========================================================= */
 
 function updateAdaptiveQuality(
@@ -2089,9 +2251,7 @@ function updateAdaptiveQuality(
         currentState !==
         GAME_STATE.PLAYING
     ) {
-
         return;
-
     }
 
 
@@ -2132,7 +2292,7 @@ function updateAdaptiveQuality(
                 PERFORMANCE.minPixelRatio,
 
                 currentPixelRatio -
-                0.08
+                0.06
 
             );
 
@@ -2150,7 +2310,7 @@ function updateAdaptiveQuality(
                 PERFORMANCE.maxPixelRatio,
 
                 currentPixelRatio +
-                0.04
+                0.03
 
             );
 
@@ -2251,10 +2411,6 @@ function update(
 
 ) {
 
-    /* =====================================================
-       PERFORMANCE MONITOR
-    ====================================================== */
-
     updateFPSCounter(
         deltaTime
     );
@@ -2265,14 +2421,14 @@ function update(
     );
 
 
-    /* =====================================================
-       GAMEPLAY
-    ====================================================== */
-
     if (
         currentState ===
         GAME_STATE.PLAYING
     ) {
+
+        /* =================================================
+           CAMERA DIRECTIONS
+        ================================================= */
 
         cameraManager.getForwardDirection(
             cameraForward
@@ -2304,7 +2460,7 @@ function update(
 
 
         /* =================================================
-           ONLY UPDATE MODE WHEN IT CHANGES
+           VIEW MODE
         ================================================= */
 
         if (
@@ -2381,7 +2537,7 @@ function update(
 
 
         /* =================================================
-           PLAYER PHYSICS
+           RAPIER
         ================================================= */
 
         physicsManager.moveCharacter(
@@ -2393,6 +2549,9 @@ function update(
         );
 
 
+        /*
+         * Un solo step de Rapier por frame.
+         */
         physicsManager.step(
             deltaTime
         );
@@ -2406,11 +2565,15 @@ function update(
 
 
         /* =================================================
-           DYNAMIC OBJECTS
+           OBJECTS
         ================================================= */
 
         objectManager.update();
 
+
+        /* =================================================
+           PLAYER MATRIX
+        ================================================= */
 
         playerController
             .getObject()
@@ -2463,13 +2626,13 @@ function update(
             1.8,
 
             playerPosition.z +
-            0.7
+            0.65
 
         );
 
 
         /* =================================================
-           DEBUG HUD - ONLY 5 TIMES / SEC
+           DEBUG HUD
         ================================================= */
 
         debugTimer +=
@@ -2519,7 +2682,7 @@ function update(
 
 
     /* =====================================================
-       CHEAP BACKGROUND ANIMATION
+       BACKGROUND
     ====================================================== */
 
     stars.rotation.y +=
@@ -2530,7 +2693,7 @@ function update(
 
     emergencyLight.intensity =
 
-        40
+        34
 
         +
 
@@ -2539,7 +2702,9 @@ function update(
             elapsedTime *
             1.35
 
-        ) *
+        )
+
+        *
         4;
 
 }
@@ -2590,13 +2755,23 @@ function animate() {
 animate();
 
 
+/* =========================================================
+   CONSOLE
+========================================================= */
+
 console.log(
+
     "%cNOVA CATALYST",
+
     "color:#d72924;font-size:24px;font-weight:bold;"
+
 );
 
 
 console.log(
-    "%cPerformance Build v0.8.4",
+
+    "%cPerformance + Lighting Build v0.8.5",
+
     "color:#8effa8;"
+
 );
