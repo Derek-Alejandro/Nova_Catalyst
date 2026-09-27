@@ -1,13 +1,15 @@
 /* =========================================================
    NOVA CATALYST
    Camera Manager
-   Build v0.7.3
 
-   - Modern TPS
-   - Shoulder aim
-   - Full-body FPS
-   - Stable FPS ADS
-   - Camera never follows weapon animation
+   Performance Build v0.8.4
+
+   - TPS
+   - FPS
+   - ADS
+   - Pitch limits
+   - Box collision
+   - No triangle raycasts
 ========================================================= */
 
 import * as THREE from "three";
@@ -60,12 +62,44 @@ export class CameraManager {
             null;
 
 
-        /*
-         * Se mantiene únicamente para compatibilidad
-         * con main.js.
-         */
         this.adsAnchorProvider =
             null;
+
+
+        /* =================================================
+           ENVIRONMENT
+        ================================================= */
+
+        this.environment =
+            null;
+
+
+        this.environmentBounds =
+            new THREE.Box3();
+
+
+        this.wallBoxes =
+            [];
+
+
+        /*
+         * Solo revisamos colisión unas 10 veces
+         * por segundo.
+         */
+        this.collisionInterval =
+            0.10;
+
+
+        this.collisionTimer =
+            0;
+
+
+        this.lastAllowedDistance =
+            Infinity;
+
+
+        this.wallPadding =
+            0.20;
 
 
         /* =================================================
@@ -77,6 +111,7 @@ export class CameraManager {
 
 
         this.pitch =
+
             THREE.MathUtils.degToRad(
                 -4
             );
@@ -87,14 +122,16 @@ export class CameraManager {
 
 
         this.minPitch =
+
             THREE.MathUtils.degToRad(
-                -62
+                -42
             );
 
 
         this.maxPitch =
+
             THREE.MathUtils.degToRad(
-                70
+                52
             );
 
 
@@ -103,15 +140,15 @@ export class CameraManager {
         ================================================= */
 
         this.tpsDistance =
-            4.6;
+            4.4;
 
 
         this.tpsMinDistance =
-            3.1;
+            0.75;
 
 
         this.tpsMaxDistance =
-            6.2;
+            5.8;
 
 
         this.tpsHeight =
@@ -123,11 +160,11 @@ export class CameraManager {
 
 
         /* =================================================
-           TPS ADS
+           TPS AIM
         ================================================= */
 
         this.tpsAimDistance =
-            2.25;
+            2.20;
 
 
         this.tpsAimHeight =
@@ -135,44 +172,31 @@ export class CameraManager {
 
 
         this.tpsAimSideOffset =
-            0.68;
+            0.65;
 
 
         /* =================================================
            FPS
-
-           Antes teníamos ~0.62.
-
-           Eso dejaba la cámara demasiado adelantada
-           respecto a los brazos.
-
-           Ahora la dejamos suficientemente delante de
-           la cabeza para no atravesarla, pero lo bastante
-           atrás para ver manos + pistola.
         ================================================= */
 
         this.fpsHeight =
-            1.57;
+            1.60;
 
 
         this.fpsForwardOffset =
-            0.38;
+            0.58;
 
 
         this.fpsRightOffset =
-            0.025;
+            0.02;
 
-
-        /* =================================================
-           FPS ADS
-        ================================================= */
 
         this.fpsAimHeight =
-            1.57;
+            1.60;
 
 
         this.fpsAimForwardOffset =
-            0.40;
+            0.58;
 
 
         this.fpsAimRightOffset =
@@ -200,7 +224,7 @@ export class CameraManager {
 
 
         this.fovResponse =
-            15;
+            13;
 
 
         /* =================================================
@@ -208,19 +232,15 @@ export class CameraManager {
         ================================================= */
 
         this.tpsResponse =
-            22;
+            18;
 
 
         this.tpsAimResponse =
-            24;
+            20;
 
 
         this.fpsResponse =
-            28;
-
-
-        this.fpsAimResponse =
-            26;
+            24;
 
 
         /* =================================================
@@ -236,6 +256,10 @@ export class CameraManager {
 
 
         this.desiredPosition =
+            new THREE.Vector3();
+
+
+        this.correctedPosition =
             new THREE.Vector3();
 
 
@@ -263,7 +287,132 @@ export class CameraManager {
             );
 
 
+        this.path =
+            new THREE.Vector3();
+
+
+        this.ray =
+            new THREE.Ray();
+
+
+        this.intersection =
+            new THREE.Vector3();
+
+
+        this.boxSize =
+            new THREE.Vector3();
+
+
         this.setupInput();
+
+    }
+
+
+    /* =====================================================
+       ENVIRONMENT
+    ====================================================== */
+
+    setEnvironment(
+        environment
+    ) {
+
+        this.environment =
+            environment;
+
+
+        this.wallBoxes.length =
+            0;
+
+
+        environment.updateMatrixWorld(
+            true
+        );
+
+
+        this.environmentBounds.setFromObject(
+            environment
+        );
+
+
+        environment.traverse(
+
+            object => {
+
+                if (
+                    !object.isMesh
+
+                    ||
+
+                    !object.geometry
+
+                    ||
+
+                    !object.visible
+                ) {
+                    return;
+                }
+
+
+                if (
+                    !object.geometry.boundingBox
+                ) {
+
+                    object.geometry.computeBoundingBox();
+
+                }
+
+
+                if (
+                    !object.geometry.boundingBox
+                ) {
+                    return;
+                }
+
+
+                const box =
+
+                    object.geometry
+                        .boundingBox
+                        .clone();
+
+
+                box.applyMatrix4(
+                    object.matrixWorld
+                );
+
+
+                box.getSize(
+                    this.boxSize
+                );
+
+
+                /*
+                 * Ignoramos objetos extremadamente planos
+                 * como pisos para la colisión horizontal
+                 * de la cámara.
+                 */
+                if (
+                    this.boxSize.y <
+                    0.45
+                ) {
+                    return;
+                }
+
+
+                this.wallBoxes.push(
+                    box
+                );
+
+            }
+
+        );
+
+
+        console.log(
+
+            `[Camera] Fast collision boxes: ${this.wallBoxes.length}`
+
+        );
 
     }
 
@@ -275,26 +424,29 @@ export class CameraManager {
     setupInput() {
 
         this.domElement.addEventListener(
+
             "contextmenu",
-            event => {
 
-                event.preventDefault();
+            event =>
+                event.preventDefault()
 
-            }
         );
 
 
         this.domElement.addEventListener(
+
             "mousedown",
+
             event => {
 
                 if (
-                    !this.enabled ||
+                    !this.enabled
+
+                    ||
+
                     this.paused
                 ) {
-
                     return;
-
                 }
 
 
@@ -307,7 +459,6 @@ export class CameraManager {
 
                     this.requestPointerLock();
 
-
                     return;
 
                 }
@@ -318,20 +469,20 @@ export class CameraManager {
                     2
                 ) {
 
-                    event.preventDefault();
-
-
                     this.aiming =
                         true;
 
                 }
 
             }
+
         );
 
 
         window.addEventListener(
+
             "mouseup",
+
             event => {
 
                 if (
@@ -345,35 +496,45 @@ export class CameraManager {
                 }
 
             }
+
         );
 
 
         window.addEventListener(
+
             "mousemove",
+
             event => {
 
                 if (
-                    !this.enabled ||
-                    this.paused ||
+                    !this.enabled
+
+                    ||
+
+                    this.paused
+
+                    ||
+
                     !this.pointerLocked
                 ) {
-
                     return;
-
                 }
 
 
                 this.yaw +=
+
                     event.movementX *
                     this.mouseSensitivity;
 
 
                 this.pitch -=
+
                     event.movementY *
                     this.mouseSensitivity;
 
 
                 this.pitch =
+
                     THREE.MathUtils.clamp(
 
                         this.pitch,
@@ -385,23 +546,33 @@ export class CameraManager {
                     );
 
             }
+
         );
 
 
         this.domElement.addEventListener(
+
             "wheel",
+
             event => {
 
                 if (
-                    !this.enabled ||
-                    this.paused ||
+                    !this.enabled
+
+                    ||
+
+                    this.paused
+
+                    ||
+
                     this.mode !==
-                    "TPS" ||
+                    "TPS"
+
+                    ||
+
                     this.aiming
                 ) {
-
                     return;
-
                 }
 
 
@@ -409,41 +580,51 @@ export class CameraManager {
 
 
                 this.tpsDistance +=
+
                     event.deltaY *
-                    0.0023;
+                    0.002;
 
 
                 this.tpsDistance =
+
                     THREE.MathUtils.clamp(
 
                         this.tpsDistance,
 
-                        this.tpsMinDistance,
+                        3.0,
 
                         this.tpsMaxDistance
 
                     );
 
             },
+
             {
                 passive:
                     false
             }
+
         );
 
 
         window.addEventListener(
+
             "keydown",
+
             event => {
 
                 if (
-                    !this.enabled ||
-                    this.paused ||
+                    !this.enabled
+
+                    ||
+
+                    this.paused
+
+                    ||
+
                     event.repeat
                 ) {
-
                     return;
-
                 }
 
 
@@ -457,11 +638,14 @@ export class CameraManager {
                 }
 
             }
+
         );
 
 
         document.addEventListener(
+
             "pointerlockchange",
+
             () => {
 
                 const previous =
@@ -469,6 +653,7 @@ export class CameraManager {
 
 
                 this.pointerLocked =
+
                     document.pointerLockElement ===
                     this.domElement;
 
@@ -500,14 +685,11 @@ export class CameraManager {
                 }
 
             }
+
         );
 
     }
 
-
-    /* =====================================================
-       COMPATIBILITY
-    ====================================================== */
 
     setADSAnchorProvider(
         provider
@@ -537,48 +719,42 @@ export class CameraManager {
     }
 
 
-    /* =====================================================
-       POINTER LOCK
-    ====================================================== */
-
     requestPointerLock() {
 
         if (
-            !this.enabled ||
-            this.paused ||
+            !this.enabled
+
+            ||
+
+            this.paused
+
+            ||
+
             this.pointerLocked
         ) {
-
             return;
-
         }
 
 
         try {
 
             const result =
+
                 this.domElement
                     .requestPointerLock();
 
 
-            if (
-                result &&
-                typeof result.catch ===
-                "function"
-            ) {
-
-                result.catch(
-                    () => {}
-                );
-
-            }
+            result?.catch?.(
+                () => {}
+            );
 
         }
 
-        catch (error) {
+        catch (
+            error
+        ) {
 
             console.warn(
-                "[Camera] Pointer Lock:",
                 error
             );
 
@@ -608,10 +784,6 @@ export class CameraManager {
     }
 
 
-    /* =====================================================
-       STATE
-    ====================================================== */
-
     enable() {
 
         this.enabled =
@@ -627,10 +799,6 @@ export class CameraManager {
     disable() {
 
         this.enabled =
-            false;
-
-
-        this.aiming =
             false;
 
 
@@ -651,7 +819,9 @@ export class CameraManager {
             false;
 
 
-        if (paused) {
+        if (
+            paused
+        ) {
 
             this.releasePointerLock();
 
@@ -673,15 +843,19 @@ export class CameraManager {
             target;
 
 
-        if (!target) {
+        if (
+            !target
+        ) {
             return;
         }
 
 
-        this.updateDirectionVectors();
+        if (
+            snap
+        ) {
 
+            this.updateDirectionVectors();
 
-        if (snap) {
 
             target.getWorldPosition(
                 this.worldTarget
@@ -710,26 +884,18 @@ export class CameraManager {
                 );
 
 
-            this.camera.position.copy(
+            this.correctedPosition.copy(
                 this.desiredPosition
             );
 
 
-            this.lookTarget
-                .copy(
-                    this.pivot
-                )
-                .addScaledVector(
-
-                    this.forward,
-
-                    30
-
-                );
+            this.clampVertical(
+                this.correctedPosition
+            );
 
 
-            this.camera.lookAt(
-                this.lookTarget
+            this.camera.position.copy(
+                this.correctedPosition
             );
 
         }
@@ -744,6 +910,7 @@ export class CameraManager {
     updateDirectionVectors() {
 
         const cosPitch =
+
             Math.cos(
                 this.pitch
             );
@@ -803,6 +970,277 @@ export class CameraManager {
 
 
     /* =====================================================
+       VERTICAL LIMITS
+    ====================================================== */
+
+    clampVertical(
+        position
+    ) {
+
+        if (
+            !this.environment
+        ) {
+            return;
+        }
+
+
+        position.y =
+
+            THREE.MathUtils.clamp(
+
+                position.y,
+
+                this.environmentBounds.min.y +
+                0.35,
+
+                this.environmentBounds.max.y -
+                0.45
+
+            );
+
+    }
+
+
+    /* =====================================================
+       FAST BOX COLLISION
+    ====================================================== */
+
+    calculateAllowedDistance(
+
+        pivot,
+
+        desired
+
+    ) {
+
+        this.path.subVectors(
+
+            desired,
+
+            pivot
+
+        );
+
+
+        const requestedDistance =
+            this.path.length();
+
+
+        if (
+            requestedDistance <
+            0.001
+        ) {
+
+            return requestedDistance;
+
+        }
+
+
+        this.path.normalize();
+
+
+        this.ray.set(
+
+            pivot,
+
+            this.path
+
+        );
+
+
+        let nearestDistance =
+            requestedDistance;
+
+
+        for (
+            const box
+            of this.wallBoxes
+        ) {
+
+            /*
+             * Si el pivot está dentro de una caja enorme
+             * del modelo, la ignoramos.
+             */
+            if (
+                box.containsPoint(
+                    pivot
+                )
+            ) {
+                continue;
+            }
+
+
+            const hit =
+
+                this.ray.intersectBox(
+
+                    box,
+
+                    this.intersection
+
+                );
+
+
+            if (
+                !hit
+            ) {
+                continue;
+            }
+
+
+            const distance =
+
+                pivot.distanceTo(
+                    hit
+                );
+
+
+            if (
+                distance <=
+                0
+
+                ||
+
+                distance >=
+                nearestDistance
+            ) {
+                continue;
+            }
+
+
+            nearestDistance =
+                distance;
+
+        }
+
+
+        if (
+            nearestDistance <
+            requestedDistance
+        ) {
+
+            nearestDistance =
+
+                Math.max(
+
+                    0.55,
+
+                    nearestDistance -
+                    this.wallPadding
+
+                );
+
+        }
+
+
+        return nearestDistance;
+
+    }
+
+
+    /* =====================================================
+       CORRECTION
+    ====================================================== */
+
+    correctPosition(
+
+        pivot,
+
+        desired,
+
+        output,
+
+        deltaTime
+
+    ) {
+
+        output.copy(
+            desired
+        );
+
+
+        this.collisionTimer -=
+            deltaTime;
+
+
+        if (
+            this.collisionTimer <=
+            0
+        ) {
+
+            this.collisionTimer =
+                this.collisionInterval;
+
+
+            this.lastAllowedDistance =
+
+                this.calculateAllowedDistance(
+
+                    pivot,
+
+                    desired
+
+                );
+
+        }
+
+
+        this.path.subVectors(
+
+            desired,
+
+            pivot
+
+        );
+
+
+        const requestedDistance =
+            this.path.length();
+
+
+        if (
+            requestedDistance >
+            0.001
+
+            &&
+
+            Number.isFinite(
+                this.lastAllowedDistance
+            )
+
+            &&
+
+            this.lastAllowedDistance <
+            requestedDistance
+        ) {
+
+            this.path.normalize();
+
+
+            output.copy(
+                pivot
+            );
+
+
+            output.addScaledVector(
+
+                this.path,
+
+                this.lastAllowedDistance
+
+            );
+
+        }
+
+
+        this.clampVertical(
+            output
+        );
+
+    }
+
+
+    /* =====================================================
        FOV
     ====================================================== */
 
@@ -810,7 +1248,7 @@ export class CameraManager {
         deltaTime
     ) {
 
-        let targetFov;
+        let target;
 
 
         if (
@@ -818,7 +1256,8 @@ export class CameraManager {
             "FPS"
         ) {
 
-            targetFov =
+            target =
+
                 this.aiming
                     ? this.fpsAimFov
                     : this.fpsFov;
@@ -827,7 +1266,8 @@ export class CameraManager {
 
         else {
 
-            targetFov =
+            target =
+
                 this.aiming
                     ? this.tpsAimFov
                     : this.tpsFov;
@@ -835,28 +1275,43 @@ export class CameraManager {
         }
 
 
-        const alpha =
-            1 -
-            Math.exp(
-                -this.fovResponse *
-                deltaTime
-            );
+        const newFov =
 
-
-        this.camera.fov =
             THREE.MathUtils.lerp(
 
                 this.camera.fov,
 
-                targetFov,
+                target,
 
-                alpha
+                1 -
+
+                Math.exp(
+
+                    -this.fovResponse *
+                    deltaTime
+
+                )
 
             );
 
 
-        this.camera
-            .updateProjectionMatrix();
+        if (
+            Math.abs(
+
+                newFov -
+                this.camera.fov
+
+            ) >
+            0.03
+        ) {
+
+            this.camera.fov =
+                newFov;
+
+
+            this.camera.updateProjectionMatrix();
+
+        }
 
     }
 
@@ -903,20 +1358,37 @@ export class CameraManager {
             );
 
 
-        const alpha =
-            1 -
-            Math.exp(
-                -this.tpsResponse *
-                deltaTime
-            );
+        this.correctPosition(
+
+            this.pivot,
+
+            this.desiredPosition,
+
+            this.correctedPosition,
+
+            deltaTime
+
+        );
 
 
         this.camera.position.lerp(
 
-            this.desiredPosition,
+            this.correctedPosition,
 
-            alpha
+            1 -
 
+            Math.exp(
+
+                -this.tpsResponse *
+                deltaTime
+
+            )
+
+        );
+
+
+        this.clampVertical(
+            this.camera.position
         );
 
 
@@ -928,7 +1400,7 @@ export class CameraManager {
 
                 this.forward,
 
-                40
+                35
 
             );
 
@@ -982,19 +1454,31 @@ export class CameraManager {
             );
 
 
-        const alpha =
-            1 -
-            Math.exp(
-                -this.tpsAimResponse *
-                deltaTime
-            );
+        this.correctPosition(
+
+            this.pivot,
+
+            this.desiredPosition,
+
+            this.correctedPosition,
+
+            deltaTime
+
+        );
 
 
         this.camera.position.lerp(
 
-            this.desiredPosition,
+            this.correctedPosition,
 
-            alpha
+            1 -
+
+            Math.exp(
+
+                -this.tpsAimResponse *
+                deltaTime
+
+            )
 
         );
 
@@ -1002,6 +1486,114 @@ export class CameraManager {
         this.lookTarget
             .copy(
                 this.pivot
+            )
+            .addScaledVector(
+
+                this.forward,
+
+                45
+
+            );
+
+
+        this.camera.lookAt(
+            this.lookTarget
+        );
+
+    }
+
+
+    /* =====================================================
+       FPS
+    ====================================================== */
+
+    updateFPS(
+        deltaTime
+    ) {
+
+        this.target.getWorldPosition(
+            this.worldTarget
+        );
+
+
+        this.desiredPosition.copy(
+            this.worldTarget
+        );
+
+
+        this.desiredPosition.y +=
+
+            this.aiming
+
+                ?
+
+                this.fpsAimHeight
+
+                :
+
+                this.fpsHeight;
+
+
+        this.desiredPosition
+            .addScaledVector(
+
+                this.horizontalForward,
+
+                this.aiming
+
+                    ?
+
+                    this.fpsAimForwardOffset
+
+                    :
+
+                    this.fpsForwardOffset
+
+            );
+
+
+        this.desiredPosition
+            .addScaledVector(
+
+                this.right,
+
+                this.aiming
+
+                    ?
+
+                    this.fpsAimRightOffset
+
+                    :
+
+                    this.fpsRightOffset
+
+            );
+
+
+        this.clampVertical(
+            this.desiredPosition
+        );
+
+
+        this.camera.position.lerp(
+
+            this.desiredPosition,
+
+            1 -
+
+            Math.exp(
+
+                -this.fpsResponse *
+                deltaTime
+
+            )
+
+        );
+
+
+        this.lookTarget
+            .copy(
+                this.camera.position
             )
             .addScaledVector(
 
@@ -1020,134 +1612,35 @@ export class CameraManager {
 
 
     /* =====================================================
-       FPS
-
-       Camera never follows RightHand.
-
-       RightHand follows animations.
-       Weapon follows RightHand.
-       Camera stays stable.
-    ====================================================== */
-
-    updateFPS(
-        deltaTime
-    ) {
-
-        this.target.getWorldPosition(
-            this.worldTarget
-        );
-
-
-        const height =
-            this.aiming
-                ? this.fpsAimHeight
-                : this.fpsHeight;
-
-
-        const forwardOffset =
-            this.aiming
-                ? this.fpsAimForwardOffset
-                : this.fpsForwardOffset;
-
-
-        const sideOffset =
-            this.aiming
-                ? this.fpsAimRightOffset
-                : this.fpsRightOffset;
-
-
-        this.desiredPosition.copy(
-            this.worldTarget
-        );
-
-
-        this.desiredPosition.y +=
-            height;
-
-
-        this.desiredPosition
-            .addScaledVector(
-
-                this.horizontalForward,
-
-                forwardOffset
-
-            );
-
-
-        this.desiredPosition
-            .addScaledVector(
-
-                this.right,
-
-                sideOffset
-
-            );
-
-
-        const response =
-            this.aiming
-                ? this.fpsAimResponse
-                : this.fpsResponse;
-
-
-        const alpha =
-            1 -
-            Math.exp(
-                -response *
-                deltaTime
-            );
-
-
-        this.camera.position.lerp(
-
-            this.desiredPosition,
-
-            alpha
-
-        );
-
-
-        this.lookTarget
-            .copy(
-                this.camera.position
-            )
-            .addScaledVector(
-
-                this.forward,
-
-                60
-
-            );
-
-
-        this.camera.lookAt(
-            this.lookTarget
-        );
-
-    }
-
-
-    /* =====================================================
        MODE
     ====================================================== */
 
     toggleMode() {
 
         this.mode =
+
             this.mode ===
             "TPS"
-                ? "FPS"
-                : "TPS";
+
+                ?
+
+                "FPS"
+
+                :
+
+                "TPS";
 
 
         this.aiming =
             false;
 
 
-        console.log(
-            `[Camera] ${this.mode}`
-        );
+        this.collisionTimer =
+            0;
+
+
+        this.lastAllowedDistance =
+            Infinity;
 
     }
 
@@ -1161,13 +1654,17 @@ export class CameraManager {
     ) {
 
         if (
-            !this.enabled ||
-            this.paused ||
+            !this.enabled
+
+            ||
+
+            this.paused
+
+            ||
+
             !this.target
         ) {
-
             return;
-
         }
 
 
@@ -1211,23 +1708,15 @@ export class CameraManager {
     }
 
 
-    /* =====================================================
-       GETTERS
-    ====================================================== */
-
     getForwardDirection(
         target
     ) {
 
         this.updateDirectionVectors();
 
-
-        target.copy(
+        return target.copy(
             this.horizontalForward
         );
-
-
-        return target;
 
     }
 
@@ -1238,13 +1727,9 @@ export class CameraManager {
 
         this.updateDirectionVectors();
 
-
-        target.copy(
+        return target.copy(
             this.right
         );
-
-
-        return target;
 
     }
 
@@ -1255,13 +1740,9 @@ export class CameraManager {
 
         this.updateDirectionVectors();
 
-
-        target.copy(
+        return target.copy(
             this.forward
         );
-
-
-        return target;
 
     }
 

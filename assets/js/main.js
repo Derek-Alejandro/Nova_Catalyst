@@ -1,70 +1,121 @@
 /* =========================================================
    NOVA CATALYST
    Project Nova
-
    Pre-Alpha v.01
-   Build v0.6.7
 
-   - Real Sci-fi Handgun
-   - Strict RightHand
-   - TPS Shoulder Aim
-   - Full-body FPS
-   - Physical weapon ADS
-   - Rapier physics
+   PERFORMANCE BUILD v0.8.4
+
+   - FPS Counter
+   - Adaptive resolution
+   - Static scene optimization
+   - Real-time shadows disabled
+   - Reduced lights
+   - Cached camera collision
+   - Cached enemy collision
 ========================================================= */
 
 import * as THREE from "three";
 
-
 import {
-
     EnvironmentManager,
-
     ENVIRONMENTS
-
 } from "./environment.js";
 
-
 import {
-
     CameraManager
-
 } from "./camera.js";
 
-
 import {
-
     PlayerController
-
 } from "./player.js";
 
-
 import {
-
     PhysicsManager
-
 } from "./physics.js";
 
-
 import {
-
     ObjectManager
-
 } from "./objects.js";
 
-
 import {
-
     WeaponManager
-
 } from "./weapons.js";
 
+import {
+    EnemyManager
+} from "./enemy.js";
 
 import {
-
     PauseMenu
-
 } from "./pause.js";
+
+
+/* =========================================================
+   PERFORMANCE CONFIG
+========================================================= */
+
+const PERFORMANCE = {
+
+    maxPixelRatio:
+        1.0,
+
+    minPixelRatio:
+        0.65,
+
+    adaptiveResolution:
+        true,
+
+    qualityCheckInterval:
+        1.25,
+
+    fpsCounterInterval:
+        0.25,
+
+    lowFPSThreshold:
+        48,
+
+    highFPSThreshold:
+        58,
+
+    debugInterval:
+        0.20
+
+};
+
+
+let currentPixelRatio =
+
+    Math.min(
+
+        window.devicePixelRatio || 1,
+
+        PERFORMANCE.maxPixelRatio
+
+    );
+
+
+let qualityTimer =
+    0;
+
+
+let qualityFrames =
+    0;
+
+
+let fpsTimer =
+    0;
+
+
+let fpsFrames =
+    0;
+
+
+let displayedFPS =
+    60;
+
+
+let debugTimer =
+    0;
 
 
 /* =========================================================
@@ -121,147 +172,182 @@ const PLAYER_SPAWN_ZONE_A = {
 ========================================================= */
 
 const gameContainer =
-
     document.getElementById(
-
         "game-container"
-
     );
 
 
 const backgroundEffects =
-
     document.getElementById(
-
         "background-effects"
-
     );
 
 
 const mainMenu =
-
     document.getElementById(
-
         "main-menu"
-
     );
 
 
 const briefingScreen =
-
     document.getElementById(
-
         "briefing-screen"
-
     );
 
 
 const aboutScreen =
-
     document.getElementById(
-
         "about-screen"
-
     );
 
 
 const loadingScreen =
-
     document.getElementById(
-
         "loading-screen"
-
     );
 
 
 const loadingProgress =
-
     document.getElementById(
-
         "loading-progress"
-
     );
 
 
 const loadingText =
-
     document.getElementById(
-
         "loading-text"
-
     );
 
 
 const inspectionUI =
-
     document.getElementById(
-
         "inspection-ui"
-
     );
 
 
 const spawnDebug =
-
     document.getElementById(
-
         "spawn-debug"
-
     );
 
 
 const notification =
-
     document.getElementById(
-
         "notification"
-
     );
 
 
 const btnEnter =
-
     document.getElementById(
-
         "btn-enter"
-
     );
 
 
 const btnAbout =
-
     document.getElementById(
-
         "btn-about"
-
     );
 
 
 const btnBackBriefing =
-
     document.getElementById(
-
         "btn-back-from-briefing"
-
     );
 
 
 const btnBackAbout =
-
     document.getElementById(
-
         "btn-back-from-about"
-
     );
 
 
 const btnSurvive =
-
     document.getElementById(
-
         "btn-survive"
-
     );
+
+
+/* =========================================================
+   FPS COUNTER
+========================================================= */
+
+const fpsCounter =
+
+    document.createElement(
+        "div"
+    );
+
+
+fpsCounter.id =
+    "nova-fps-counter";
+
+
+fpsCounter.textContent =
+    "FPS 60";
+
+
+Object.assign(
+
+    fpsCounter.style,
+
+    {
+
+        position:
+            "fixed",
+
+        top:
+            "10px",
+
+        right:
+            "12px",
+
+        zIndex:
+            "99999",
+
+        padding:
+            "4px 7px",
+
+        borderRadius:
+            "4px",
+
+        background:
+            "rgba(0,0,0,.52)",
+
+        border:
+            "1px solid rgba(255,255,255,.12)",
+
+        color:
+            "#8effa8",
+
+        fontFamily:
+            "Consolas, monospace",
+
+        fontSize:
+            "10px",
+
+        fontWeight:
+            "700",
+
+        letterSpacing:
+            "0.5px",
+
+        pointerEvents:
+            "none",
+
+        userSelect:
+            "none",
+
+        backdropFilter:
+            "blur(3px)"
+
+    }
+
+);
+
+
+document.body.appendChild(
+    fpsCounter
+);
 
 
 /* =========================================================
@@ -273,11 +359,8 @@ const scene =
 
 
 scene.background =
-
     new THREE.Color(
-
         0x010204
-
     );
 
 
@@ -294,33 +377,32 @@ const camera =
         window.innerWidth /
         window.innerHeight,
 
-        0.02,
+        0.05,
 
-        5000
+        350
 
     );
 
 
 camera.position.set(
-
     0,
-
     2,
-
     8
-
 );
 
 
 scene.add(
-
     camera
-
 );
 
 
 /* =========================================================
    RENDERER
+
+   ANTIALIAS DESACTIVADO:
+   mejor rendimiento.
+
+   Resolución dinámica compensa la calidad.
 ========================================================= */
 
 const renderer =
@@ -328,24 +410,22 @@ const renderer =
     new THREE.WebGLRenderer({
 
         antialias:
-            true,
+            false,
 
         powerPreference:
-            "high-performance"
+            "high-performance",
+
+        preserveDrawingBuffer:
+            false,
+
+        alpha:
+            false
 
     });
 
 
 renderer.setPixelRatio(
-
-    Math.min(
-
-        window.devicePixelRatio,
-
-        2
-
-    )
-
+    currentPixelRatio
 );
 
 
@@ -367,25 +447,28 @@ renderer.toneMapping =
 
 
 renderer.toneMappingExposure =
-    1.38;
+    1.32;
 
+
+/* =========================================================
+   SHADOWS
+
+   Deshabilitadas en Performance Build.
+
+   Conservamos iluminación real, pero evitamos
+   renderizar la escena varias veces por frame.
+========================================================= */
 
 renderer.shadowMap.enabled =
-    true;
-
-
-renderer.shadowMap.type =
-    THREE.PCFSoftShadowMap;
+    false;
 
 
 renderer.shadowMap.autoUpdate =
-    true;
+    false;
 
 
 gameContainer.appendChild(
-
     renderer.domElement
-
 );
 
 
@@ -398,7 +481,7 @@ const clock =
 
 
 /* =========================================================
-   STAR FIELD
+   STARS
 ========================================================= */
 
 function createStarField(
@@ -418,10 +501,7 @@ function createStarField(
     const positions =
 
         new Float32Array(
-
-            count *
-            3
-
+            count * 3
         );
 
 
@@ -441,7 +521,6 @@ function createStarField(
                 Math.random() -
                 0.5
             )
-
             *
             radius;
 
@@ -452,7 +531,6 @@ function createStarField(
                 Math.random() -
                 0.5
             )
-
             *
             radius;
 
@@ -463,7 +541,6 @@ function createStarField(
                 Math.random() -
                 0.5
             )
-
             *
             radius;
 
@@ -503,15 +580,12 @@ function createStarField(
             opacity,
 
             depthWrite:
-                false,
-
-            sizeAttenuation:
-                true
+                false
 
         });
 
 
-    const field =
+    const stars =
 
         new THREE.Points(
 
@@ -522,14 +596,16 @@ function createStarField(
         );
 
 
+    stars.frustumCulled =
+        false;
+
+
     scene.add(
-
-        field
-
+        stars
     );
 
 
-    return field;
+    return stars;
 
 }
 
@@ -538,46 +614,26 @@ const stars =
 
     createStarField(
 
-        1800,
+        650,
 
-        350,
+        300,
 
-        0.14,
+        0.12,
 
         0xdde9ef,
 
-        0.72
-
-    );
-
-
-const distantStars =
-
-    createStarField(
-
-        900,
-
-        500,
-
-        0.07,
-
-        0x82949d,
-
-        0.38
+        0.55
 
     );
 
 
 /* =========================================================
-   SYSTEMS
+   MANAGERS
 ========================================================= */
 
 const environmentManager =
-
     new EnvironmentManager(
-
         scene
-
     );
 
 
@@ -593,16 +649,12 @@ const cameraManager =
 
 
 const physicsManager =
-
     new PhysicsManager();
 
 
 const playerController =
-
     new PlayerController(
-
         scene
-
     );
 
 
@@ -636,28 +688,33 @@ const weaponManager =
     });
 
 
+const enemyManager =
+
+    new EnemyManager({
+
+        scene,
+
+        playerController,
+
+        camera,
+
+        physicsManager,
+
+        objectManager
+
+    });
+
+
+cameraManager.setADSAnchorProvider(
+
+    () =>
+        weaponManager.getADSAnchor()
+
+);
+
+
 /* =========================================================
-   ADS LINK
-
-   CameraManager puede consultar la posición real
-   de las miras de la pistola.
-========================================================= */
-
-cameraManager
-    .setADSAnchorProvider(
-
-        () => {
-
-            return weaponManager
-                .getADSAnchor();
-
-        }
-
-    );
-
-
-/* =========================================================
-   PAUSE MENU
+   PAUSE
 ========================================================= */
 
 const pauseMenu =
@@ -684,7 +741,7 @@ const pauseMenu =
 
 
 /* =========================================================
-   TEMP
+   TEMP VECTORS
 ========================================================= */
 
 const cameraForward =
@@ -700,24 +757,40 @@ const cameraAimDirection =
 
 
 /* =========================================================
+   CACHED STATES
+========================================================= */
+
+let cachedCameraMode =
+    null;
+
+
+let cachedAiming =
+    null;
+
+
+let cachedFirstPerson =
+    null;
+
+
+/* =========================================================
    LIGHTING
+
+   Menos luces = muchos menos cálculos por píxel.
 ========================================================= */
 
 const ambientLight =
 
     new THREE.AmbientLight(
 
-        0xc9d8df,
+        0xb8c7cf,
 
-        0.95
+        1.10
 
     );
 
 
 scene.add(
-
     ambientLight
-
 );
 
 
@@ -725,387 +798,120 @@ const hemisphereLight =
 
     new THREE.HemisphereLight(
 
-        0xd8efff,
+        0xd5edff,
 
-        0x111419,
+        0x15181d,
 
-        1.65
+        1.75
 
     );
 
 
 scene.add(
-
     hemisphereLight
-
 );
 
 
-/* =========================================================
-   MAIN DIRECTIONAL
-========================================================= */
-
-const directionalLight =
+const mainLight =
 
     new THREE.DirectionalLight(
 
-        0xeef9ff,
+        0xe8f7ff,
 
-        5
-
-    );
-
-
-directionalLight.position.set(
-
-    22,
-
-    38,
-
-    18
-
-);
-
-
-directionalLight.castShadow =
-    true;
-
-
-directionalLight.shadow
-    .mapSize
-    .set(
-
-        2048,
-
-        2048
+        3.4
 
     );
 
 
-directionalLight.shadow.camera.left =
-    -50;
-
-
-directionalLight.shadow.camera.right =
-    50;
-
-
-directionalLight.shadow.camera.top =
-    50;
-
-
-directionalLight.shadow.camera.bottom =
-    -50;
-
-
-directionalLight.shadow.camera.near =
-    0.1;
-
-
-directionalLight.shadow.camera.far =
-    180;
-
-
-directionalLight.shadow.bias =
-    -0.00025;
-
-
-directionalLight.shadow.normalBias =
-    0.025;
-
-
-directionalLight.shadow.radius =
-    3;
-
-
-scene.add(
-
-    directionalLight
-
-);
-
-
-/* =========================================================
-   SECONDARY LIGHT
-========================================================= */
-
-const secondaryDirectional =
-
-    new THREE.DirectionalLight(
-
-        0x7299ad,
-
-        1.65
-
-    );
-
-
-secondaryDirectional.position.set(
-
-    -24,
-
-    24,
-
-    -18
-
-);
-
-
-scene.add(
-
-    secondaryDirectional
-
-);
-
-
-/* =========================================================
-   EMERGENCY LIGHTS
-========================================================= */
-
-const emergencyLightA =
-
-    new THREE.PointLight(
-
-        0xff251d,
-
-        85,
-
-        38,
-
-        1.7
-
-    );
-
-
-emergencyLightA.position.set(
-
-    16,
-
-    14,
-
-    0
-
-);
-
-
-scene.add(
-
-    emergencyLightA
-
-);
-
-
-const emergencyLightB =
-
-    new THREE.PointLight(
-
-        0xff3024,
-
-        65,
-
-        34,
-
-        1.7
-
-    );
-
-
-emergencyLightB.position.set(
-
-    -16,
-
-    14,
-
-    0
-
-);
-
-
-scene.add(
-
-    emergencyLightB
-
-);
-
-
-/* =========================================================
-   COLD LIGHTS
-========================================================= */
-
-const coldLightA =
-
-    new THREE.PointLight(
-
-        0xa8e6ff,
-
-        78,
-
-        40,
-
-        1.8
-
-    );
-
-
-coldLightA.position.set(
-
-    0,
+mainLight.position.set(
 
     18,
 
-    16
+    28,
+
+    12
 
 );
+
+
+mainLight.castShadow =
+    false;
 
 
 scene.add(
-
-    coldLightA
-
-);
-
-
-const coldLightB =
-
-    new THREE.PointLight(
-
-        0x71b9db,
-
-        68,
-
-        38,
-
-        1.8
-
-    );
-
-
-coldLightB.position.set(
-
-    0,
-
-    17,
-
-    -16
-
-);
-
-
-scene.add(
-
-    coldLightB
-
+    mainLight
 );
 
 
 /* =========================================================
-   PLAYER FILL
+   RED AMBIENT LIGHT
 ========================================================= */
 
-const playerFillLight =
+const emergencyLight =
 
     new THREE.PointLight(
 
-        0xcceeff,
+        0xff2922,
 
-        7,
+        42,
 
-        7,
+        28,
+
+        1.9
+
+    );
+
+
+emergencyLight.position.set(
+
+    0,
+
+    9,
+
+    0
+
+);
+
+
+emergencyLight.castShadow =
+    false;
+
+
+scene.add(
+    emergencyLight
+);
+
+
+/* =========================================================
+   PLAYER LIGHT
+========================================================= */
+
+const playerLight =
+
+    new THREE.PointLight(
+
+        0xbbeaff,
+
+        3.8,
+
+        5.5,
 
         2
 
     );
 
 
-playerFillLight.castShadow =
+playerLight.castShadow =
     false;
 
 
 scene.add(
-
-    playerFillLight
-
+    playerLight
 );
 
 
 /* =========================================================
-   PLAYER SHADOW
-========================================================= */
-
-const playerShadowLight =
-
-    new THREE.SpotLight(
-
-        0xf4fbff,
-
-        95,
-
-        10,
-
-        Math.PI / 4,
-
-        0.28,
-
-        1.25
-
-    );
-
-
-playerShadowLight.castShadow =
-    true;
-
-
-playerShadowLight.visible =
-    false;
-
-
-playerShadowLight.shadow
-    .mapSize
-    .set(
-
-        2048,
-
-        2048
-
-    );
-
-
-playerShadowLight.shadow.camera.near =
-    0.1;
-
-
-playerShadowLight.shadow.camera.far =
-    12;
-
-
-playerShadowLight.shadow.bias =
-    -0.00015;
-
-
-playerShadowLight.shadow.normalBias =
-    0.015;
-
-
-playerShadowLight.shadow.radius =
-    2;
-
-
-scene.add(
-
-    playerShadowLight
-
-);
-
-
-scene.add(
-
-    playerShadowLight.target
-
-);
-
-
-/* =========================================================
-   SCREEN MANAGEMENT
+   SCREEN HELPERS
 ========================================================= */
 
 function hideMainScreens() {
@@ -1122,17 +928,18 @@ function hideMainScreens() {
 
         screen => {
 
+            if (!screen) {
+                return;
+            }
+
+
             screen.classList.remove(
-
                 "screen-visible"
-
             );
 
 
             screen.classList.add(
-
                 "hidden-screen"
-
             );
 
         }
@@ -1149,41 +956,38 @@ function showScreen(
     hideMainScreens();
 
 
-    loadingScreen.classList.add(
-
+    loadingScreen?.classList.add(
         "hidden-screen"
-
     );
 
 
-    inspectionUI.classList.add(
-
+    inspectionUI?.classList.add(
         "hidden-interface"
-
     );
+
+
+    if (!target) {
+        return;
+    }
 
 
     target.classList.remove(
-
         "hidden-screen"
-
     );
 
 
     target.classList.add(
-
         "screen-visible"
-
     );
 
 }
 
 
 /* =========================================================
-   MENU EVENTS
+   MENU
 ========================================================= */
 
-btnEnter.addEventListener(
+btnEnter?.addEventListener(
 
     "click",
 
@@ -1194,9 +998,7 @@ btnEnter.addEventListener(
 
 
         showScreen(
-
             briefingScreen
-
         );
 
     }
@@ -1204,7 +1006,7 @@ btnEnter.addEventListener(
 );
 
 
-btnAbout.addEventListener(
+btnAbout?.addEventListener(
 
     "click",
 
@@ -1215,9 +1017,7 @@ btnAbout.addEventListener(
 
 
         showScreen(
-
             aboutScreen
-
         );
 
     }
@@ -1225,7 +1025,7 @@ btnAbout.addEventListener(
 );
 
 
-btnBackBriefing.addEventListener(
+btnBackBriefing?.addEventListener(
 
     "click",
 
@@ -1236,9 +1036,7 @@ btnBackBriefing.addEventListener(
 
 
         showScreen(
-
             mainMenu
-
         );
 
     }
@@ -1246,7 +1044,7 @@ btnBackBriefing.addEventListener(
 );
 
 
-btnBackAbout.addEventListener(
+btnBackAbout?.addEventListener(
 
     "click",
 
@@ -1257,9 +1055,7 @@ btnBackAbout.addEventListener(
 
 
         showScreen(
-
             mainMenu
-
         );
 
     }
@@ -1267,7 +1063,7 @@ btnBackAbout.addEventListener(
 );
 
 
-btnSurvive.addEventListener(
+btnSurvive?.addEventListener(
 
     "click",
 
@@ -1284,44 +1080,42 @@ btnSurvive.addEventListener(
    POINTER LOCK
 ========================================================= */
 
-cameraManager
-    .setPointerLockChangeHandler(
+cameraManager.setPointerLockChangeHandler(
 
-        locked => {
+    locked => {
 
-            pauseMenu
-                .setCaptureHintVisible(
+        pauseMenu.setCaptureHintVisible(
 
-                    currentState ===
-                    GAME_STATE.PLAYING
+            currentState ===
+            GAME_STATE.PLAYING
 
-                    &&
+            &&
 
-                    !locked
+            !locked
 
-                );
+        );
 
 
-            if (
-                !locked
+        if (
+            !locked
 
-                &&
+            &&
 
-                currentState ===
-                GAME_STATE.PLAYING
-            ) {
+            currentState ===
+            GAME_STATE.PLAYING
+        ) {
 
-                pauseGame();
-
-            }
+            pauseGame();
 
         }
 
-    );
+    }
+
+);
 
 
 /* =========================================================
-   ESC FALLBACK
+   ESC
 ========================================================= */
 
 window.addEventListener(
@@ -1334,9 +1128,7 @@ window.addEventListener(
             event.code !==
             "Escape"
         ) {
-
             return;
-
         }
 
 
@@ -1346,8 +1138,7 @@ window.addEventListener(
 
             &&
 
-            !cameraManager
-                .isInputCaptured()
+            !cameraManager.isInputCaptured()
         ) {
 
             pauseGame();
@@ -1369,9 +1160,7 @@ function pauseGame() {
         currentState !==
         GAME_STATE.PLAYING
     ) {
-
         return;
-
     }
 
 
@@ -1379,34 +1168,29 @@ function pauseGame() {
         GAME_STATE.PAUSED;
 
 
-    playerController
-        .setEnabled(
-            false
-        );
+    playerController.setEnabled(
+        false
+    );
 
 
-    cameraManager
-        .setPaused(
-            true
-        );
+    cameraManager.setPaused(
+        true
+    );
 
 
-    weaponManager
-        .setPaused(
-            true
-        );
+    weaponManager.setPaused(
+        true
+    );
 
 
-    pauseMenu
-        .setCaptureHintVisible(
-            false
-        );
+    pauseMenu.setCaptureHintVisible(
+        false
+    );
 
 
-    pauseMenu
-        .setVisible(
-            true
-        );
+    pauseMenu.setVisible(
+        true
+    );
 
 }
 
@@ -1421,16 +1205,12 @@ function resumeGame() {
         currentState !==
         GAME_STATE.PAUSED
     ) {
-
         return;
-
     }
 
 
     pauseMenu.setVisible(
-
         false
-
     );
 
 
@@ -1438,32 +1218,160 @@ function resumeGame() {
         GAME_STATE.PLAYING;
 
 
-    playerController
-        .setEnabled(
-            true
-        );
+    playerController.setEnabled(
+        true
+    );
 
 
-    cameraManager
-        .setPaused(
-            false
-        );
+    cameraManager.setPaused(
+        false
+    );
 
 
-    weaponManager
-        .setPaused(
-            false
-        );
+    weaponManager.setPaused(
+        false
+    );
 
 
-    cameraManager
-        .requestPointerLock();
+    cameraManager.requestPointerLock();
 
 }
 
 
 /* =========================================================
-   ENTER ZONE A
+   STATIC ENVIRONMENT OPTIMIZATION
+========================================================= */
+
+function optimizeStaticEnvironment(
+    environment
+) {
+
+    environment.updateMatrixWorld(
+        true
+    );
+
+
+    let meshCount =
+        0;
+
+
+    environment.traverse(
+
+        object => {
+
+            /*
+             * El escenario nunca se mueve.
+             */
+            object.matrixAutoUpdate =
+                false;
+
+
+            if (!object.isMesh) {
+                return;
+            }
+
+
+            meshCount++;
+
+
+            object.castShadow =
+                false;
+
+
+            object.receiveShadow =
+                false;
+
+
+            object.frustumCulled =
+                true;
+
+
+            if (
+                object.geometry
+
+                &&
+
+                !object.geometry.boundingBox
+            ) {
+
+                object.geometry.computeBoundingBox();
+
+            }
+
+
+            if (
+                object.geometry
+
+                &&
+
+                !object.geometry.boundingSphere
+            ) {
+
+                object.geometry.computeBoundingSphere();
+
+            }
+
+
+            const materials =
+
+                Array.isArray(
+                    object.material
+                )
+
+                    ?
+
+                    object.material
+
+                    :
+
+                    [
+                        object.material
+                    ];
+
+
+            for (
+                const material
+                of materials
+            ) {
+
+                if (!material) {
+                    continue;
+                }
+
+
+                /*
+                 * Reduce trabajo extra.
+                 */
+                material.dithering =
+                    false;
+
+
+                material.needsUpdate =
+                    true;
+
+            }
+
+        }
+
+    );
+
+
+    environment.updateMatrixWorld(
+        true
+    );
+
+
+    console.log(
+
+        `[Performance] Static meshes optimized: ${meshCount}`
+
+    );
+
+}
+
+
+/* =========================================================
+   ZONE A
 ========================================================= */
 
 async function enterZoneA() {
@@ -1472,30 +1380,39 @@ async function enterZoneA() {
         GAME_STATE.LOADING;
 
 
-    backgroundEffects.classList.add(
+    /*
+     * Los efectos HTML/CSS del menú ya no son
+     * necesarios durante gameplay.
+     */
+    if (
+        backgroundEffects
+    ) {
 
-        "gameplay-mode"
+        backgroundEffects.classList.add(
+            "gameplay-mode"
+        );
 
-    );
+        backgroundEffects.style.display =
+            "none";
+
+    }
 
 
     hideMainScreens();
 
 
-    loadingScreen.classList.remove(
-
+    loadingScreen?.classList.remove(
         "hidden-screen"
-
     );
 
 
-    loadingProgress.style.width =
-        "0%";
+    setLoading(
 
+        0,
 
-    loadingText.textContent =
+        "Estableciendo conexión con Nova Atlas..."
 
-        "Estableciendo conexión con Nova Atlas...";
+    );
 
 
     try {
@@ -1506,86 +1423,104 @@ async function enterZoneA() {
 
         const zoneA =
 
-            await environmentManager
-                .activateEnvironment(
+            await environmentManager.activateEnvironment(
 
-                    ENVIRONMENTS.ZONE_A,
+                ENVIRONMENTS.ZONE_A,
 
-                    percent => {
+                percent => {
 
-                        const adjusted =
+                    const adjusted =
 
-                            Math.round(
+                        Math.round(
 
-                                percent *
-                                0.40
+                            percent *
+                            0.40
 
-                            );
-
-
-                        loadingProgress
-                            .style
-                            .width =
-
-                            `${adjusted}%`;
+                        );
 
 
-                        loadingText.textContent =
+                    setLoading(
 
-                            `Cargando Zona A · ${adjusted}%`;
+                        adjusted,
 
-                    }
+                        `Cargando Zona A · ${adjusted}%`
 
-                );
+                    );
+
+                }
+
+            );
+
+
+        /* =================================================
+           FREEZE STATIC SCENE
+        ================================================= */
+
+        optimizeStaticEnvironment(
+            zoneA
+        );
+
+
+        /* =================================================
+           CAMERA COLLISION CACHE
+        ================================================= */
+
+        cameraManager.setEnvironment(
+            zoneA
+        );
 
 
         /* =================================================
            PHYSICS
         ================================================= */
 
-        loadingProgress.style.width =
-            "48%";
+        setLoading(
 
+            48,
 
-        loadingText.textContent =
+            "Inicializando sistema físico..."
 
-            "Inicializando sistema físico...";
+        );
 
 
         await physicsManager.init();
 
 
-        loadingProgress.style.width =
-            "57%";
+        /* =================================================
+           RAPIER ENVIRONMENT
+        ================================================= */
+
+        setLoading(
+
+            56,
+
+            "Generando colisiones..."
+
+        );
 
 
-        loadingText.textContent =
-
-            "Generando colisiones de Nova Atlas...";
-
-
-        physicsManager
-            .createEnvironmentColliders(
-
-                zoneA
-
-            );
+        physicsManager.createEnvironmentColliders(
+            zoneA
+        );
 
 
         /* =================================================
-           SPAWN
+           PLAYER SPAWN
         ================================================= */
 
-        loadingProgress.style.width =
-            "64%";
+        setLoading(
+
+            63,
+
+            "Calculando zona segura..."
+
+        );
 
 
         const playerSpawn =
 
             calculateZoneASpawn(
-
                 zoneA
-
             );
 
 
@@ -1593,44 +1528,40 @@ async function enterZoneA() {
            PLAYER
         ================================================= */
 
-        loadingProgress.style.width =
-            "70%";
+        setLoading(
 
+            69,
 
-        loadingText.textContent =
-
-            "Cargando guardia de seguridad...";
-
-
-        await playerController.load(
-
-            playerSpawn
+            "Cargando guardia..."
 
         );
 
 
-        physicsManager
-            .createCharacter(
+        await playerController.load(
+            playerSpawn
+        );
 
-                playerSpawn,
 
-                playerController
-                    .getHeight()
+        physicsManager.createCharacter(
 
-            );
+            playerSpawn,
+
+            playerController.getHeight()
+
+        );
 
 
         /* =================================================
            WEAPON
         ================================================= */
 
-        loadingProgress.style.width =
-            "79%";
+        setLoading(
 
+            77,
 
-        loadingText.textContent =
+            "Equipando arma..."
 
-            "Equipando Sci-fi Handgun...";
+        );
 
 
         await weaponManager.load();
@@ -1640,100 +1571,127 @@ async function enterZoneA() {
            OBJECTS
         ================================================= */
 
-        loadingProgress.style.width =
-            "87%";
+        setLoading(
+
+            84,
+
+            "Desplegando objetos..."
+
+        );
 
 
-        loadingText.textContent =
+        objectManager.createZoneAObjects(
 
-            "Desplegando utilería física...";
+            zoneA,
 
+            playerSpawn
 
-        objectManager
-            .createZoneAObjects(
-
-                zoneA,
-
-                playerSpawn
-
-            );
+        );
 
 
-        weaponManager
-            .setEnvironment(
+        weaponManager.setEnvironment(
+            zoneA
+        );
 
-                zoneA
 
-            );
+        /* =================================================
+           ENEMY
+        ================================================= */
+
+        setLoading(
+
+            90,
+
+            "Analizando actividad biológica..."
+
+        );
+
+
+        await enemyManager.load();
+
+
+        enemyManager.setEnvironment(
+            zoneA
+        );
+
+
+        setLoading(
+
+            95,
+
+            "Actividad hostil detectada..."
+
+        );
+
+
+        enemyManager.spawnTestEnemy(
+            playerSpawn.y
+        );
 
 
         /* =================================================
            ENABLE
         ================================================= */
 
-        playerController
-            .setEnabled(
-                true
-            );
+        playerController.setEnabled(
+            true
+        );
 
 
-        cameraManager
-            .setTarget(
+        cameraManager.setTarget(
 
-                playerController
-                    .getObject(),
+            playerController.getObject(),
 
-                true
+            true
 
-            );
+        );
 
 
         cameraManager.enable();
 
 
-        weaponManager
-            .setEnabled(
-                true
-            );
+        weaponManager.setEnabled(
+            true
+        );
 
 
-        weaponManager
-            .setViewMode(
-                "TPS"
-            );
+        weaponManager.setViewMode(
+            "TPS"
+        );
 
 
-        playerShadowLight.visible =
-            true;
+        cachedCameraMode =
+            "TPS";
 
 
-        /* =================================================
-           READY
-        ================================================= */
-
-        loadingProgress.style.width =
-            "100%";
+        cachedAiming =
+            false;
 
 
-        loadingText.textContent =
-            "Nova Atlas preparada";
+        cachedFirstPerson =
+            false;
+
+
+        setLoading(
+
+            100,
+
+            "Nova Atlas preparada"
+
+        );
 
 
         setTimeout(
 
             () => {
 
-                loadingScreen.classList.add(
-
+                loadingScreen?.classList.add(
                     "hidden-screen"
-
                 );
 
 
-                inspectionUI.classList.remove(
-
+                inspectionUI?.classList.remove(
                     "hidden-interface"
-
                 );
 
 
@@ -1741,31 +1699,29 @@ async function enterZoneA() {
                     GAME_STATE.PLAYING;
 
 
-                pauseMenu
-                    .setCaptureHintVisible(
-                        true
-                    );
+                pauseMenu.setCaptureHintVisible(
+                    true
+                );
 
 
                 showNotification(
 
-                    "SCI-FI HANDGUN · ONLINE"
+                    "ALERTA · ACTIVIDAD BIOLÓGICA DETECTADA"
 
                 );
 
             },
 
-            450
+            350
 
         );
 
 
-        environmentManager
-            .preloadEnvironment(
+        environmentManager.preloadEnvironment(
 
-                ENVIRONMENTS.BOSS_ARENA
+            ENVIRONMENTS.BOSS_ARENA
 
-            );
+        );
 
     }
 
@@ -1782,15 +1738,49 @@ async function enterZoneA() {
         );
 
 
-        loadingText.textContent =
-            "ERROR AL INICIAR ZONA A";
+        setLoading(
+
+            100,
+
+            "ERROR AL INICIAR ZONA A"
+
+        );
 
 
         showNotification(
-
             "ERROR · REVISA F12"
-
         );
+
+    }
+
+}
+
+
+/* =========================================================
+   LOADING
+========================================================= */
+
+function setLoading(
+    percentage,
+    text
+) {
+
+    if (
+        loadingProgress
+    ) {
+
+        loadingProgress.style.width =
+            `${percentage}%`;
+
+    }
+
+
+    if (
+        loadingText
+    ) {
+
+        loadingText.textContent =
+            text;
 
     }
 
@@ -1809,9 +1799,7 @@ function calculateZoneASpawn(
 
         new THREE.Box3()
             .setFromObject(
-
                 environment
-
             );
 
 
@@ -1820,19 +1808,15 @@ function calculateZoneASpawn(
 
 
     box.getSize(
-
         size
-
     );
 
 
     const spawnX =
-
         PLAYER_SPAWN_ZONE_A.x;
 
 
     const spawnZ =
-
         PLAYER_SPAWN_ZONE_A.z;
 
 
@@ -1852,13 +1836,9 @@ function calculateZoneASpawn(
             ),
 
             new THREE.Vector3(
-
                 0,
-
                 -1,
-
                 0
-
             )
 
         );
@@ -1874,14 +1854,14 @@ function calculateZoneASpawn(
 
             if (
                 object.isMesh
+
                 &&
+
                 object.visible
             ) {
 
                 meshes.push(
-
                     object
-
                 );
 
             }
@@ -1891,13 +1871,16 @@ function calculateZoneASpawn(
     );
 
 
+    /*
+     * Este raycast se ejecuta UNA SOLA VEZ.
+     */
     const intersections =
 
         raycaster.intersectObjects(
 
             meshes,
 
-            true
+            false
 
         );
 
@@ -1911,9 +1894,7 @@ function calculateZoneASpawn(
 
             spawnX,
 
-            intersections[0]
-                .point
-                .y
+            intersections[0].point.y
 
             +
 
@@ -1921,8 +1902,7 @@ function calculateZoneASpawn(
 
             +
 
-            PLAYER_SPAWN_ZONE_A
-                .heightOffset,
+            PLAYER_SPAWN_ZONE_A.heightOffset,
 
             spawnZ
 
@@ -1936,9 +1916,7 @@ function calculateZoneASpawn(
         spawnX,
 
         box.min.y +
-
-        size.y *
-        0.55,
+        size.y * 0.55,
 
         spawnZ
 
@@ -1959,14 +1937,17 @@ function showNotification(
     text
 ) {
 
+    if (!notification) {
+        return;
+    }
+
+
     notification.textContent =
         text;
 
 
     notification.classList.add(
-
         "visible"
-
     );
 
 
@@ -1975,9 +1956,7 @@ function showNotification(
     ) {
 
         clearTimeout(
-
             notificationTimeout
-
         );
 
     }
@@ -1990,16 +1969,232 @@ function showNotification(
             () => {
 
                 notification.classList.remove(
-
                     "visible"
-
                 );
 
             },
 
-            3200
+            2800
 
         );
+
+}
+
+
+/* =========================================================
+   FPS COUNTER
+========================================================= */
+
+function updateFPSCounter(
+    deltaTime
+) {
+
+    fpsFrames++;
+
+    fpsTimer +=
+        deltaTime;
+
+
+    if (
+        fpsTimer <
+        PERFORMANCE.fpsCounterInterval
+    ) {
+        return;
+    }
+
+
+    const currentFPS =
+
+        fpsFrames /
+        fpsTimer;
+
+
+    /*
+     * Suavizado para que no parpadee:
+     */
+    displayedFPS =
+
+        displayedFPS *
+        0.60
+
+        +
+
+        currentFPS *
+        0.40;
+
+
+    const fps =
+
+        Math.round(
+            displayedFPS
+        );
+
+
+    fpsCounter.textContent =
+
+        `FPS ${fps}`;
+
+
+    if (
+        fps >=
+        55
+    ) {
+
+        fpsCounter.style.color =
+            "#8effa8";
+
+    }
+
+    else if (
+        fps >=
+        40
+    ) {
+
+        fpsCounter.style.color =
+            "#ffd75e";
+
+    }
+
+    else {
+
+        fpsCounter.style.color =
+            "#ff635e";
+
+    }
+
+
+    fpsTimer =
+        0;
+
+
+    fpsFrames =
+        0;
+
+}
+
+
+/* =========================================================
+   ADAPTIVE RESOLUTION
+========================================================= */
+
+function updateAdaptiveQuality(
+    deltaTime
+) {
+
+    if (
+        !PERFORMANCE.adaptiveResolution
+
+        ||
+
+        currentState !==
+        GAME_STATE.PLAYING
+    ) {
+
+        return;
+
+    }
+
+
+    qualityTimer +=
+        deltaTime;
+
+
+    qualityFrames++;
+
+
+    if (
+        qualityTimer <
+        PERFORMANCE.qualityCheckInterval
+    ) {
+        return;
+    }
+
+
+    const fps =
+
+        qualityFrames /
+        qualityTimer;
+
+
+    let newRatio =
+        currentPixelRatio;
+
+
+    if (
+        fps <
+        PERFORMANCE.lowFPSThreshold
+    ) {
+
+        newRatio =
+
+            Math.max(
+
+                PERFORMANCE.minPixelRatio,
+
+                currentPixelRatio -
+                0.08
+
+            );
+
+    }
+
+    else if (
+        fps >
+        PERFORMANCE.highFPSThreshold
+    ) {
+
+        newRatio =
+
+            Math.min(
+
+                PERFORMANCE.maxPixelRatio,
+
+                currentPixelRatio +
+                0.04
+
+            );
+
+    }
+
+
+    if (
+        Math.abs(
+
+            newRatio -
+            currentPixelRatio
+
+        ) >
+        0.001
+    ) {
+
+        currentPixelRatio =
+            newRatio;
+
+
+        renderer.setPixelRatio(
+            currentPixelRatio
+        );
+
+
+        renderer.setSize(
+
+            window.innerWidth,
+
+            window.innerHeight,
+
+            false
+
+        );
+
+    }
+
+
+    qualityTimer =
+        0;
+
+
+    qualityFrames =
+        0;
 
 }
 
@@ -2008,43 +2203,38 @@ function showNotification(
    RESIZE
 ========================================================= */
 
+function handleResize() {
+
+    camera.aspect =
+
+        window.innerWidth /
+        window.innerHeight;
+
+
+    camera.updateProjectionMatrix();
+
+
+    renderer.setPixelRatio(
+        currentPixelRatio
+    );
+
+
+    renderer.setSize(
+
+        window.innerWidth,
+
+        window.innerHeight
+
+    );
+
+}
+
+
 window.addEventListener(
 
     "resize",
 
-    () => {
-
-        camera.aspect =
-
-            window.innerWidth /
-            window.innerHeight;
-
-
-        camera.updateProjectionMatrix();
-
-
-        renderer.setSize(
-
-            window.innerWidth,
-
-            window.innerHeight
-
-        );
-
-
-        renderer.setPixelRatio(
-
-            Math.min(
-
-                window.devicePixelRatio,
-
-                2
-
-            )
-
-        );
-
-    }
+    handleResize
 
 );
 
@@ -2061,99 +2251,123 @@ function update(
 
 ) {
 
+    /* =====================================================
+       PERFORMANCE MONITOR
+    ====================================================== */
+
+    updateFPSCounter(
+        deltaTime
+    );
+
+
+    updateAdaptiveQuality(
+        deltaTime
+    );
+
+
+    /* =====================================================
+       GAMEPLAY
+    ====================================================== */
+
     if (
         currentState ===
         GAME_STATE.PLAYING
     ) {
 
-        /* =================================================
-           CAMERA DIRECTIONS
-        ================================================= */
-
-        cameraManager
-            .getForwardDirection(
-
-                cameraForward
-
-            );
+        cameraManager.getForwardDirection(
+            cameraForward
+        );
 
 
-        cameraManager
-            .getRightDirection(
-
-                cameraRight
-
-            );
+        cameraManager.getRightDirection(
+            cameraRight
+        );
 
 
-        cameraManager
-            .getAimDirection(
-
-                cameraAimDirection
-
-            );
+        cameraManager.getAimDirection(
+            cameraAimDirection
+        );
 
 
         const cameraMode =
-
-            cameraManager
-                .getMode();
+            cameraManager.getMode();
 
 
-        /* =================================================
-           CHARACTER MODE
-        ================================================= */
-
-        playerController
-            .setFirstPersonMode(
-
-                cameraMode ===
-                "FPS"
-
-            );
+        const aiming =
+            cameraManager.isAiming();
 
 
-        const combatAim =
+        const firstPerson =
 
             cameraMode ===
-            "FPS"
-
-            ||
-
-            cameraManager
-                .isAiming();
-
-
-        playerController
-            .setAimState(
-
-                combatAim,
-
-                cameraAimDirection
-
-            );
-
-
-        weaponManager
-            .setViewMode(
-
-                cameraMode
-
-            );
-
-
-        weaponManager
-            .setAiming(
-
-                cameraManager
-                    .isAiming()
-
-            );
+            "FPS";
 
 
         /* =================================================
-           ANIMATION
+           ONLY UPDATE MODE WHEN IT CHANGES
         ================================================= */
+
+        if (
+            firstPerson !==
+            cachedFirstPerson
+        ) {
+
+            playerController.setFirstPersonMode(
+                firstPerson
+            );
+
+
+            cachedFirstPerson =
+                firstPerson;
+
+        }
+
+
+        if (
+            cameraMode !==
+            cachedCameraMode
+        ) {
+
+            weaponManager.setViewMode(
+                cameraMode
+            );
+
+
+            cachedCameraMode =
+                cameraMode;
+
+        }
+
+
+        if (
+            aiming !==
+            cachedAiming
+        ) {
+
+            weaponManager.setAiming(
+                aiming
+            );
+
+
+            cachedAiming =
+                aiming;
+
+        }
+
+
+        /* =================================================
+           PLAYER
+        ================================================= */
+
+        playerController.setAimState(
+
+            firstPerson ||
+            aiming,
+
+            cameraAimDirection
+
+        );
+
 
         playerController.update(
 
@@ -2167,232 +2381,166 @@ function update(
 
 
         /* =================================================
-           PHYSICS
+           PLAYER PHYSICS
         ================================================= */
 
-        physicsManager
-            .moveCharacter(
+        physicsManager.moveCharacter(
 
-                playerController
-                    .getDesiredMovement(),
-
-                deltaTime
-
-            );
-
-
-        physicsManager.step(
+            playerController.getDesiredMovement(),
 
             deltaTime
 
         );
 
 
-        physicsManager
-            .syncCharacter(
+        physicsManager.step(
+            deltaTime
+        );
 
-                playerController
-                    .getObject()
 
-            );
+        physicsManager.syncCharacter(
 
+            playerController.getObject()
+
+        );
+
+
+        /* =================================================
+           DYNAMIC OBJECTS
+        ================================================= */
 
         objectManager.update();
 
 
-        /* =================================================
-           SKELETON MATRICES
-        ================================================= */
-
         playerController
             .getObject()
             .updateMatrixWorld(
-
                 true
-
             );
-
-
-        /* =================================================
-           WEAPON
-
-           Primero sincronizamos el arma con RightHand.
-
-           De este modo la cámara ADS tiene un punto
-           de mira actualizado.
-        ================================================= */
-
-        weaponManager.update(
-
-            deltaTime
-
-        );
 
 
         /* =================================================
            CAMERA
-
-           Después usamos el rear sight actualizado.
         ================================================= */
 
         cameraManager.update(
-
             deltaTime
-
         );
 
 
         /* =================================================
-           LIGHTING
+           ENEMY
+        ================================================= */
+
+        enemyManager.update(
+            deltaTime
+        );
+
+
+        /* =================================================
+           WEAPON
+        ================================================= */
+
+        weaponManager.update(
+            deltaTime
+        );
+
+
+        /* =================================================
+           PLAYER LIGHT
         ================================================= */
 
         const playerPosition =
 
-            playerController
-                .getPosition();
+            playerController.getPosition();
 
 
-        playerFillLight.position.set(
+        playerLight.position.set(
 
             playerPosition.x,
 
             playerPosition.y +
-            2.1,
+            1.8,
 
             playerPosition.z +
-            1.2
+            0.7
 
         );
-
-
-        playerShadowLight.position.set(
-
-            playerPosition.x +
-            2.2,
-
-            playerPosition.y +
-            2.8,
-
-            playerPosition.z +
-            1.8
-
-        );
-
-
-        playerShadowLight
-            .target
-            .position
-            .set(
-
-                playerPosition.x,
-
-                playerPosition.y +
-                0.05,
-
-                playerPosition.z
-
-            );
-
-
-        playerShadowLight
-            .target
-            .updateMatrixWorld(
-
-                true
-
-            );
 
 
         /* =================================================
-           DEBUG
+           DEBUG HUD - ONLY 5 TIMES / SEC
         ================================================= */
 
-        spawnDebug.textContent =
+        debugTimer +=
+            deltaTime;
 
-            `${cameraMode}`
 
-            +
+        if (
+            spawnDebug
 
-            (
-                cameraManager
-                    .isAiming()
+            &&
 
-                    ?
+            debugTimer >=
+            PERFORMANCE.debugInterval
+        ) {
 
-                    " · ADS"
+            debugTimer =
+                0;
 
-                    :
 
-                    ""
-            )
+            spawnDebug.textContent =
 
-            +
+                `${cameraMode}`
 
-            (
-                physicsManager
-                    .isGrounded()
+                +
 
-                    ?
+                (
+                    aiming
+                        ? " · ADS"
+                        : ""
+                )
 
-                    " · GROUNDED"
+                +
 
-                    :
+                (
+                    physicsManager.isGrounded()
+                        ? " · GROUNDED"
+                        : " · AIRBORNE"
+                )
 
-                    " · AIRBORNE"
-            );
+                +
+
+                ` · HOSTILES ${enemyManager.getAliveCount()}`;
+
+        }
 
     }
 
 
     /* =====================================================
-       BACKGROUND
+       CHEAP BACKGROUND ANIMATION
     ====================================================== */
 
     stars.rotation.y +=
 
         deltaTime *
-        0.0007;
+        0.00030;
 
 
-    distantStars.rotation.y -=
+    emergencyLight.intensity =
 
-        deltaTime *
-        0.00035;
-
-
-    emergencyLightA.intensity =
-
-        78
+        40
 
         +
 
         Math.sin(
 
             elapsedTime *
-            1.65
+            1.35
 
-        )
-
-        *
-        12;
-
-
-    emergencyLightB.intensity =
-
-        58
-
-        +
-
-        Math.sin(
-
-            elapsedTime *
-            1.2 +
-            1
-
-        )
-
-        *
-        10;
+        ) *
+        4;
 
 }
 
@@ -2404,9 +2552,7 @@ function update(
 function animate() {
 
     requestAnimationFrame(
-
         animate
-
     );
 
 
@@ -2416,7 +2562,7 @@ function animate() {
 
             clock.getDelta(),
 
-            0.1
+            0.05
 
         );
 
@@ -2444,41 +2590,13 @@ function animate() {
 animate();
 
 
-/* =========================================================
-   CONSOLE
-========================================================= */
-
 console.log(
-
     "%cNOVA CATALYST",
-
     "color:#d72924;font-size:24px;font-weight:bold;"
-
 );
 
 
 console.log(
-
-    "%cPre-Alpha v.01 · Build v0.6.7",
-
-    "color:#b8c0c2;"
-
-);
-
-
-console.log(
-
-    "%cRightHand Weapon Mount · ONLINE",
-
-    "color:#55ff99;"
-
-);
-
-
-console.log(
-
-    "%cPhysical Iron Sight ADS · ONLINE",
-
-    "color:#55ff99;"
-
+    "%cPerformance Build v0.8.4",
+    "color:#8effa8;"
 );
