@@ -2,57 +2,52 @@
    NOVA CATALYST
    Player Controller
 
-   Build v0.4
-   Dynamic Layered Animation System
-========================================================= */
+   Build v0.6.7
 
+   - Full body locomotion
+   - RightHand detection
+   - Stable combat pose
+   - Shoot while moving
+   - Reload while moving
+   - TPS / FPS
+========================================================= */
 
 import * as THREE from "three";
 
-
 import {
-
     FBXLoader
-
 } from "three/addons/loaders/FBXLoader.js";
 
 
-
 /* =========================================================
-   CONFIGURACIÓN
+   CONFIG
 ========================================================= */
 
 const PLAYER_CONFIG = {
 
-    targetHeight:
-        1.8,
+    targetHeight: 1.8,
 
-    walkSpeed:
-        2.6,
+    walkSpeed: 2.6,
 
-    runSpeed:
-        5.2,
+    runSpeed: 5.2,
 
-    rotationSpeed:
-        10,
+    rotationSpeed: 14,
 
-    modelRotationOffset:
-        0
+    modelRotationOffset: 0,
+
+    combatPoseFraction: 0.18
 
 };
 
 
-
 /* =========================================================
-   RUTAS
+   PATHS
 ========================================================= */
 
 const PLAYER_PATHS = {
 
     model:
-
         "./assets/models/player/player.fbx",
-
 
     animations: {
 
@@ -82,17 +77,9 @@ const PLAYER_PATHS = {
 };
 
 
-
-/* =========================================================
-   PLAYER CONTROLLER
-========================================================= */
-
 export class PlayerController {
 
-
-    constructor(
-        scene
-    ) {
+    constructor(scene) {
 
         this.scene =
             scene;
@@ -100,7 +87,6 @@ export class PlayerController {
 
         this.loader =
             new FBXLoader();
-
 
 
         /* =================================================
@@ -120,36 +106,39 @@ export class PlayerController {
         );
 
 
-
-        /* =================================================
-           MODELO
-        ================================================= */
-
         this.model =
             null;
 
 
+        /* =================================================
+           BONES
+        ================================================= */
+
+        this.rightHandBone =
+            null;
+
+
+        this.headBone =
+            null;
+
 
         /* =================================================
-           MIXER
+           ANIMATION
         ================================================= */
 
         this.mixer =
             null;
 
 
-
-        /* =================================================
-           LOCOMOCIÓN FULL BODY
-
-           Se utiliza normalmente:
-
-           Idle
-           Walk
-           Run
-        ================================================= */
-
         this.fullLocomotionActions =
+            new Map();
+
+
+        this.lowerLocomotionActions =
+            new Map();
+
+
+        this.upperActions =
             new Map();
 
 
@@ -157,29 +146,8 @@ export class PlayerController {
             null;
 
 
-
-        /* =================================================
-           LOCOMOCIÓN LOWER BODY
-
-           Solo se utiliza mientras Shoot,
-           Reload o Hit están activos.
-        ================================================= */
-
-        this.lowerLocomotionActions =
-            new Map();
-
-
         this.currentLowerAction =
             null;
-
-
-
-        /* =================================================
-           ACCIONES UPPER BODY
-        ================================================= */
-
-        this.upperActions =
-            new Map();
 
 
         this.currentUpperAction =
@@ -190,15 +158,6 @@ export class PlayerController {
             null;
 
 
-        this.upperBusy =
-            false;
-
-
-
-        /* =================================================
-           LOCOMOCIÓN ACTUAL
-        ================================================= */
-
         this.currentLocomotion =
             "Idle";
 
@@ -207,18 +166,28 @@ export class PlayerController {
             "full";
 
 
+        this.upperBusy =
+            false;
 
-        /* =================================================
-           MUERTE
-        ================================================= */
 
         this.deathAction =
             null;
 
 
+        /* =================================================
+           COMBAT POSE
+        ================================================= */
+
+        this.combatPoseAction =
+            null;
+
+
+        this.combatPoseActive =
+            false;
+
 
         /* =================================================
-           ESTADO
+           STATE
         ================================================= */
 
         this.enabled =
@@ -233,6 +202,22 @@ export class PlayerController {
             false;
 
 
+        this.firstPersonMode =
+            false;
+
+
+        this.aiming =
+            false;
+
+
+        this.aimDirection =
+
+            new THREE.Vector3(
+                0,
+                0,
+                -1
+            );
+
 
         /* =================================================
            INPUT
@@ -240,27 +225,21 @@ export class PlayerController {
 
         this.keys = {
 
-            forward:
-                false,
+            forward: false,
 
-            backward:
-                false,
+            backward: false,
 
-            left:
-                false,
+            left: false,
 
-            right:
-                false,
+            right: false,
 
-            run:
-                false
+            run: false
 
         };
 
 
-
         /* =================================================
-           MOVIMIENTO
+           MOVEMENT
         ================================================= */
 
         this.moveDirection =
@@ -284,18 +263,13 @@ export class PlayerController {
 
 
         this.rotationEuler =
+
             new THREE.Euler(
-
                 0,
-
                 0,
-
                 0,
-
                 "YXZ"
-
             );
-
 
 
         this.setupInput();
@@ -303,14 +277,11 @@ export class PlayerController {
     }
 
 
-
     /* =====================================================
-       CARGADOR FBX
+       LOAD FBX
     ====================================================== */
 
-    loadFBX(
-        path
-    ) {
+    loadFBX(path) {
 
         return new Promise(
 
@@ -338,9 +309,8 @@ export class PlayerController {
     }
 
 
-
     /* =====================================================
-       CARGAR JUGADOR
+       LOAD PLAYER
     ====================================================== */
 
     async load(
@@ -365,47 +335,40 @@ export class PlayerController {
             "Player_Visual";
 
 
-
-        /* =================================================
-           SOMBRAS
-
-           También funciona con SkinnedMesh.
-        ================================================= */
-
         this.model.traverse(
 
             object => {
 
                 if (
-                    object.isMesh
+                    !object.isMesh
                 ) {
 
-                    object.castShadow =
-                        true;
+                    return;
+
+                }
 
 
-                    object.receiveShadow =
-                        true;
+                object.castShadow =
+                    true;
 
 
-                    /*
-                     * Evita problemas ocasionales
-                     * con bounds de modelos animados.
-                     */
-
-                    object.frustumCulled =
-                        false;
+                object.receiveShadow =
+                    true;
 
 
-                    if (
-                        object.material
-                    ) {
+                object.frustumCulled =
+                    false;
 
-                        const materials =
 
-                            Array.isArray(
-                                object.material
-                            )
+                if (
+                    object.material
+                ) {
+
+                    const materials =
+
+                        Array.isArray(
+                            object.material
+                        )
 
                             ?
 
@@ -418,9 +381,13 @@ export class PlayerController {
                             ];
 
 
-                        for (
-                            const material
-                            of materials
+                    for (
+                        const material
+                        of materials
+                    ) {
+
+                        if (
+                            material
                         ) {
 
                             material.needsUpdate =
@@ -437,13 +404,7 @@ export class PlayerController {
         );
 
 
-
-        /* =================================================
-           ESCALA
-        ================================================= */
-
         this.normalizeModel();
-
 
 
         this.model.rotation.y =
@@ -452,16 +413,10 @@ export class PlayerController {
                 .modelRotationOffset;
 
 
-
         this.root.add(
             this.model
         );
 
-
-
-        /* =================================================
-           SPAWN
-        ================================================= */
 
         this.root.position.copy(
 
@@ -470,10 +425,8 @@ export class PlayerController {
         );
 
 
+        this.findImportantBones();
 
-        /* =================================================
-           MIXER
-        ================================================= */
 
         this.mixer =
 
@@ -484,18 +437,8 @@ export class PlayerController {
             );
 
 
-
-        /* =================================================
-           ANIMACIONES
-        ================================================= */
-
         await this.loadAnimations();
 
-
-
-        /* =================================================
-           IDLE COMPLETO INICIAL
-        ================================================= */
 
         this.playFullLocomotion(
 
@@ -506,21 +449,13 @@ export class PlayerController {
         );
 
 
-
         this.isLoaded =
             true;
 
 
-
         console.log(
-            "[Player] Jugador listo."
+            "[Player] ONLINE"
         );
-
-
-        console.log(
-            "[Player] Locomoción dinámica por capas ONLINE."
-        );
-
 
 
         return this.root;
@@ -528,12 +463,18 @@ export class PlayerController {
     }
 
 
-
     /* =====================================================
-       NORMALIZAR MODELO
+       NORMALIZE MODEL
     ====================================================== */
 
     normalizeModel() {
+
+        this.model.position.set(
+            0,
+            0,
+            0
+        );
+
 
         this.model.scale.set(
             1,
@@ -547,11 +488,13 @@ export class PlayerController {
         );
 
 
-        const box =
+        let box =
 
             new THREE.Box3()
                 .setFromObject(
+
                     this.model
+
                 );
 
 
@@ -567,11 +510,6 @@ export class PlayerController {
         if (
             size.y <= 0
         ) {
-
-            console.warn(
-                "[Player] Altura inválida."
-            );
-
 
             return;
 
@@ -596,38 +534,266 @@ export class PlayerController {
         );
 
 
-        const scaledBox =
+        box =
 
             new THREE.Box3()
                 .setFromObject(
+
                     this.model
+
                 );
 
 
         this.model.position.y -=
 
-            scaledBox.min.y;
+            box.min.y;
 
 
         this.model.updateMatrixWorld(
             true
         );
 
+    }
+
+
+    /* =====================================================
+       BONE NAME NORMALIZATION
+    ====================================================== */
+
+    normalizeBoneName(
+        name
+    ) {
+
+        return name
+            .toLowerCase()
+            .replace(
+                /[^a-z0-9]/g,
+                ""
+            );
+
+    }
+
+
+    /* =====================================================
+       FIND IMPORTANT BONES
+
+       Importante:
+       RightHand se busca explícitamente.
+
+       No utilizamos una coincidencia ambigua que pueda
+       terminar seleccionando LeftHand.
+    ====================================================== */
+
+    findImportantBones() {
+
+        const rightHandCandidates =
+            [];
+
+
+        const headCandidates =
+            [];
+
+
+        this.model.traverse(
+
+            object => {
+
+                if (
+                    !object.isBone
+                ) {
+
+                    return;
+
+                }
+
+
+                const name =
+
+                    this.normalizeBoneName(
+
+                        object.name
+
+                    );
+
+
+                /* =========================================
+                   RIGHT HAND
+                ========================================= */
+
+                if (
+                    !name.includes(
+                        "left"
+                    )
+                    &&
+                    (
+                        name.endsWith(
+                            "righthand"
+                        )
+                        ||
+                        name.includes(
+                            "righthand"
+                        )
+                        ||
+                        name.endsWith(
+                            "handr"
+                        )
+                    )
+                ) {
+
+                    rightHandCandidates.push(
+
+                        object
+
+                    );
+
+                }
+
+
+                /* =========================================
+                   HEAD
+                ========================================= */
+
+                if (
+                    name.endsWith(
+                        "head"
+                    )
+                    ||
+                    name.includes(
+                        "head"
+                    )
+                ) {
+
+                    headCandidates.push(
+
+                        object
+
+                    );
+
+                }
+
+            }
+
+        );
+
+
+        /* =================================================
+           PREFER MIXAMO RIGHT HAND
+        ================================================= */
+
+        this.rightHandBone =
+
+            rightHandCandidates.find(
+
+                bone => {
+
+                    const name =
+
+                        this.normalizeBoneName(
+
+                            bone.name
+
+                        );
+
+
+                    return (
+
+                        name ===
+                        "mixamorigrighthand"
+
+                        ||
+
+                        name.endsWith(
+                            "righthand"
+                        )
+
+                    );
+
+                }
+
+            )
+
+            ||
+
+            rightHandCandidates[0]
+
+            ||
+
+            null;
+
+
+        /* =================================================
+           HEAD
+        ================================================= */
+
+        this.headBone =
+
+            headCandidates.find(
+
+                bone => {
+
+                    const name =
+
+                        this.normalizeBoneName(
+
+                            bone.name
+
+                        );
+
+
+                    return (
+
+                        name ===
+                        "mixamorighead"
+
+                        ||
+
+                        name.endsWith(
+                            "head"
+                        )
+
+                    );
+
+                }
+
+            )
+
+            ||
+
+            headCandidates[0]
+
+            ||
+
+            null;
+
 
         console.log(
 
-            "[Player] Altura normalizada:",
+            "[Player] RightHand:",
 
-            PLAYER_CONFIG.targetHeight
+            this.rightHandBone
+                ?.name
+                ??
+                "NO ENCONTRADA"
+
+        );
+
+
+        console.log(
+
+            "[Player] Head:",
+
+            this.headBone
+                ?.name
+                ??
+                "NO ENCONTRADA"
 
         );
 
     }
 
 
-
     /* =====================================================
-       ELIMINAR ROOT MOTION
+       ROOT MOTION
     ====================================================== */
 
     removeRootMotion(
@@ -638,38 +804,35 @@ export class PlayerController {
 
             track => {
 
-                const trackName =
+                const name =
 
                     track.name
                         .toLowerCase();
 
 
-                const isPositionTrack =
+                const isPosition =
 
-                    trackName.endsWith(
+                    name.endsWith(
                         ".position"
                     );
 
 
-                const isRootBone =
+                const isRoot =
 
-                    trackName.includes(
+                    name.includes(
                         "hips"
                     )
 
                     ||
 
-                    trackName.includes(
+                    name.includes(
                         "root"
                     );
 
 
                 if (
-
-                    !isPositionTrack ||
-
-                    !isRootBone
-
+                    !isPosition ||
+                    !isRoot
                 ) {
 
                     return;
@@ -690,35 +853,26 @@ export class PlayerController {
                 }
 
 
-                const initialX =
+                const firstX =
                     values[0];
 
 
-                const initialZ =
+                const firstZ =
                     values[2];
 
 
                 for (
-
                     let i = 0;
-
                     i < values.length;
-
                     i += 3
-
                 ) {
 
                     values[i] =
-                        initialX;
-
-
-                    /*
-                     * Y permanece intacta.
-                     */
+                        firstX;
 
 
                     values[i + 2] =
-                        initialZ;
+                        firstZ;
 
                 }
 
@@ -735,9 +889,8 @@ export class PlayerController {
     }
 
 
-
     /* =====================================================
-       HUESOS DEL TORSO
+       TRACK FILTERS
     ====================================================== */
 
     isUpperBodyTrack(
@@ -797,11 +950,6 @@ export class PlayerController {
     }
 
 
-
-    /* =====================================================
-       HUESOS INFERIORES
-    ====================================================== */
-
     isLowerBodyTrack(
         trackName
     ) {
@@ -859,9 +1007,8 @@ export class PlayerController {
     }
 
 
-
     /* =====================================================
-       CREAR CLIP FILTRADO
+       FILTERED CLIP
     ====================================================== */
 
     createFilteredClip(
@@ -870,7 +1017,7 @@ export class PlayerController {
 
         filterFunction,
 
-        newName
+        clipName
 
     ) {
 
@@ -895,7 +1042,6 @@ export class PlayerController {
                 .map(
 
                     track =>
-
                         track.clone()
 
                 );
@@ -904,13 +1050,6 @@ export class PlayerController {
         if (
             tracks.length === 0
         ) {
-
-            console.warn(
-
-                `[Player] ${newName}: 0 tracks encontrados.`
-
-            );
-
 
             return null;
 
@@ -921,7 +1060,7 @@ export class PlayerController {
 
             new THREE.AnimationClip(
 
-                newName,
+                clipName,
 
                 sourceClip.duration,
 
@@ -938,117 +1077,261 @@ export class PlayerController {
     }
 
 
-
     /* =====================================================
-       CARGAR ANIMACIONES
+       STATIC COMBAT POSE
+
+       Creamos un frame realmente estático a partir
+       de Shoot. Esto evita vibraciones del torso al
+       mantener RMB.
     ====================================================== */
 
-    async loadAnimations() {
+    createStaticPoseClip(
 
-        const entries =
+        sourceClip,
 
-            Object.entries(
+        fraction,
 
-                PLAYER_PATHS.animations
+        clipName
+
+    ) {
+
+        const sampleTime =
+
+            THREE.MathUtils.clamp(
+
+                sourceClip.duration *
+                fraction,
+
+                0,
+
+                Math.max(
+
+                    0,
+
+                    sourceClip.duration -
+                    0.001
+
+                )
 
             );
 
 
-        for (
+        const tracks =
+            [];
 
+
+        for (
+            const sourceTrack
+            of sourceClip.tracks
+        ) {
+
+            if (
+                !this.isUpperBodyTrack(
+
+                    sourceTrack.name
+
+                )
+            ) {
+
+                continue;
+
+            }
+
+
+            const valueSize =
+
+                sourceTrack
+                    .getValueSize();
+
+
+            const result =
+
+                new Float32Array(
+                    valueSize
+                );
+
+
+            const interpolant =
+
+                sourceTrack
+                    .createInterpolant(
+
+                        result
+
+                    );
+
+
+            interpolant.evaluate(
+
+                sampleTime
+
+            );
+
+
+            const values =
+
+                new Float32Array(
+
+                    valueSize *
+                    2
+
+                );
+
+
+            for (
+                let i = 0;
+                i < valueSize;
+                i++
+            ) {
+
+                values[i] =
+                    result[i];
+
+
+                values[
+                    i +
+                    valueSize
+                ] =
+                    result[i];
+
+            }
+
+
+            const TrackClass =
+
+                sourceTrack
+                    .constructor;
+
+
+            const staticTrack =
+
+                new TrackClass(
+
+                    sourceTrack.name,
+
+                    [
+                        0,
+                        1
+                    ],
+
+                    values
+
+                );
+
+
+            tracks.push(
+
+                staticTrack
+
+            );
+
+        }
+
+
+        if (
+            tracks.length === 0
+        ) {
+
+            return null;
+
+        }
+
+
+        return new THREE.AnimationClip(
+
+            clipName,
+
+            1,
+
+            tracks
+
+        );
+
+    }
+
+
+    /* =====================================================
+       LOAD ANIMATIONS
+    ====================================================== */
+
+    async loadAnimations() {
+
+        for (
             const [
                 name,
                 path
             ]
+            of Object.entries(
 
-            of entries
+                PLAYER_PATHS.animations
 
+            )
         ) {
 
             try {
 
-                const animationFBX =
+                const fbx =
 
                     await this.loadFBX(
+
                         path
+
                     );
 
 
                 if (
-
-                    !animationFBX.animations ||
-
-                    animationFBX.animations.length === 0
-
+                    !fbx.animations ||
+                    fbx.animations.length === 0
                 ) {
-
-                    console.warn(
-
-                        `[Player] ${name} sin animación.`
-
-                    );
-
 
                     continue;
 
                 }
 
 
-                let originalClip =
+                let clip =
 
-                    animationFBX
-                        .animations[0];
+                    fbx.animations[0]
+                        .clone();
 
 
-                originalClip =
+                clip =
 
                     this.removeRootMotion(
 
-                        originalClip
+                        clip
 
                     );
 
 
-                /* =================================================
+                /* =========================================
                    IDLE / WALK / RUN
-
-                   Creamos DOS versiones:
-
-                   1. Full Body
-                   2. Lower Body
-                ================================================= */
+                ========================================= */
 
                 if (
-
-                    name === "Idle" ||
-
-                    name === "Walk" ||
-
+                    name === "Idle"
+                    ||
+                    name === "Walk"
+                    ||
                     name === "Run"
-
                 ) {
 
-                    /* =============================================
-                       FULL BODY
-                    ============================================= */
-
                     const fullClip =
-
-                        originalClip.clone();
+                        clip.clone();
 
 
                     fullClip.name =
-
                         `${name}_Full`;
 
 
                     const fullAction =
 
-                        this.mixer.clipAction(
+                        this.mixer
+                            .clipAction(
 
-                            fullClip
+                                fullClip
 
-                        );
+                            );
 
 
                     fullAction.setLoop(
@@ -1060,10 +1343,6 @@ export class PlayerController {
                     );
 
 
-                    fullAction.clampWhenFinished =
-                        false;
-
-
                     this.fullLocomotionActions.set(
 
                         name,
@@ -1073,16 +1352,11 @@ export class PlayerController {
                     );
 
 
-
-                    /* =============================================
-                       LOWER BODY
-                    ============================================= */
-
                     const lowerClip =
 
                         this.createFilteredClip(
 
-                            originalClip,
+                            clip,
 
                             this.isLowerBodyTrack,
 
@@ -1097,11 +1371,12 @@ export class PlayerController {
 
                         const lowerAction =
 
-                            this.mixer.clipAction(
+                            this.mixer
+                                .clipAction(
 
-                                lowerClip
+                                    lowerClip
 
-                            );
+                                );
 
 
                         lowerAction.setLoop(
@@ -1111,10 +1386,6 @@ export class PlayerController {
                             Infinity
 
                         );
-
-
-                        lowerAction.clampWhenFinished =
-                            false;
 
 
                         this.lowerLocomotionActions.set(
@@ -1130,28 +1401,23 @@ export class PlayerController {
                 }
 
 
-
-                /* =================================================
-                   SHOOT / RELOAD / HIT
-
-                   Solo torso.
-                ================================================= */
+                /* =========================================
+                   UPPER BODY
+                ========================================= */
 
                 else if (
-
-                    name === "Shoot" ||
-
-                    name === "Reload" ||
-
+                    name === "Shoot"
+                    ||
+                    name === "Reload"
+                    ||
                     name === "Hit"
-
                 ) {
 
                     const upperClip =
 
                         this.createFilteredClip(
 
-                            originalClip,
+                            clip,
 
                             this.isUpperBodyTrack,
 
@@ -1161,67 +1427,115 @@ export class PlayerController {
 
 
                     if (
-                        !upperClip
+                        upperClip
                     ) {
 
-                        continue;
+                        const action =
 
-                    }
+                            this.mixer
+                                .clipAction(
+
+                                    upperClip
+
+                                );
 
 
-                    const action =
+                        action.setLoop(
 
-                        this.mixer.clipAction(
+                            THREE.LoopOnce,
 
-                            upperClip
+                            1
 
                         );
 
 
-                    action.setLoop(
-
-                        THREE.LoopOnce,
-
-                        1
-
-                    );
+                        action.clampWhenFinished =
+                            true;
 
 
-                    action.clampWhenFinished =
-                        true;
+                        this.upperActions.set(
+
+                            name,
+
+                            action
+
+                        );
+
+                    }
 
 
-                    this.upperActions.set(
+                    /* =====================================
+                       STATIC AIM POSE FROM SHOOT
+                    ===================================== */
 
-                        name,
+                    if (
+                        name === "Shoot"
+                    ) {
 
-                        action
+                        const staticPose =
 
-                    );
+                            this.createStaticPoseClip(
+
+                                clip,
+
+                                PLAYER_CONFIG
+                                    .combatPoseFraction,
+
+                                "CombatPose_Static"
+
+                            );
+
+
+                        if (
+                            staticPose
+                        ) {
+
+                            this.combatPoseAction =
+
+                                this.mixer
+                                    .clipAction(
+
+                                        staticPose
+
+                                    );
+
+
+                            this.combatPoseAction
+                                .setLoop(
+
+                                    THREE.LoopRepeat,
+
+                                    Infinity
+
+                                );
+
+                        }
+
+                    }
 
                 }
 
 
-
-                /* =================================================
-                   DEATH = FULL BODY
-                ================================================= */
+                /* =========================================
+                   DEATH
+                ========================================= */
 
                 else if (
                     name === "Death"
                 ) {
 
-                    originalClip.name =
+                    clip.name =
                         "Death_Full";
 
 
                     this.deathAction =
 
-                        this.mixer.clipAction(
+                        this.mixer
+                            .clipAction(
 
-                            originalClip
+                                clip
 
-                        );
+                            );
 
 
                     this.deathAction.setLoop(
@@ -1233,17 +1547,11 @@ export class PlayerController {
                     );
 
 
-                    this.deathAction.clampWhenFinished =
+                    this.deathAction
+                        .clampWhenFinished =
                         true;
 
                 }
-
-
-                console.log(
-
-                    `[Player] ${name} procesada.`
-
-                );
 
             }
 
@@ -1253,7 +1561,7 @@ export class PlayerController {
 
                 console.error(
 
-                    `[Player] Error cargando ${name}:`,
+                    `[Player] ${name}:`,
 
                     error
 
@@ -1264,11 +1572,6 @@ export class PlayerController {
         }
 
 
-
-        /* =================================================
-           FINALIZACIÓN DE SHOOT / RELOAD / HIT
-        ================================================= */
-
         this.mixer.addEventListener(
 
             "finished",
@@ -1276,12 +1579,10 @@ export class PlayerController {
             event => {
 
                 if (
-
-                    this.deathAction &&
-
+                    this.deathAction
+                    &&
                     event.action ===
                     this.deathAction
-
                 ) {
 
                     return;
@@ -1290,12 +1591,10 @@ export class PlayerController {
 
 
                 if (
-
-                    this.upperBusy &&
-
+                    this.upperBusy
+                    &&
                     event.action ===
                     this.currentUpperAction
-
                 ) {
 
                     this.finishUpperAction();
@@ -1309,11 +1608,95 @@ export class PlayerController {
     }
 
 
+    /* =====================================================
+       COMBAT
+    ====================================================== */
+
+    isCombatPose() {
+
+        return (
+
+            this.firstPersonMode
+
+            ||
+
+            this.aiming
+
+        );
+
+    }
+
+
+    playCombatPose() {
+
+        if (
+            !this.combatPoseAction
+            ||
+            this.combatPoseActive
+            ||
+            this.upperBusy
+        ) {
+
+            return;
+
+        }
+
+
+        this.combatPoseAction.reset();
+
+
+        this.combatPoseAction.enabled =
+            true;
+
+
+        this.combatPoseAction
+            .setEffectiveWeight(
+                1
+            );
+
+
+        this.combatPoseAction
+            .fadeIn(
+                0.10
+            );
+
+
+        this.combatPoseAction.play();
+
+
+        this.combatPoseActive =
+            true;
+
+    }
+
+
+    stopCombatPose() {
+
+        if (
+            !this.combatPoseAction
+            ||
+            !this.combatPoseActive
+        ) {
+
+            return;
+
+        }
+
+
+        this.combatPoseAction
+            .fadeOut(
+                0.10
+            );
+
+
+        this.combatPoseActive =
+            false;
+
+    }
+
 
     /* =====================================================
-       FULL BODY LOCOMOTION
-
-       Es el estado NORMAL del personaje.
+       FULL LOCOMOTION
     ====================================================== */
 
     playFullLocomotion(
@@ -1326,9 +1709,10 @@ export class PlayerController {
 
         const nextAction =
 
-            this.fullLocomotionActions.get(
-                name
-            );
+            this.fullLocomotionActions
+                .get(
+                    name
+                );
 
 
         if (
@@ -1341,34 +1725,17 @@ export class PlayerController {
 
 
         if (
-
-            this.locomotionMode ===
-                "full"
-
+            this.locomotionMode === "full"
             &&
-
-            this.currentLocomotion ===
-                name
-
+            this.currentLocomotion === name
             &&
-
-            this.currentFullAction ===
-                nextAction
-
+            this.currentFullAction === nextAction
         ) {
 
             return;
 
         }
 
-
-
-        /* =================================================
-           CONSERVAR FASE DE ANIMACIÓN
-
-           Evita que las piernas "salten"
-           al cambiar de modo.
-        ================================================= */
 
         let previousTime =
             0;
@@ -1393,37 +1760,31 @@ export class PlayerController {
         }
 
 
-
         if (
             this.currentLowerAction
         ) {
 
-            this.currentLowerAction.fadeOut(
-
-                fadeDuration
-
-            );
+            this.currentLowerAction
+                .fadeOut(
+                    fadeDuration
+                );
 
         }
 
 
         if (
-
-            this.currentFullAction &&
-
+            this.currentFullAction
+            &&
             this.currentFullAction !==
-                nextAction
-
+            nextAction
         ) {
 
-            this.currentFullAction.fadeOut(
-
-                fadeDuration
-
-            );
+            this.currentFullAction
+                .fadeOut(
+                    fadeDuration
+                );
 
         }
-
 
 
         nextAction.reset();
@@ -1452,23 +1813,19 @@ export class PlayerController {
             true;
 
 
-        nextAction.setEffectiveWeight(
-            1
-        );
+        nextAction
+            .setEffectiveWeight(
+                1
+            );
 
 
-        nextAction.setEffectiveTimeScale(
-            1
-        );
-
-
-        nextAction.fadeIn(
-            fadeDuration
-        );
+        nextAction
+            .fadeIn(
+                fadeDuration
+            );
 
 
         nextAction.play();
-
 
 
         this.currentFullAction =
@@ -1489,12 +1846,8 @@ export class PlayerController {
     }
 
 
-
     /* =====================================================
-       LOWER BODY LOCOMOTION
-
-       Se activa únicamente durante una
-       acción de torso.
+       LOWER LOCOMOTION
     ====================================================== */
 
     playLowerLocomotion(
@@ -1507,9 +1860,10 @@ export class PlayerController {
 
         const nextAction =
 
-            this.lowerLocomotionActions.get(
-                name
-            );
+            this.lowerLocomotionActions
+                .get(
+                    name
+                );
 
 
         if (
@@ -1522,26 +1876,16 @@ export class PlayerController {
 
 
         if (
-
-            this.locomotionMode ===
-                "lower"
-
+            this.locomotionMode === "lower"
             &&
-
-            this.currentLocomotion ===
-                name
-
+            this.currentLocomotion === name
             &&
-
-            this.currentLowerAction ===
-                nextAction
-
+            this.currentLowerAction === nextAction
         ) {
 
             return;
 
         }
-
 
 
         let previousTime =
@@ -1567,37 +1911,31 @@ export class PlayerController {
         }
 
 
-
         if (
             this.currentFullAction
         ) {
 
-            this.currentFullAction.fadeOut(
-
-                fadeDuration
-
-            );
+            this.currentFullAction
+                .fadeOut(
+                    fadeDuration
+                );
 
         }
 
 
         if (
-
-            this.currentLowerAction &&
-
+            this.currentLowerAction
+            &&
             this.currentLowerAction !==
-                nextAction
-
+            nextAction
         ) {
 
-            this.currentLowerAction.fadeOut(
-
-                fadeDuration
-
-            );
+            this.currentLowerAction
+                .fadeOut(
+                    fadeDuration
+                );
 
         }
-
 
 
         nextAction.reset();
@@ -1626,23 +1964,19 @@ export class PlayerController {
             true;
 
 
-        nextAction.setEffectiveWeight(
-            1
-        );
+        nextAction
+            .setEffectiveWeight(
+                1
+            );
 
 
-        nextAction.setEffectiveTimeScale(
-            1
-        );
-
-
-        nextAction.fadeIn(
-            fadeDuration
-        );
+        nextAction
+            .fadeIn(
+                fadeDuration
+            );
 
 
         nextAction.play();
-
 
 
         this.currentLowerAction =
@@ -1663,9 +1997,8 @@ export class PlayerController {
     }
 
 
-
     /* =====================================================
-       ESTADO DE LOCOMOCIÓN ACTUAL
+       LOCOMOTION STATE
     ====================================================== */
 
     getLocomotionState() {
@@ -1679,24 +2012,18 @@ export class PlayerController {
         }
 
 
-        if (
-            this.keys.run
-        ) {
+        return this.keys.run
 
-            return "Run";
+            ?
 
-        }
+            "Run"
 
+            :
 
-        return "Walk";
+            "Walk";
 
     }
 
-
-
-    /* =====================================================
-       ACTUALIZAR LOCOMOCIÓN
-    ====================================================== */
 
     updateLocomotionAnimation() {
 
@@ -1710,18 +2037,13 @@ export class PlayerController {
 
 
         const state =
-
             this.getLocomotionState();
 
 
-
-        /*
-         * Si estamos disparando/recargando:
-         * solo controlamos piernas.
-         */
-
         if (
             this.upperBusy
+            ||
+            this.isCombatPose()
         ) {
 
             this.playLowerLocomotion(
@@ -1730,15 +2052,21 @@ export class PlayerController {
 
             );
 
+
+            if (
+                !this.upperBusy
+            ) {
+
+                this.playCombatPose();
+
+            }
+
         }
 
-
-        /*
-         * Estado normal:
-         * animación completa y natural.
-         */
-
         else {
+
+            this.stopCombatPose();
+
 
             this.playFullLocomotion(
 
@@ -1751,9 +2079,8 @@ export class PlayerController {
     }
 
 
-
     /* =====================================================
-       UPPER BODY ONE-SHOT
+       UPPER BODY ACTION
     ====================================================== */
 
     playUpperOneShot(
@@ -1761,13 +2088,11 @@ export class PlayerController {
     ) {
 
         if (
-
-            !this.enabled ||
-
-            !this.isLoaded ||
-
+            !this.enabled
+            ||
+            !this.isLoaded
+            ||
             this.movementLocked
-
         ) {
 
             return;
@@ -1777,9 +2102,10 @@ export class PlayerController {
 
         const action =
 
-            this.upperActions.get(
-                name
-            );
+            this.upperActions
+                .get(
+                    name
+                );
 
 
         if (
@@ -1795,34 +2121,40 @@ export class PlayerController {
             this.upperBusy
         ) {
 
+            if (
+                name === "Shoot"
+                &&
+                this.currentUpperAnimation ===
+                "Shoot"
+            ) {
+
+                action.reset();
+
+                action.play();
+
+            }
+
+
             return;
 
         }
 
+
+        this.stopCombatPose();
 
 
         this.upperBusy =
             true;
 
 
-
-        /* =================================================
-           CAMBIAMOS DE FULL BODY A LOWER BODY
-        ================================================= */
-
         this.playLowerLocomotion(
 
             this.getLocomotionState(),
 
-            0.08
+            0.06
 
         );
 
-
-
-        /* =================================================
-           UPPER ACTION
-        ================================================= */
 
         action.reset();
 
@@ -1836,18 +2168,12 @@ export class PlayerController {
         );
 
 
-        action.setEffectiveTimeScale(
-            1
-        );
-
-
         action.fadeIn(
-            0.08
+            0.06
         );
 
 
         action.play();
-
 
 
         this.currentUpperAction =
@@ -1860,20 +2186,16 @@ export class PlayerController {
     }
 
 
-
-    /* =====================================================
-       TERMINAR UPPER ACTION
-    ====================================================== */
-
     finishUpperAction() {
 
         if (
             this.currentUpperAction
         ) {
 
-            this.currentUpperAction.fadeOut(
-                0.10
-            );
+            this.currentUpperAction
+                .fadeOut(
+                    0.08
+                );
 
         }
 
@@ -1890,27 +2212,37 @@ export class PlayerController {
             null;
 
 
+        if (
+            this.isCombatPose()
+        ) {
 
-        /*
-         * Volvemos inmediatamente a
-         * la animación FULL BODY normal.
-         */
+            this.playLowerLocomotion(
 
-        this.playFullLocomotion(
+                this.getLocomotionState(),
 
-            this.getLocomotionState(),
+                0.08
 
-            0.12
+            );
 
-        );
+
+            this.playCombatPose();
+
+        }
+
+        else {
+
+            this.playFullLocomotion(
+
+                this.getLocomotionState(),
+
+                0.12
+
+            );
+
+        }
 
     }
 
-
-
-    /* =====================================================
-       SHOOT
-    ====================================================== */
 
     shoot() {
 
@@ -1921,11 +2253,6 @@ export class PlayerController {
     }
 
 
-
-    /* =====================================================
-       RELOAD
-    ====================================================== */
-
     reload() {
 
         this.playUpperOneShot(
@@ -1934,11 +2261,6 @@ export class PlayerController {
 
     }
 
-
-
-    /* =====================================================
-       HIT
-    ====================================================== */
 
     hit() {
 
@@ -1949,19 +2271,104 @@ export class PlayerController {
     }
 
 
-
     /* =====================================================
-       DEATH
+       AIM
     ====================================================== */
 
-    die() {
+    setAimState(
+
+        aiming,
+
+        direction
+
+    ) {
+
+        const changed =
+
+            aiming !==
+            this.aiming;
+
+
+        this.aiming =
+            aiming;
+
 
         if (
+            direction
+        ) {
 
-            !this.isLoaded ||
+            this.aimDirection.copy(
 
-            !this.deathAction
+                direction
 
+            );
+
+
+            this.aimDirection.y =
+                0;
+
+
+            if (
+                this.aimDirection.lengthSq() >
+                0.0001
+            ) {
+
+                this.aimDirection.normalize();
+
+            }
+
+        }
+
+
+        if (
+            changed
+        ) {
+
+            this.refreshCombatState();
+
+        }
+
+    }
+
+
+    /* =====================================================
+       FPS
+    ====================================================== */
+
+   setFirstPersonMode(enabled) {
+
+    this.firstPersonMode = enabled;
+
+    if (this.model) {
+
+        /*
+         * FPS:
+         * ocultamos el modelo completo del jugador.
+         *
+         * Así no aparecen:
+         * - manos flotando
+         * - cabeza
+         * - brazos atravesando cámara
+         *
+         * El PlayerController sigue existiendo,
+         * las animaciones continúan y Rapier sigue
+         * funcionando normalmente.
+         */
+        this.model.visible = !enabled;
+
+    }
+
+    this.refreshCombatState();
+
+}
+
+
+    refreshCombatState() {
+
+        if (
+            !this.isLoaded
+            ||
+            this.upperBusy
         ) {
 
             return;
@@ -1969,73 +2376,120 @@ export class PlayerController {
         }
 
 
-        this.movementLocked =
-            true;
-
-
-        this.enabled =
-            false;
-
-
-        this.resetKeys();
-
+        const state =
+            this.getLocomotionState();
 
 
         if (
-            this.currentFullAction
+            this.isCombatPose()
         ) {
 
-            this.currentFullAction.fadeOut(
-                0.15
+            this.playLowerLocomotion(
+
+                state,
+
+                0.08
+
             );
+
+
+            this.playCombatPose();
 
         }
 
+        else {
 
-        if (
-            this.currentLowerAction
-        ) {
+            this.stopCombatPose();
 
-            this.currentLowerAction.fadeOut(
-                0.15
+
+            this.playFullLocomotion(
+
+                state,
+
+                0.12
+
             );
 
         }
-
-
-        if (
-            this.currentUpperAction
-        ) {
-
-            this.currentUpperAction.fadeOut(
-                0.15
-            );
-
-        }
-
-
-
-        this.deathAction.reset();
-
-
-        this.deathAction.enabled =
-            true;
-
-
-        this.deathAction.setEffectiveWeight(
-            1
-        );
-
-
-        this.deathAction.fadeIn(
-            0.15
-        );
-
-
-        this.deathAction.play();
 
     }
 
+
+    /* =====================================================
+       ROTATION
+    ====================================================== */
+
+    rotateTowardDirection(
+
+        direction,
+
+        deltaTime
+
+    ) {
+
+        if (
+            !direction
+            ||
+            direction.lengthSq() <
+            0.0001
+        ) {
+
+            return;
+
+        }
+
+
+        const angle =
+
+            Math.atan2(
+
+                direction.x,
+
+                direction.z
+
+            );
+
+
+        this.rotationEuler.set(
+
+            0,
+
+            angle,
+
+            0
+
+        );
+
+
+        this.targetQuaternion
+            .setFromEuler(
+
+                this.rotationEuler
+
+            );
+
+
+        const alpha =
+
+            1 -
+
+            Math.exp(
+
+                -PLAYER_CONFIG.rotationSpeed *
+                deltaTime
+
+            );
+
+
+        this.root.quaternion.slerp(
+
+            this.targetQuaternion,
+
+            alpha
+
+        );
+
+    }
 
 
     /* =====================================================
@@ -2092,19 +2546,6 @@ export class PlayerController {
 
                         this.keys.run =
                             true;
-
-                        break;
-
-
-                    case "KeyR":
-
-                        if (
-                            !event.repeat
-                        ) {
-
-                            this.reload();
-
-                        }
 
                         break;
 
@@ -2175,25 +2616,6 @@ export class PlayerController {
 
         window.addEventListener(
 
-            "mousedown",
-
-            event => {
-
-                if (
-                    event.button === 0
-                ) {
-
-                    this.shoot();
-
-                }
-
-            }
-
-        );
-
-
-        window.addEventListener(
-
             "blur",
 
             () => {
@@ -2206,11 +2628,6 @@ export class PlayerController {
 
     }
 
-
-
-    /* =====================================================
-       INPUT RESET
-    ====================================================== */
 
     resetKeys() {
 
@@ -2236,11 +2653,6 @@ export class PlayerController {
     }
 
 
-
-    /* =====================================================
-       ENABLE
-    ====================================================== */
-
     setEnabled(
         enabled
     ) {
@@ -2260,20 +2672,21 @@ export class PlayerController {
     }
 
 
-
-    /* =====================================================
-       MOVIMIENTO ACTIVO
-    ====================================================== */
-
     isMoving() {
 
         return (
 
-            this.keys.forward ||
+            this.keys.forward
 
-            this.keys.backward ||
+            ||
 
-            this.keys.left ||
+            this.keys.backward
+
+            ||
+
+            this.keys.left
+
+            ||
 
             this.keys.right
 
@@ -2282,9 +2695,8 @@ export class PlayerController {
     }
 
 
-
     /* =====================================================
-       MOVIMIENTO
+       MOVEMENT
     ====================================================== */
 
     updateMovement(
@@ -2300,22 +2712,18 @@ export class PlayerController {
         this.desiredMovement.set(
 
             0,
-
             0,
-
             0
 
         );
 
 
         if (
-
-            !this.enabled ||
-
-            !this.isLoaded ||
-
+            !this.enabled
+            ||
+            !this.isLoaded
+            ||
             this.movementLocked
-
         ) {
 
             return;
@@ -2323,14 +2731,12 @@ export class PlayerController {
         }
 
 
-
         let forwardInput =
             0;
 
 
-        let rightInput =
+        let sideInput =
             0;
-
 
 
         if (
@@ -2357,7 +2763,7 @@ export class PlayerController {
             this.keys.right
         ) {
 
-            rightInput +=
+            sideInput +=
                 1;
 
         }
@@ -2367,201 +2773,235 @@ export class PlayerController {
             this.keys.left
         ) {
 
-            rightInput -=
+            sideInput -=
                 1;
 
         }
 
 
+        const hasMovement =
+
+            forwardInput !== 0
+
+            ||
+
+            sideInput !== 0;
+
+
+        if (
+            hasMovement
+        ) {
+
+            this.forwardVector.copy(
+
+                cameraForward
+
+            );
+
+
+            this.rightVector.copy(
+
+                cameraRight
+
+            );
+
+
+            this.forwardVector.y =
+                0;
+
+
+            this.rightVector.y =
+                0;
+
+
+            this.forwardVector.normalize();
+
+            this.rightVector.normalize();
+
+
+            this.moveDirection.set(
+
+                0,
+                0,
+                0
+
+            );
+
+
+            this.moveDirection
+                .addScaledVector(
+
+                    this.forwardVector,
+
+                    forwardInput
+
+                );
+
+
+            this.moveDirection
+                .addScaledVector(
+
+                    this.rightVector,
+
+                    sideInput
+
+                );
+
+
+            this.moveDirection.normalize();
+
+
+            const speed =
+
+                this.keys.run
+
+                    ?
+
+                    PLAYER_CONFIG.runSpeed
+
+                    :
+
+                    PLAYER_CONFIG.walkSpeed;
+
+
+            this.desiredMovement
+                .copy(
+                    this.moveDirection
+                )
+                .multiplyScalar(
+
+                    speed *
+                    deltaTime
+
+                );
+
+        }
+
 
         /* =================================================
-           SIN MOVIMIENTO
+           ROTATION
+
+           FPS/ADS = mirar hacia cámara.
         ================================================= */
 
         if (
-
-            forwardInput === 0 &&
-
-            rightInput === 0
-
+            this.isCombatPose()
         ) {
 
-            this.updateLocomotionAnimation();
+            this.rotateTowardDirection(
 
+                this.aimDirection,
+
+                deltaTime
+
+            );
+
+        }
+
+        else if (
+            hasMovement
+        ) {
+
+            this.rotateTowardDirection(
+
+                this.moveDirection,
+
+                deltaTime
+
+            );
+
+        }
+
+
+        this.updateLocomotionAnimation();
+
+    }
+
+
+    /* =====================================================
+       DEATH
+    ====================================================== */
+
+    die() {
+
+        if (
+            !this.deathAction
+        ) {
 
             return;
 
         }
 
 
-
-        /* =================================================
-           DIRECCIONES DE CÁMARA
-        ================================================= */
-
-        this.forwardVector.copy(
-            cameraForward
-        );
+        this.movementLocked =
+            true;
 
 
-        this.rightVector.copy(
-            cameraRight
-        );
+        this.enabled =
+            false;
 
 
-        this.forwardVector.y =
-            0;
+        this.resetKeys();
 
 
-        this.rightVector.y =
-            0;
+        this.stopCombatPose();
 
 
-        this.forwardVector.normalize();
+        if (
+            this.currentFullAction
+        ) {
+
+            this.currentFullAction.fadeOut(
+                0.15
+            );
+
+        }
 
 
-        this.rightVector.normalize();
+        if (
+            this.currentLowerAction
+        ) {
+
+            this.currentLowerAction.fadeOut(
+                0.15
+            );
+
+        }
 
 
+        if (
+            this.currentUpperAction
+        ) {
 
-        /* =================================================
-           DIRECCIÓN
-        ================================================= */
+            this.currentUpperAction.fadeOut(
+                0.15
+            );
 
-        this.moveDirection.set(
-
-            0,
-
-            0,
-
-            0
-
-        );
+        }
 
 
-        this.moveDirection.addScaledVector(
-
-            this.forwardVector,
-
-            forwardInput
-
-        );
+        this.deathAction.reset();
 
 
-        this.moveDirection.addScaledVector(
-
-            this.rightVector,
-
-            rightInput
-
-        );
+        this.deathAction.enabled =
+            true;
 
 
-        this.moveDirection.normalize();
-
-
-
-        /* =================================================
-           VELOCIDAD
-        ================================================= */
-
-        const speed =
-
-            this.keys.run
-
-                ?
-
-                PLAYER_CONFIG.runSpeed
-
-                :
-
-                PLAYER_CONFIG.walkSpeed;
-
-
-
-        /* =================================================
-           MOVIMIENTO PARA RAPIER
-        ================================================= */
-
-        this.desiredMovement
-
-            .copy(
-                this.moveDirection
-            )
-
-            .multiplyScalar(
-
-                speed *
-                deltaTime
-
+        this.deathAction
+            .setEffectiveWeight(
+                1
             );
 
 
-
-        /* =================================================
-           ROTACIÓN
-        ================================================= */
-
-        const angle =
-
-            Math.atan2(
-
-                this.moveDirection.x,
-
-                this.moveDirection.z
-
+        this.deathAction
+            .fadeIn(
+                0.15
             );
 
 
-        this.rotationEuler.set(
-
-            0,
-
-            angle,
-
-            0
-
-        );
-
-
-        this.targetQuaternion
-            .setFromEuler(
-
-                this.rotationEuler
-
-            );
-
-
-        const rotationAlpha =
-
-            1 -
-
-            Math.exp(
-
-                -PLAYER_CONFIG.rotationSpeed *
-                deltaTime
-
-            );
-
-
-        this.root.quaternion.slerp(
-
-            this.targetQuaternion,
-
-            rotationAlpha
-
-        );
-
-
-
-        /* =================================================
-           ANIMACIÓN
-        ================================================= */
-
-        this.updateLocomotionAnimation();
+        this.deathAction.play();
 
     }
-
 
 
     /* =====================================================
@@ -2592,7 +3032,9 @@ export class PlayerController {
         ) {
 
             this.mixer.update(
+
                 deltaTime
+
             );
 
         }
@@ -2609,7 +3051,6 @@ export class PlayerController {
         );
 
     }
-
 
 
     /* =====================================================
@@ -2644,20 +3085,23 @@ export class PlayerController {
     }
 
 
-    getCurrentAnimation() {
+    getModel() {
 
-        return {
+        return this.model;
 
-            locomotion:
-                this.currentLocomotion,
+    }
 
-            mode:
-                this.locomotionMode,
 
-            upper:
-                this.currentUpperAnimation
+    getRightHandBone() {
 
-        };
+        return this.rightHandBone;
+
+    }
+
+
+    getHeadBone() {
+
+        return this.headBone;
 
     }
 
@@ -2667,6 +3111,5 @@ export class PlayerController {
         return this.isLoaded;
 
     }
-
 
 }

@@ -2,111 +2,59 @@
    NOVA CATALYST
    Physics Manager
 
-   Build v0.5
+   Build v0.6.1
    Rapier 3D
 ========================================================= */
 
-
 import * as THREE from "three";
-
 
 import RAPIER from
     "https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.21.0/dist/rapier.mjs";
 
 
-
 export class PhysicsManager {
-
 
     constructor() {
 
-        this.RAPIER =
-            RAPIER;
+        this.RAPIER = RAPIER;
 
+        this.world = null;
 
-        this.world =
-            null;
+        this.ready = false;
 
+        this.environmentColliders = [];
 
-        this.ready =
-            false;
-
-
+        this.dynamicBodies = [];
 
         /* =================================================
-           ESCENARIO
+           CHARACTER
         ================================================= */
 
-        this.environmentColliders =
-            [];
+        this.characterBody = null;
 
+        this.characterCollider = null;
 
+        this.characterController = null;
 
-        /* =================================================
-           PLAYER
-        ================================================= */
+        this.characterHeight = 1.8;
 
-        this.characterBody =
-            null;
+        this.characterRadius = 0.28;
 
-
-        this.characterCollider =
-            null;
-
-
-        this.characterController =
-            null;
-
-
-        this.characterHeight =
-            1.8;
-
-
-        this.characterRadius =
-            0.28;
-
-
-        this.characterHalfHeight =
-            0.62;
-
+        this.characterHalfHeight = 0.62;
 
         this.characterFootOffset =
-
             this.characterHalfHeight +
             this.characterRadius;
 
+        this.verticalVelocity = 0;
 
+        this.characterGravity = -18;
 
-        /* =================================================
-           GRAVEDAD PLAYER
-        ================================================= */
+        this.maxFallSpeed = -30;
 
-        this.verticalVelocity =
-            0;
-
-
-        this.characterGravity =
-            -18;
-
-
-        this.maxFallSpeed =
-            -30;
-
-
-        this.grounded =
-            false;
-
-
-
-        /* =================================================
-           OBJETOS DINÁMICOS
-        ================================================= */
-
-        this.dynamicBodies =
-            [];
+        this.grounded = false;
 
     }
-
 
 
     /* =====================================================
@@ -115,41 +63,24 @@ export class PhysicsManager {
 
     async init() {
 
-        if (
-            this.ready
-        ) {
-
+        if (this.ready) {
             return;
-
         }
 
-
         console.log(
-
             "[Physics] Inicializando Rapier..."
-
         );
-
 
         await this.RAPIER.init();
 
-
-
         this.world =
-
             new this.RAPIER.World({
 
-                x:
-                    0,
-
-                y:
-                    -9.81,
-
-                z:
-                    0
+                x: 0,
+                y: -9.81,
+                z: 0
 
             });
-
 
 
         /* =================================================
@@ -157,14 +88,9 @@ export class PhysicsManager {
         ================================================= */
 
         this.characterController =
-
-            this.world
-                .createCharacterController(
-
-                    0.03
-
-                );
-
+            this.world.createCharacterController(
+                0.03
+            );
 
 
         this.characterController
@@ -177,9 +103,7 @@ export class PhysicsManager {
             .enableAutostep(
 
                 0.30,
-
                 0.15,
-
                 false
 
             );
@@ -187,19 +111,16 @@ export class PhysicsManager {
 
         this.characterController
             .enableSnapToGround(
-
                 0.35
-
             );
 
 
         this.characterController
             .setMaxSlopeClimbAngle(
 
-                THREE.MathUtils
-                    .degToRad(
-                        45
-                    )
+                THREE.MathUtils.degToRad(
+                    45
+                )
 
             );
 
@@ -207,45 +128,35 @@ export class PhysicsManager {
         this.characterController
             .setMinSlopeSlideAngle(
 
-                THREE.MathUtils
-                    .degToRad(
-                        35
-                    )
+                THREE.MathUtils.degToRad(
+                    35
+                )
 
             );
 
 
-
-        /*
-         * Si la versión de Rapier lo soporta,
-         * el jugador podrá empujar objetos dinámicos.
-         */
+        /* =================================================
+           EMPUJAR OBJETOS DINÁMICOS
+        ================================================= */
 
         if (
-
             typeof this.characterController
                 .setApplyImpulsesToDynamicBodies
             === "function"
-
         ) {
 
             this.characterController
                 .setApplyImpulsesToDynamicBodies(
-
                     true
-
                 );
 
         }
 
 
-
         if (
-
             typeof this.characterController
                 .setCharacterMass
             === "function"
-
         ) {
 
             this.characterController
@@ -256,33 +167,24 @@ export class PhysicsManager {
         }
 
 
-
-        this.ready =
-            true;
+        this.ready = true;
 
 
         console.log(
-
             "[Physics] Rapier ONLINE."
-
         );
 
     }
 
 
-
     /* =====================================================
-       CLEAR ENVIRONMENT
+       CLEAR ENVIRONMENT COLLIDERS
     ====================================================== */
 
     clearEnvironmentColliders() {
 
-        if (
-            !this.world
-        ) {
-
+        if (!this.world) {
             return;
-
         }
 
 
@@ -296,20 +198,17 @@ export class PhysicsManager {
                 this.world.removeCollider(
 
                     collider,
-
                     true
 
                 );
 
             }
 
-            catch (
-                error
-            ) {
+            catch (error) {
 
                 console.warn(
 
-                    "[Physics] Collider no eliminado:",
+                    "[Physics] Error eliminando collider:",
 
                     error
 
@@ -320,29 +219,23 @@ export class PhysicsManager {
         }
 
 
-        this.environmentColliders =
-            [];
+        this.environmentColliders = [];
 
     }
 
 
-
     /* =====================================================
-       ESCENARIO → TRIMESH
+       GLTF ENVIRONMENT → RAPIER TRIMESH
     ====================================================== */
 
     createEnvironmentColliders(
         environment
     ) {
 
-        if (
-            !this.ready
-        ) {
+        if (!this.ready) {
 
             throw new Error(
-
-                "PhysicsManager aún no está inicializado."
-
+                "Rapier todavía no está inicializado."
             );
 
         }
@@ -356,21 +249,15 @@ export class PhysicsManager {
         );
 
 
-        let colliderCount =
-            0;
+        let colliderCount = 0;
 
+        let triangleCount = 0;
 
-        let triangleCount =
-            0;
-
-
-        let skippedMeshes =
-            0;
+        let skippedMeshes = 0;
 
 
         const vertex =
             new THREE.Vector3();
-
 
 
         environment.traverse(
@@ -378,13 +265,9 @@ export class PhysicsManager {
             object => {
 
                 if (
-
                     !object.isMesh ||
-
                     !object.visible ||
-
                     !object.geometry
-
                 ) {
 
                     return;
@@ -392,22 +275,15 @@ export class PhysicsManager {
                 }
 
 
-
                 const geometry =
                     object.geometry;
 
 
                 const positionAttribute =
-
-                    geometry
-                        .attributes
-                        ?.position;
+                    geometry.attributes?.position;
 
 
-
-                if (
-                    !positionAttribute
-                ) {
+                if (!positionAttribute) {
 
                     skippedMeshes++;
 
@@ -416,9 +292,11 @@ export class PhysicsManager {
                 }
 
 
+                /* =========================================
+                   WORLD VERTICES
+                ========================================= */
 
                 const vertices =
-
                     new Float32Array(
 
                         positionAttribute.count *
@@ -427,23 +305,16 @@ export class PhysicsManager {
                     );
 
 
-
                 for (
-
                     let i = 0;
-
-                    i <
-                    positionAttribute.count;
-
+                    i < positionAttribute.count;
                     i++
-
                 ) {
 
                     vertex
                         .fromBufferAttribute(
 
                             positionAttribute,
-
                             i
 
                         )
@@ -472,17 +343,16 @@ export class PhysicsManager {
                 }
 
 
+                /* =========================================
+                   INDICES
+                ========================================= */
 
                 let indices;
 
 
-
-                if (
-                    geometry.index
-                ) {
+                if (geometry.index) {
 
                     indices =
-
                         new Uint32Array(
 
                             geometry.index.count
@@ -491,22 +361,15 @@ export class PhysicsManager {
 
 
                     for (
-
                         let i = 0;
-
-                        i <
-                        geometry.index.count;
-
+                        i < geometry.index.count;
                         i++
-
                     ) {
 
                         indices[i] =
-
-                            geometry.index
-                                .getX(
-                                    i
-                                );
+                            geometry.index.getX(
+                                i
+                            );
 
                     }
 
@@ -521,13 +384,10 @@ export class PhysicsManager {
                             positionAttribute.count /
                             3
 
-                        )
-
-                        * 3;
+                        ) * 3;
 
 
                     indices =
-
                         new Uint32Array(
 
                             validCount
@@ -536,13 +396,9 @@ export class PhysicsManager {
 
 
                     for (
-
                         let i = 0;
-
                         i < validCount;
-
                         i++
-
                     ) {
 
                         indices[i] =
@@ -553,17 +409,13 @@ export class PhysicsManager {
                 }
 
 
-
-                if (
-                    indices.length < 3
-                ) {
+                if (indices.length < 3) {
 
                     skippedMeshes++;
 
                     return;
 
                 }
-
 
 
                 try {
@@ -575,7 +427,6 @@ export class PhysicsManager {
                             .trimesh(
 
                                 vertices,
-
                                 indices
 
                             );
@@ -592,18 +443,16 @@ export class PhysicsManager {
 
                     const collider =
 
-                        this.world
-                            .createCollider(
+                        this.world.createCollider(
 
-                                colliderDesc
+                            colliderDesc
 
-                            );
-
-
-                    this.environmentColliders
-                        .push(
-                            collider
                         );
+
+
+                    this.environmentColliders.push(
+                        collider
+                    );
 
 
                     colliderCount++;
@@ -620,9 +469,7 @@ export class PhysicsManager {
 
                 }
 
-                catch (
-                    error
-                ) {
+                catch (error) {
 
                     skippedMeshes++;
 
@@ -647,18 +494,12 @@ export class PhysicsManager {
 
         console.log(
 
-            "[Physics] Escenario físico:",
+            "[Physics] Escenario físico generado:",
 
             {
-
-                colliders:
-                    colliderCount,
-
-                triangles:
-                    triangleCount,
-
+                colliders: colliderCount,
+                triangles: triangleCount,
                 skippedMeshes
-
             }
 
         );
@@ -666,9 +507,8 @@ export class PhysicsManager {
     }
 
 
-
     /* =====================================================
-       PLAYER
+       CREATE CHARACTER
     ====================================================== */
 
     createCharacter(
@@ -679,14 +519,10 @@ export class PhysicsManager {
 
     ) {
 
-        if (
-            !this.ready
-        ) {
+        if (!this.ready) {
 
             throw new Error(
-
-                "Rapier aún no está inicializado."
-
+                "Rapier todavía no está inicializado."
             );
 
         }
@@ -708,12 +544,8 @@ export class PhysicsManager {
 
                 (
                     characterHeight -
-
-                    this.characterRadius *
-                    2
-                )
-
-                / 2
+                    this.characterRadius * 2
+                ) / 2
 
             );
 
@@ -721,12 +553,10 @@ export class PhysicsManager {
         this.characterFootOffset =
 
             this.characterHalfHeight +
-
             this.characterRadius;
 
 
-
-        const rigidBodyDesc =
+        const bodyDesc =
 
             this.RAPIER
                 .RigidBodyDesc
@@ -743,15 +573,13 @@ export class PhysicsManager {
                 );
 
 
-
         this.characterBody =
 
             this.world.createRigidBody(
 
-                rigidBodyDesc
+                bodyDesc
 
             );
-
 
 
         const colliderDesc =
@@ -761,7 +589,6 @@ export class PhysicsManager {
                 .capsule(
 
                     this.characterHalfHeight,
-
                     this.characterRadius
 
                 )
@@ -773,45 +600,33 @@ export class PhysicsManager {
                 );
 
 
-
         this.characterCollider =
 
-            this.world
-                .createCollider(
+            this.world.createCollider(
 
-                    colliderDesc,
+                colliderDesc,
+                this.characterBody
 
-                    this.characterBody
-
-                );
+            );
 
 
-        this.verticalVelocity =
-            0;
+        this.verticalVelocity = 0;
 
-
-        this.grounded =
-            false;
+        this.grounded = false;
 
 
         this.world.step();
 
 
         console.log(
-
             "[Physics] Character Controller creado."
-
         );
 
     }
 
 
-
     /* =====================================================
-       HELPER DE ROTACIÓN Y
-
-       Convierte ángulo Y de Three.js
-       a quaternion compatible con Rapier.
+       ROTATION Y HELPER
     ====================================================== */
 
     applyBodyRotationY(
@@ -822,12 +637,8 @@ export class PhysicsManager {
 
     ) {
 
-        if (
-            rotationY === 0
-        ) {
-
+        if (rotationY === 0) {
             return;
-
         }
 
 
@@ -839,9 +650,7 @@ export class PhysicsManager {
                     new THREE.Euler(
 
                         0,
-
                         rotationY,
-
                         0
 
                     )
@@ -853,17 +662,10 @@ export class PhysicsManager {
 
             {
 
-                x:
-                    quaternion.x,
-
-                y:
-                    quaternion.y,
-
-                z:
-                    quaternion.z,
-
-                w:
-                    quaternion.w
+                x: quaternion.x,
+                y: quaternion.y,
+                z: quaternion.z,
+                w: quaternion.w
 
             },
 
@@ -872,7 +674,6 @@ export class PhysicsManager {
         );
 
     }
-
 
 
     /* =====================================================
@@ -903,9 +704,7 @@ export class PhysicsManager {
                 .setTranslation(
 
                     position.x,
-
                     position.y,
-
                     position.z
 
                 )
@@ -919,22 +718,19 @@ export class PhysicsManager {
 
         const body =
 
-            this.world
-                .createRigidBody(
+            this.world.createRigidBody(
 
-                    bodyDesc
+                bodyDesc
 
-                );
+            );
 
 
         this.applyBodyRotationY(
 
             body,
-
             rotationY
 
         );
-
 
 
         const colliderDesc =
@@ -944,9 +740,7 @@ export class PhysicsManager {
                 .cuboid(
 
                     size.x / 2,
-
                     size.y / 2,
-
                     size.z / 2
 
                 )
@@ -964,7 +758,6 @@ export class PhysicsManager {
         this.world.createCollider(
 
             colliderDesc,
-
             body
 
         );
@@ -978,7 +771,6 @@ export class PhysicsManager {
         return body;
 
     }
-
 
 
     /* =====================================================
@@ -1009,9 +801,7 @@ export class PhysicsManager {
                 .setTranslation(
 
                     position.x,
-
                     position.y,
-
                     position.z
 
                 )
@@ -1025,13 +815,11 @@ export class PhysicsManager {
 
         const body =
 
-            this.world
-                .createRigidBody(
+            this.world.createRigidBody(
 
-                    bodyDesc
+                bodyDesc
 
-                );
-
+            );
 
 
         const colliderDesc =
@@ -1041,7 +829,6 @@ export class PhysicsManager {
                 .cylinder(
 
                     height / 2,
-
                     radius
 
                 )
@@ -1059,7 +846,6 @@ export class PhysicsManager {
         this.world.createCollider(
 
             colliderDesc,
-
             body
 
         );
@@ -1073,7 +859,6 @@ export class PhysicsManager {
         return body;
 
     }
-
 
 
     /* =====================================================
@@ -1102,14 +887,12 @@ export class PhysicsManager {
                 .setTranslation(
 
                     position.x,
-
                     position.y,
-
                     position.z
 
                 )
                 .setLinearDamping(
-                    0.1
+                    0.10
                 )
                 .setAngularDamping(
                     0.12
@@ -1118,13 +901,11 @@ export class PhysicsManager {
 
         const body =
 
-            this.world
-                .createRigidBody(
+            this.world.createRigidBody(
 
-                    bodyDesc
+                bodyDesc
 
-                );
-
+            );
 
 
         const colliderDesc =
@@ -1132,9 +913,7 @@ export class PhysicsManager {
             this.RAPIER
                 .ColliderDesc
                 .ball(
-
                     radius
-
                 )
                 .setDensity(
                     density
@@ -1150,7 +929,6 @@ export class PhysicsManager {
         this.world.createCollider(
 
             colliderDesc,
-
             body
 
         );
@@ -1166,12 +944,8 @@ export class PhysicsManager {
     }
 
 
-
     /* =====================================================
-       IMPULSO
-
-       Lo utilizaremos muchísimo en v0.6:
-       disparos, explosiones y escopeta.
+       APPLY IMPULSE
     ====================================================== */
 
     applyImpulse(
@@ -1182,7 +956,56 @@ export class PhysicsManager {
 
     ) {
 
+        if (!rigidBody) {
+            return;
+        }
+
+
+        try {
+
+            rigidBody.applyImpulse(
+
+                {
+
+                    x: impulse.x,
+                    y: impulse.y,
+                    z: impulse.z
+
+                },
+
+                true
+
+            );
+
+        }
+
+        catch (error) {
+
+            console.warn(
+
+                "[Physics] No se pudo aplicar impulso:",
+
+                error
+
+            );
+
+        }
+
+    }
+
+
+    /* =====================================================
+       REMOVE RIGID BODY
+
+       Usado cuando un barril explota.
+    ====================================================== */
+
+    removeRigidBody(
+        rigidBody
+    ) {
+
         if (
+            !this.world ||
             !rigidBody
         ) {
 
@@ -1191,31 +1014,51 @@ export class PhysicsManager {
         }
 
 
-        rigidBody.applyImpulse(
+        const index =
 
-            {
+            this.dynamicBodies
+                .indexOf(
+                    rigidBody
+                );
 
-                x:
-                    impulse.x,
 
-                y:
-                    impulse.y,
+        if (index !== -1) {
 
-                z:
-                    impulse.z
+            this.dynamicBodies.splice(
 
-            },
+                index,
+                1
 
-            true
+            );
 
-        );
+        }
+
+
+        try {
+
+            this.world.removeRigidBody(
+                rigidBody
+            );
+
+        }
+
+        catch (error) {
+
+            console.warn(
+
+                "[Physics] No se pudo eliminar RigidBody:",
+
+                error
+
+            );
+
+        }
 
     }
 
 
-
     /* =====================================================
-       PLAYER MOVEMENT
+       MOVE CHARACTER
     ====================================================== */
 
     moveCharacter(
@@ -1227,13 +1070,9 @@ export class PhysicsManager {
     ) {
 
         if (
-
             !this.characterBody ||
-
             !this.characterCollider ||
-
             !this.characterController
-
         ) {
 
             return;
@@ -1252,11 +1091,9 @@ export class PhysicsManager {
             Math.max(
 
                 this.verticalVelocity,
-
                 this.maxFallSpeed
 
             );
-
 
 
         const requestedMovement = {
@@ -1265,7 +1102,6 @@ export class PhysicsManager {
                 desiredMovement.x,
 
             y:
-
                 this.verticalVelocity *
                 deltaTime,
 
@@ -1275,16 +1111,13 @@ export class PhysicsManager {
         };
 
 
-
         this.characterController
             .computeColliderMovement(
 
                 this.characterCollider,
-
                 requestedMovement
 
             );
-
 
 
         const correctedMovement =
@@ -1293,27 +1126,20 @@ export class PhysicsManager {
                 .computedMovement();
 
 
-
         this.grounded =
 
             this.characterController
                 .computedGrounded();
 
 
-
         if (
-
             this.grounded &&
-
             this.verticalVelocity < 0
-
         ) {
 
-            this.verticalVelocity =
-                0;
+            this.verticalVelocity = 0;
 
         }
-
 
 
         const currentPosition =
@@ -1322,29 +1148,24 @@ export class PhysicsManager {
                 .translation();
 
 
-
         this.characterBody
             .setNextKinematicTranslation({
 
                 x:
-
                     currentPosition.x +
                     correctedMovement.x,
 
                 y:
-
                     currentPosition.y +
                     correctedMovement.y,
 
                 z:
-
                     currentPosition.z +
                     correctedMovement.z
 
             });
 
     }
-
 
 
     /* =====================================================
@@ -1355,12 +1176,8 @@ export class PhysicsManager {
         deltaTime
     ) {
 
-        if (
-            !this.world
-        ) {
-
+        if (!this.world) {
             return;
-
         }
 
 
@@ -1382,7 +1199,6 @@ export class PhysicsManager {
     }
 
 
-
     /* =====================================================
        SYNC PLAYER
     ====================================================== */
@@ -1391,12 +1207,8 @@ export class PhysicsManager {
         playerRoot
     ) {
 
-        if (
-            !this.characterBody
-        ) {
-
+        if (!this.characterBody) {
             return;
-
         }
 
 
@@ -1418,7 +1230,6 @@ export class PhysicsManager {
         );
 
     }
-
 
 
     /* =====================================================
@@ -1444,6 +1255,5 @@ export class PhysicsManager {
         return this.world;
 
     }
-
 
 }

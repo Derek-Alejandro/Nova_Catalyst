@@ -1,0 +1,11 @@
+Model Information:
+* title:	Sci-fi Handgun
+* source:	https://sketchfab.com/3d-models/sci-fi-handgun-b05d7154d6f54134abc297a0bd3c5132
+* author:	victordeno (https://sketchfab.com/victor_deno)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Sci-fi Handgun" (https://sketchfab.com/3d-models/sci-fi-handgun-b05d7154d6f54134abc297a0bd3c5132) by victordeno (https://sketchfab.com/victor_deno) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

@@ -2,26 +2,11 @@
    NOVA CATALYST
    Physical Objects Manager
 
-   Build v0.5
-
-   - Distribución completa por Zona A
-   - Cajas metálicas
-   - Cajas de cartón
-   - Barriles industriales
-   - Contenedores metálicos
-   - Núcleos de energía
-   - Barricada derribable
-   - Texturas procedurales
+   Build v0.6.1
 ========================================================= */
-
 
 import * as THREE from "three";
 
-
-
-/* =========================================================
-   CONFIGURACIÓN
-========================================================= */
 
 const OBJECT_CONFIG = {
 
@@ -35,7 +20,6 @@ const OBJECT_CONFIG = {
 
     },
 
-
     cardboardBox: {
 
         size:
@@ -45,7 +29,6 @@ const OBJECT_CONFIG = {
             0.45
 
     },
-
 
     barrel: {
 
@@ -60,7 +43,6 @@ const OBJECT_CONFIG = {
 
     },
 
-
     cylinder: {
 
         radius:
@@ -74,7 +56,6 @@ const OBJECT_CONFIG = {
 
     },
 
-
     energyCore: {
 
         radius:
@@ -84,7 +65,6 @@ const OBJECT_CONFIG = {
             0.70
 
     },
-
 
     barricade: {
 
@@ -98,11 +78,6 @@ const OBJECT_CONFIG = {
 
 };
 
-
-
-/* =========================================================
-   OBJECT MANAGER
-========================================================= */
 
 export class ObjectManager {
 
@@ -128,11 +103,6 @@ export class ObjectManager {
             false;
 
 
-
-        /* =================================================
-           CACHE PARA RAYCAST DEL PISO
-        ================================================= */
-
         this.environmentMeshes =
             [];
 
@@ -143,38 +113,24 @@ export class ObjectManager {
 
 
         /* =================================================
-           TEXTURAS PROCEDURALES
+           TEXTURES
         ================================================= */
 
         this.textures = {
 
             cardboard:
-
                 this.createCardboardTexture(),
 
-
             metal:
-
                 this.createMetalTexture(),
 
-
             darkMetal:
-
                 this.createDarkMetalTexture(),
 
-
             industrialRed:
-
                 this.createIndustrialRedTexture(),
 
-
-            hazard:
-
-                this.createHazardTexture(),
-
-
             cardboardLabel:
-
                 this.createCardboardLabelTexture()
 
         };
@@ -182,7 +138,7 @@ export class ObjectManager {
 
 
         /* =================================================
-           MATERIALES
+           MATERIALS
         ================================================= */
 
         this.materials = {
@@ -239,7 +195,7 @@ export class ObjectManager {
                         0.92,
 
                     metalness:
-                        0.0
+                        0
 
                 }),
 
@@ -255,7 +211,7 @@ export class ObjectManager {
                         0.72,
 
                     metalness:
-                        0.0
+                        0
 
                 }),
 
@@ -360,7 +316,7 @@ export class ObjectManager {
                         0x087a96,
 
                     emissiveIntensity:
-                        4.0,
+                        4,
 
                     roughness:
                         0.18,
@@ -375,15 +331,18 @@ export class ObjectManager {
     }
 
 
-
     /* =====================================================
-       HELPER CANVAS TEXTURE
+       CANVAS TEXTURE
     ====================================================== */
 
     createCanvasTexture(
+
         width,
+
         height,
+
         drawFunction
+
     ) {
 
         const canvas =
@@ -407,9 +366,13 @@ export class ObjectManager {
 
 
         drawFunction(
+
             context,
+
             width,
+
             height
+
         );
 
 
@@ -436,18 +399,13 @@ export class ObjectManager {
             4;
 
 
-        texture.needsUpdate =
-            true;
-
-
         return texture;
 
     }
 
 
-
     /* =====================================================
-       TEXTURA CARTÓN
+       CARDBOARD
     ====================================================== */
 
     createCardboardTexture() {
@@ -471,20 +429,12 @@ export class ObjectManager {
                 ctx.fillRect(
 
                     0,
-
                     0,
-
                     width,
-
                     height
 
                 );
 
-
-
-                /*
-                 * Variación de fibra.
-                 */
 
                 for (
                     let i = 0;
@@ -495,7 +445,6 @@ export class ObjectManager {
                     const value =
 
                         105 +
-
                         Math.random() *
                         45;
 
@@ -505,24 +454,15 @@ export class ObjectManager {
                         `rgba(${value}, ${value * 0.77}, ${value * 0.48}, 0.12)`;
 
 
-                    const x =
-                        Math.random() *
-                        width;
-
-
-                    const y =
-                        Math.random() *
-                        height;
-
-
                     ctx.fillRect(
 
-                        x,
+                        Math.random() *
+                        width,
 
-                        y,
+                        Math.random() *
+                        height,
 
                         1 +
-
                         Math.random() *
                         4,
 
@@ -533,17 +473,8 @@ export class ObjectManager {
                 }
 
 
-
-                /*
-                 * Líneas de cartón.
-                 */
-
                 ctx.strokeStyle =
                     "rgba(80,45,20,0.08)";
-
-
-                ctx.lineWidth =
-                    1;
 
 
                 for (
@@ -554,26 +485,19 @@ export class ObjectManager {
 
                     ctx.beginPath();
 
-
                     ctx.moveTo(
-
                         0,
-
                         y
-
                     );
-
 
                     ctx.lineTo(
 
                         width,
 
                         y +
-                        Math.sin(y) *
-                        2
+                        Math.sin(y) * 2
 
                     );
-
 
                     ctx.stroke();
 
@@ -586,9 +510,8 @@ export class ObjectManager {
     }
 
 
-
     /* =====================================================
-       TEXTURA METAL
+       METAL
     ====================================================== */
 
     createMetalTexture() {
@@ -610,40 +533,28 @@ export class ObjectManager {
                     ctx.createLinearGradient(
 
                         0,
-
                         0,
-
                         width,
-
                         height
 
                     );
 
 
                 gradient.addColorStop(
-
                     0,
-
                     "#7a8287"
-
                 );
 
 
                 gradient.addColorStop(
-
                     0.5,
-
                     "#4f585d"
-
                 );
 
 
                 gradient.addColorStop(
-
                     1,
-
                     "#737b80"
-
                 );
 
 
@@ -654,20 +565,12 @@ export class ObjectManager {
                 ctx.fillRect(
 
                     0,
-
                     0,
-
                     width,
-
                     height
 
                 );
 
-
-
-                /*
-                 * Rayones.
-                 */
 
                 for (
                     let i = 0;
@@ -675,20 +578,19 @@ export class ObjectManager {
                     i++
                 ) {
 
-                    const y =
-                        Math.random() *
-                        height;
-
-
                     const x =
                         Math.random() *
                         width;
 
 
+                    const y =
+                        Math.random() *
+                        height;
+
+
                     const length =
 
                         10 +
-
                         Math.random() *
                         90;
 
@@ -706,43 +608,26 @@ export class ObjectManager {
                             "rgba(0,0,0,0.11)";
 
 
-                    ctx.lineWidth =
-                        Math.random() *
-                        1.5;
-
-
                     ctx.beginPath();
 
-
                     ctx.moveTo(
-
                         x,
-
                         y
-
                     );
-
 
                     ctx.lineTo(
 
                         x + length,
 
                         y +
-                        Math.random() *
-                        3
+                        Math.random() * 3
 
                     );
-
 
                     ctx.stroke();
 
                 }
 
-
-
-                /*
-                 * Paneles.
-                 */
 
                 ctx.strokeStyle =
                     "rgba(20,24,27,0.34)";
@@ -755,33 +640,9 @@ export class ObjectManager {
                 ctx.strokeRect(
 
                     25,
-
                     25,
-
                     width - 50,
-
                     height - 50
-
-                );
-
-
-                ctx.strokeStyle =
-                    "rgba(200,215,220,0.16)";
-
-
-                ctx.lineWidth =
-                    2;
-
-
-                ctx.strokeRect(
-
-                    38,
-
-                    38,
-
-                    width - 76,
-
-                    height - 76
 
                 );
 
@@ -792,9 +653,8 @@ export class ObjectManager {
     }
 
 
-
     /* =====================================================
-       METAL OSCURO
+       DARK METAL
     ====================================================== */
 
     createDarkMetalTexture() {
@@ -818,11 +678,8 @@ export class ObjectManager {
                 ctx.fillRect(
 
                     0,
-
                     0,
-
                     width,
-
                     height
 
                 );
@@ -843,12 +700,7 @@ export class ObjectManager {
                         "rgba(210,230,240,0.07)";
 
 
-                    ctx.lineWidth =
-                        1;
-
-
                     ctx.beginPath();
-
 
                     ctx.moveTo(
 
@@ -859,7 +711,6 @@ export class ObjectManager {
 
                     );
 
-
                     ctx.lineTo(
 
                         Math.random() *
@@ -868,7 +719,6 @@ export class ObjectManager {
                         y
 
                     );
-
 
                     ctx.stroke();
 
@@ -881,9 +731,8 @@ export class ObjectManager {
     }
 
 
-
     /* =====================================================
-       BARRIL INDUSTRIAL ROJO
+       INDUSTRIAL RED
     ====================================================== */
 
     createIndustrialRedTexture() {
@@ -905,58 +754,40 @@ export class ObjectManager {
                     ctx.createLinearGradient(
 
                         0,
-
                         0,
-
                         width,
-
                         0
 
                     );
 
 
                 gradient.addColorStop(
-
                     0,
-
                     "#771010"
-
                 );
 
 
                 gradient.addColorStop(
-
                     0.25,
-
                     "#ca2424"
-
                 );
 
 
                 gradient.addColorStop(
-
                     0.5,
-
                     "#e22b25"
-
                 );
 
 
                 gradient.addColorStop(
-
                     0.75,
-
                     "#a71616"
-
                 );
 
 
                 gradient.addColorStop(
-
                     1,
-
                     "#651010"
-
                 );
 
 
@@ -967,20 +798,12 @@ export class ObjectManager {
                 ctx.fillRect(
 
                     0,
-
                     0,
-
                     width,
-
                     height
 
                 );
 
-
-
-                /*
-                 * Desgaste.
-                 */
 
                 for (
                     let i = 0;
@@ -1010,24 +833,15 @@ export class ObjectManager {
                         height,
 
                         1 +
-
-                        Math.random() *
-                        14,
+                        Math.random() * 14,
 
                         1 +
-
-                        Math.random() *
-                        3
+                        Math.random() * 3
 
                     );
 
                 }
 
-
-
-                /*
-                 * Identificación industrial.
-                 */
 
                 ctx.fillStyle =
                     "rgba(15,15,15,0.72)";
@@ -1036,11 +850,8 @@ export class ObjectManager {
                 ctx.fillRect(
 
                     185,
-
                     80,
-
                     145,
-
                     88
 
                 );
@@ -1050,12 +861,12 @@ export class ObjectManager {
                     "#efdb72";
 
 
-                ctx.font =
-                    "bold 27px Arial";
-
-
                 ctx.textAlign =
                     "center";
+
+
+                ctx.font =
+                    "bold 27px Arial";
 
 
                 ctx.fillText(
@@ -1063,7 +874,6 @@ export class ObjectManager {
                     "NOVA",
 
                     257,
-
                     115
 
                 );
@@ -1078,7 +888,6 @@ export class ObjectManager {
                     "HAZARD",
 
                     257,
-
                     143
 
                 );
@@ -1090,108 +899,8 @@ export class ObjectManager {
     }
 
 
-
     /* =====================================================
-       FRANJAS DE PELIGRO
-    ====================================================== */
-
-    createHazardTexture() {
-
-        return this.createCanvasTexture(
-
-            256,
-
-            64,
-
-            (
-                ctx,
-                width,
-                height
-            ) => {
-
-                ctx.fillStyle =
-                    "#e8ba20";
-
-
-                ctx.fillRect(
-
-                    0,
-
-                    0,
-
-                    width,
-
-                    height
-
-                );
-
-
-                ctx.fillStyle =
-                    "#171717";
-
-
-                for (
-                    let x = -height;
-                    x < width + height;
-                    x += 50
-                ) {
-
-                    ctx.beginPath();
-
-
-                    ctx.moveTo(
-
-                        x,
-
-                        height
-
-                    );
-
-
-                    ctx.lineTo(
-
-                        x + 25,
-
-                        height
-
-                    );
-
-
-                    ctx.lineTo(
-
-                        x + 70,
-
-                        0
-
-                    );
-
-
-                    ctx.lineTo(
-
-                        x + 45,
-
-                        0
-
-                    );
-
-
-                    ctx.closePath();
-
-
-                    ctx.fill();
-
-                }
-
-            }
-
-        );
-
-    }
-
-
-
-    /* =====================================================
-       ETIQUETA CARTÓN
+       LABEL
     ====================================================== */
 
     createCardboardLabelTexture() {
@@ -1211,11 +920,8 @@ export class ObjectManager {
                 ctx.clearRect(
 
                     0,
-
                     0,
-
                     width,
-
                     height
 
                 );
@@ -1228,11 +934,8 @@ export class ObjectManager {
                 ctx.fillRect(
 
                     40,
-
                     35,
-
                     432,
-
                     186
 
                 );
@@ -1249,11 +952,8 @@ export class ObjectManager {
                 ctx.strokeRect(
 
                     40,
-
                     35,
-
                     432,
-
                     186
 
                 );
@@ -1276,7 +976,6 @@ export class ObjectManager {
                     "NOVA SUPPLY",
 
                     width / 2,
-
                     95
 
                 );
@@ -1291,7 +990,6 @@ export class ObjectManager {
                     "ZONE A",
 
                     width / 2,
-
                     138
 
                 );
@@ -1306,7 +1004,6 @@ export class ObjectManager {
                     "HANDLE WITH CARE",
 
                     width / 2,
-
                     183
 
                 );
@@ -1318,9 +1015,8 @@ export class ObjectManager {
     }
 
 
-
     /* =====================================================
-       SOMBRAS
+       SHADOW HELPER
     ====================================================== */
 
     setupMesh(
@@ -1340,17 +1036,15 @@ export class ObjectManager {
     }
 
 
-
     /* =====================================================
-       PREPARAR CONSULTA DE PISO
+       GROUND QUERY
     ====================================================== */
 
     prepareGroundQuery(
         environment
     ) {
 
-        this.environmentMeshes =
-            [];
+        this.environmentMeshes = [];
 
 
         environment.updateMatrixWorld(
@@ -1363,11 +1057,8 @@ export class ObjectManager {
             object => {
 
                 if (
-
                     object.isMesh &&
-
                     object.visible
-
                 ) {
 
                     this.environmentMeshes.push(
@@ -1389,14 +1080,6 @@ export class ObjectManager {
     }
 
 
-
-    /* =====================================================
-       POSICIÓN POLAR
-
-       Nos permite distribuir objetos alrededor
-       de TODA la estación circular.
-    ====================================================== */
-
     polarPoint(
         radius,
         angle
@@ -1405,35 +1088,17 @@ export class ObjectManager {
         return {
 
             x:
-
-                Math.cos(
-                    angle
-                )
-
-                *
-
+                Math.cos(angle) *
                 radius,
 
-
             z:
-
-                Math.sin(
-                    angle
-                )
-
-                *
-
+                Math.sin(angle) *
                 radius
 
         };
 
     }
 
-
-
-    /* =====================================================
-       PISO REAL MÁS CERCANO
-    ====================================================== */
 
     findGroundY(
 
@@ -1463,9 +1128,7 @@ export class ObjectManager {
                 new THREE.Vector3(
 
                     0,
-
                     -1,
-
                     0
 
                 )
@@ -1493,14 +1156,12 @@ export class ObjectManager {
         }
 
 
-
         let bestY =
             referenceFloorY;
 
 
         let bestDistance =
             Infinity;
-
 
 
         for (
@@ -1540,9 +1201,8 @@ export class ObjectManager {
     }
 
 
-
     /* =====================================================
-       REGISTRO DINÁMICO
+       REGISTER
     ====================================================== */
 
     registerDynamicObject(
@@ -1566,9 +1226,7 @@ export class ObjectManager {
         this.dynamicObjects.push({
 
             mesh,
-
             rigidBody,
-
             type
 
         });
@@ -1576,9 +1234,8 @@ export class ObjectManager {
     }
 
 
-
     /* =====================================================
-       CAJA METÁLICA
+       METAL CRATE
     ====================================================== */
 
     createMetalCrate(
@@ -1607,11 +1264,6 @@ export class ObjectManager {
             rotationY;
 
 
-
-        /* =================================================
-           CUERPO
-        ================================================= */
-
         const bodyMesh =
 
             this.setupMesh(
@@ -1621,9 +1273,7 @@ export class ObjectManager {
                     new THREE.BoxGeometry(
 
                         size * 0.91,
-
                         size * 0.91,
-
                         size * 0.91
 
                     ),
@@ -1641,11 +1291,6 @@ export class ObjectManager {
         );
 
 
-
-        /* =================================================
-           BASTIDORES VERTICALES
-        ================================================= */
-
         const frameThickness =
             size * 0.065;
 
@@ -1656,7 +1301,6 @@ export class ObjectManager {
 
         const frameHeight =
             size * 1.02;
-
 
 
         const cornerPositions = [
@@ -1684,7 +1328,6 @@ export class ObjectManager {
         ];
 
 
-
         for (
             const [
                 x,
@@ -1702,9 +1345,7 @@ export class ObjectManager {
                         new THREE.BoxGeometry(
 
                             frameThickness,
-
                             frameHeight,
-
                             frameDepth
 
                         ),
@@ -1720,9 +1361,7 @@ export class ObjectManager {
             bar.position.set(
 
                 x,
-
                 0,
-
                 z
 
             );
@@ -1735,93 +1374,9 @@ export class ObjectManager {
         }
 
 
-
-        /* =================================================
-           BORDES SUPERIOR E INFERIOR
-        ================================================= */
-
-        for (
-            const y
-            of [
-                -size * 0.46,
-                size * 0.46
-            ]
-        ) {
-
-            const horizontalX =
-
-                this.setupMesh(
-
-                    new THREE.Mesh(
-
-                        new THREE.BoxGeometry(
-
-                            size,
-
-                            frameThickness,
-
-                            frameThickness
-
-                        ),
-
-                        this.materials
-                            .metalFrame
-
-                    )
-
-                );
-
-
-            horizontalX.position.y =
-                y;
-
-
-            group.add(
-                horizontalX
-            );
-
-
-
-            const horizontalZ =
-
-                this.setupMesh(
-
-                    new THREE.Mesh(
-
-                        new THREE.BoxGeometry(
-
-                            frameThickness,
-
-                            frameThickness,
-
-                            size
-
-                        ),
-
-                        this.materials
-                            .metalFrame
-
-                    )
-
-                );
-
-
-            horizontalZ.position.y =
-                y;
-
-
-            group.add(
-                horizontalZ
-            );
-
-        }
-
-
-
         this.scene.add(
             group
         );
-
 
 
         const rigidBody =
@@ -1833,21 +1388,15 @@ export class ObjectManager {
 
                     size: {
 
-                        x:
-                            size,
-
-                        y:
-                            size,
-
-                        z:
-                            size
+                        x: size,
+                        y: size,
+                        z: size
 
                     },
 
                     rotationY,
 
                     density:
-
                         OBJECT_CONFIG
                             .metalCrate
                             .density,
@@ -1859,7 +1408,6 @@ export class ObjectManager {
                         0.07
 
                 });
-
 
 
         this.registerDynamicObject(
@@ -1878,9 +1426,8 @@ export class ObjectManager {
     }
 
 
-
     /* =====================================================
-       CAJA DE CARTÓN
+       CARDBOARD BOX
     ====================================================== */
 
     createCardboardBox(
@@ -1909,11 +1456,6 @@ export class ObjectManager {
             rotationY;
 
 
-
-        /* =================================================
-           CUERPO
-        ================================================= */
-
         const box =
 
             this.setupMesh(
@@ -1923,9 +1465,7 @@ export class ObjectManager {
                     new THREE.BoxGeometry(
 
                         size,
-
                         size,
-
                         size
 
                     ),
@@ -1943,11 +1483,6 @@ export class ObjectManager {
         );
 
 
-
-        /* =================================================
-           CINTA SUPERIOR
-        ================================================= */
-
         const tape =
 
             this.setupMesh(
@@ -1957,9 +1492,7 @@ export class ObjectManager {
                     new THREE.BoxGeometry(
 
                         size * 0.19,
-
                         size * 1.015,
-
                         size * 1.015
 
                     ),
@@ -1977,11 +1510,6 @@ export class ObjectManager {
         );
 
 
-
-        /* =================================================
-           ETIQUETA
-        ================================================= */
-
         const label =
 
             new THREE.Mesh(
@@ -1989,12 +1517,12 @@ export class ObjectManager {
                 new THREE.PlaneGeometry(
 
                     size * 0.58,
-
                     size * 0.30
 
                 ),
 
-                this.materials.label
+                this.materials
+                    .label
 
             );
 
@@ -2015,11 +1543,9 @@ export class ObjectManager {
         );
 
 
-
         this.scene.add(
             group
         );
-
 
 
         const rigidBody =
@@ -2031,21 +1557,15 @@ export class ObjectManager {
 
                     size: {
 
-                        x:
-                            size,
-
-                        y:
-                            size,
-
-                        z:
-                            size
+                        x: size,
+                        y: size,
+                        z: size
 
                     },
 
                     rotationY,
 
                     density:
-
                         OBJECT_CONFIG
                             .cardboardBox
                             .density,
@@ -2057,7 +1577,6 @@ export class ObjectManager {
                         0.16
 
                 });
-
 
 
         this.registerDynamicObject(
@@ -2076,9 +1595,8 @@ export class ObjectManager {
     }
 
 
-
     /* =====================================================
-       BARRIL INDUSTRIAL
+       INDUSTRIAL BARREL
     ====================================================== */
 
     createBarrel(
@@ -2086,18 +1604,15 @@ export class ObjectManager {
     ) {
 
         const radius =
-
             OBJECT_CONFIG
                 .barrel
                 .radius;
 
 
         const height =
-
             OBJECT_CONFIG
                 .barrel
                 .height;
-
 
 
         const group =
@@ -2109,11 +1624,6 @@ export class ObjectManager {
         );
 
 
-
-        /* =================================================
-           CUERPO
-        ================================================= */
-
         const bodyMesh =
 
             this.setupMesh(
@@ -2123,16 +1633,14 @@ export class ObjectManager {
                     new THREE.CylinderGeometry(
 
                         radius,
-
                         radius,
-
                         height,
-
                         28
 
                     ),
 
-                    this.materials.barrel
+                    this.materials
+                        .barrel
 
                 )
 
@@ -2143,11 +1651,6 @@ export class ObjectManager {
             bodyMesh
         );
 
-
-
-        /* =================================================
-           BANDAS
-        ================================================= */
 
         const bandGeometry =
 
@@ -2162,7 +1665,6 @@ export class ObjectManager {
                 28
 
             );
-
 
 
         for (
@@ -2204,74 +1706,9 @@ export class ObjectManager {
         }
 
 
-
-        /* =================================================
-           TAPAS
-        ================================================= */
-
-        const capGeometry =
-
-            new THREE.CylinderGeometry(
-
-                radius * 0.96,
-
-                radius * 0.96,
-
-                0.045,
-
-                28
-
-            );
-
-
-
-        const topCap =
-
-            this.setupMesh(
-
-                new THREE.Mesh(
-
-                    capGeometry,
-
-                    this.materials
-                        .barrelBands
-
-                )
-
-            );
-
-
-        topCap.position.y =
-            height / 2 +
-            0.01;
-
-
-        group.add(
-            topCap
-        );
-
-
-
-        const bottomCap =
-
-            topCap.clone();
-
-
-        bottomCap.position.y =
-            -height / 2 -
-            0.01;
-
-
-        group.add(
-            bottomCap
-        );
-
-
-
         this.scene.add(
             group
         );
-
 
 
         const rigidBody =
@@ -2286,7 +1723,6 @@ export class ObjectManager {
                     height,
 
                     density:
-
                         OBJECT_CONFIG
                             .barrel
                             .density,
@@ -2298,7 +1734,6 @@ export class ObjectManager {
                         0.16
 
                 });
-
 
 
         this.registerDynamicObject(
@@ -2317,9 +1752,8 @@ export class ObjectManager {
     }
 
 
-
     /* =====================================================
-       CONTENEDOR INDUSTRIAL
+       INDUSTRIAL CYLINDER
     ====================================================== */
 
     createCylinder(
@@ -2327,18 +1761,15 @@ export class ObjectManager {
     ) {
 
         const radius =
-
             OBJECT_CONFIG
                 .cylinder
                 .radius;
 
 
         const height =
-
             OBJECT_CONFIG
                 .cylinder
                 .height;
-
 
 
         const group =
@@ -2350,7 +1781,6 @@ export class ObjectManager {
         );
 
 
-
         const bodyMesh =
 
             this.setupMesh(
@@ -2360,11 +1790,8 @@ export class ObjectManager {
                     new THREE.CylinderGeometry(
 
                         radius * 0.92,
-
                         radius,
-
                         height,
-
                         22
 
                     ),
@@ -2381,11 +1808,6 @@ export class ObjectManager {
             bodyMesh
         );
 
-
-
-        /* =================================================
-           AROS METÁLICOS
-        ================================================= */
 
         const ringGeometry =
 
@@ -2441,11 +1863,9 @@ export class ObjectManager {
         }
 
 
-
         this.scene.add(
             group
         );
-
 
 
         const rigidBody =
@@ -2460,7 +1880,6 @@ export class ObjectManager {
                     height,
 
                     density:
-
                         OBJECT_CONFIG
                             .cylinder
                             .density,
@@ -2472,7 +1891,6 @@ export class ObjectManager {
                         0.05
 
                 });
-
 
 
         this.registerDynamicObject(
@@ -2491,9 +1909,8 @@ export class ObjectManager {
     }
 
 
-
     /* =====================================================
-       NÚCLEO DE ENERGÍA
+       ENERGY CORE
     ====================================================== */
 
     createEnergyCore(
@@ -2501,11 +1918,9 @@ export class ObjectManager {
     ) {
 
         const radius =
-
             OBJECT_CONFIG
                 .energyCore
                 .radius;
-
 
 
         const group =
@@ -2517,7 +1932,6 @@ export class ObjectManager {
         );
 
 
-
         const sphere =
 
             this.setupMesh(
@@ -2527,9 +1941,7 @@ export class ObjectManager {
                     new THREE.SphereGeometry(
 
                         radius,
-
                         24,
-
                         18
 
                     ),
@@ -2545,7 +1957,6 @@ export class ObjectManager {
         group.add(
             sphere
         );
-
 
 
         const outerRing =
@@ -2583,7 +1994,6 @@ export class ObjectManager {
         );
 
 
-
         const light =
 
             new THREE.PointLight(
@@ -2604,11 +2014,9 @@ export class ObjectManager {
         );
 
 
-
         this.scene.add(
             group
         );
-
 
 
         const rigidBody =
@@ -2621,7 +2029,6 @@ export class ObjectManager {
                     radius,
 
                     density:
-
                         OBJECT_CONFIG
                             .energyCore
                             .density,
@@ -2633,7 +2040,6 @@ export class ObjectManager {
                         0.58
 
                 });
-
 
 
         this.registerDynamicObject(
@@ -2652,9 +2058,8 @@ export class ObjectManager {
     }
 
 
-
     /* =====================================================
-       HELPER PARA COLOCACIÓN
+       POLAR CREATION
     ====================================================== */
 
     createAtPolarPosition(
@@ -2674,7 +2079,6 @@ export class ObjectManager {
             this.polarPoint(
 
                 radius,
-
                 angle
 
             );
@@ -2685,27 +2089,17 @@ export class ObjectManager {
             this.findGroundY(
 
                 point.x,
-
                 point.z,
-
                 floorReference
 
             );
 
 
-
-        switch (
-            type
-        ) {
-
-            /* =============================================
-               METAL
-            ============================================= */
+        switch (type) {
 
             case "metal": {
 
                 const size =
-
                     OBJECT_CONFIG
                         .metalCrate
                         .size;
@@ -2735,15 +2129,9 @@ export class ObjectManager {
             }
 
 
-
-            /* =============================================
-               CARTÓN
-            ============================================= */
-
             case "cardboard": {
 
                 const size =
-
                     OBJECT_CONFIG
                         .cardboardBox
                         .size;
@@ -2773,12 +2161,7 @@ export class ObjectManager {
             }
 
 
-
-            /* =============================================
-               BARRIL
-            ============================================= */
-
-            case "barrel": {
+            case "barrel":
 
                 return this.createBarrel(
 
@@ -2787,12 +2170,9 @@ export class ObjectManager {
                         point.x,
 
                         groundY +
-
                         OBJECT_CONFIG
                             .barrel
-                            .height /
-                        2 +
-
+                            .height / 2 +
                         0.035,
 
                         point.z
@@ -2801,15 +2181,8 @@ export class ObjectManager {
 
                 );
 
-            }
 
-
-
-            /* =============================================
-               CILINDRO
-            ============================================= */
-
-            case "cylinder": {
+            case "cylinder":
 
                 return this.createCylinder(
 
@@ -2818,12 +2191,9 @@ export class ObjectManager {
                         point.x,
 
                         groundY +
-
                         OBJECT_CONFIG
                             .cylinder
-                            .height /
-                        2 +
-
+                            .height / 2 +
                         0.035,
 
                         point.z
@@ -2832,15 +2202,8 @@ export class ObjectManager {
 
                 );
 
-            }
 
-
-
-            /* =============================================
-               CORE
-            ============================================= */
-
-            case "core": {
+            case "core":
 
                 return this.createEnergyCore(
 
@@ -2849,11 +2212,9 @@ export class ObjectManager {
                         point.x,
 
                         groundY +
-
                         OBJECT_CONFIG
                             .energyCore
                             .radius +
-
                         0.035,
 
                         point.z
@@ -2862,16 +2223,13 @@ export class ObjectManager {
 
                 );
 
-            }
-
         }
 
     }
 
 
-
     /* =====================================================
-       BARRICADA DERRIBABLE
+       BARRICADE
     ====================================================== */
 
     createBarricade(
@@ -2885,18 +2243,15 @@ export class ObjectManager {
     ) {
 
         const size =
-
             OBJECT_CONFIG
                 .barricade
                 .boxSize;
 
 
         const spacing =
-
             OBJECT_CONFIG
                 .barricade
                 .spacing;
-
 
 
         const center =
@@ -2904,11 +2259,9 @@ export class ObjectManager {
             this.polarPoint(
 
                 radius,
-
                 angle
 
             );
-
 
 
         const groundY =
@@ -2916,36 +2269,24 @@ export class ObjectManager {
             this.findGroundY(
 
                 center.x,
-
                 center.z,
-
                 floorReference
 
             );
-
 
 
         const tangent =
 
             new THREE.Vector3(
 
-                -Math.sin(
-                    angle
-                ),
+                -Math.sin(angle),
 
                 0,
 
-                Math.cos(
-                    angle
-                )
+                Math.cos(angle)
 
             );
 
-
-
-        /* =================================================
-           FILA INFERIOR
-        ================================================= */
 
         for (
             let i = -1;
@@ -2983,11 +2324,6 @@ export class ObjectManager {
         }
 
 
-
-        /* =================================================
-           FILA MEDIA
-        ================================================= */
-
         for (
             let i = 0;
             i < 2;
@@ -2999,10 +2335,7 @@ export class ObjectManager {
                 (
                     i -
                     0.5
-                )
-
-                *
-
+                ) *
                 spacing;
 
 
@@ -3034,11 +2367,6 @@ export class ObjectManager {
         }
 
 
-
-        /* =================================================
-           FILA SUPERIOR
-        ================================================= */
-
         this.createMetalCrate(
 
             new THREE.Vector3(
@@ -3060,27 +2388,11 @@ export class ObjectManager {
 
         );
 
-
-        console.log(
-
-            "[Objects] Barricada física creada."
-
-        );
-
     }
 
 
-
     /* =====================================================
-       CREAR OBJETOS DE ZONA A
-
-       IMPORTANTE:
-
-       Ya no aparecen solamente cerca del spawn.
-
-       Los ángulos recorren prácticamente los 360°.
-       Dejamos una zona relativamente limpia alrededor
-       del punto inicial del jugador.
+       ZONE A POPULATION
     ====================================================== */
 
     createZoneAObjects(
@@ -3100,11 +2412,6 @@ export class ObjectManager {
         }
 
 
-
-        /* =================================================
-           PREPARAR RAYCASTS
-        ================================================= */
-
         this.prepareGroundQuery(
             environment
         );
@@ -3114,256 +2421,34 @@ export class ObjectManager {
             playerSpawn.y;
 
 
-
-        /* =================================================
-           DISTRIBUCIÓN
-
-           Radio aproximado jugable:
-           15 - 17.5
-
-           Spawn:
-           ángulo ≈ 0
-
-           Dejamos alrededor del spawn una zona
-           bastante despejada.
-        ================================================= */
-
         const placements = [
 
-            /* =============================================
-               SECTOR 1
-            ============================================= */
-
-            {
-                type:
-                    "cardboard",
-
-                radius:
-                    15.4,
-
-                angle:
-                    0.72
-            },
-
-            {
-                type:
-                    "barrel",
-
-                radius:
-                    17.0,
-
-                angle:
-                    0.94
-            },
-
-
-            /* =============================================
-               SECTOR 2
-            ============================================= */
-
-            {
-                type:
-                    "metal",
-
-                radius:
-                    16.4,
-
-                angle:
-                    1.30
-            },
-
-            {
-                type:
-                    "cylinder",
-
-                radius:
-                    15.2,
-
-                angle:
-                    1.55
-            },
-
-            {
-                type:
-                    "cardboard",
-
-                radius:
-                    17.1,
-
-                angle:
-                    1.86
-            },
-
-
-            /* =============================================
-               SECTOR 3
-            ============================================= */
-
-            {
-                type:
-                    "barrel",
-
-                radius:
-                    15.6,
-
-                angle:
-                    2.18
-            },
-
-            {
-                type:
-                    "metal",
-
-                radius:
-                    17.0,
-
-                angle:
-                    2.48
-            },
-
-            {
-                type:
-                    "core",
-
-                radius:
-                    15.5,
-
-                angle:
-                    2.78
-            },
-
-
-            /* =============================================
-               SECTOR 4
-            ============================================= */
-
-            {
-                type:
-                    "cardboard",
-
-                radius:
-                    16.8,
-
-                angle:
-                    3.10
-            },
-
-            {
-                type:
-                    "barrel",
-
-                radius:
-                    15.3,
-
-                angle:
-                    3.42
-            },
-
-            {
-                type:
-                    "cylinder",
-
-                radius:
-                    17.0,
-
-                angle:
-                    3.70
-            },
-
-
-            /* =============================================
-               SECTOR 5
-            ============================================= */
-
-            {
-                type:
-                    "metal",
-
-                radius:
-                    15.5,
-
-                angle:
-                    4.02
-            },
-
-            {
-                type:
-                    "barrel",
-
-                radius:
-                    17.1,
-
-                angle:
-                    4.34
-            },
-
-            {
-                type:
-                    "cardboard",
-
-                radius:
-                    16.0,
-
-                angle:
-                    4.62
-            },
-
-            {
-                type:
-                    "core",
-
-                radius:
-                    17.0,
-
-                angle:
-                    4.90
-            },
-
-
-            /* =============================================
-               SECTOR 6
-            ============================================= */
-
-            {
-                type:
-                    "cylinder",
-
-                radius:
-                    15.4,
-
-                angle:
-                    5.18
-            },
-
-            {
-                type:
-                    "metal",
-
-                radius:
-                    16.8,
-
-                angle:
-                    5.46
-            },
-
-            {
-                type:
-                    "barrel",
-
-                radius:
-                    15.5,
-
-                angle:
-                    5.72
-            }
+            { type: "cardboard", radius: 15.4, angle: 0.72 },
+            { type: "barrel", radius: 17.0, angle: 0.94 },
+
+            { type: "metal", radius: 16.4, angle: 1.30 },
+            { type: "cylinder", radius: 15.2, angle: 1.55 },
+            { type: "cardboard", radius: 17.1, angle: 1.86 },
+
+            { type: "barrel", radius: 15.6, angle: 2.18 },
+            { type: "metal", radius: 17.0, angle: 2.48 },
+            { type: "core", radius: 15.5, angle: 2.78 },
+
+            { type: "cardboard", radius: 16.8, angle: 3.10 },
+            { type: "barrel", radius: 15.3, angle: 3.42 },
+            { type: "cylinder", radius: 17.0, angle: 3.70 },
+
+            { type: "metal", radius: 15.5, angle: 4.02 },
+            { type: "barrel", radius: 17.1, angle: 4.34 },
+            { type: "cardboard", radius: 16.0, angle: 4.62 },
+            { type: "core", radius: 17.0, angle: 4.90 },
+
+            { type: "cylinder", radius: 15.4, angle: 5.18 },
+            { type: "metal", radius: 16.8, angle: 5.46 },
+            { type: "barrel", radius: 15.5, angle: 5.72 }
 
         ];
 
-
-
-        /* =================================================
-           CREAR PROPS
-        ================================================= */
 
         for (
             const placement
@@ -3385,14 +2470,6 @@ export class ObjectManager {
         }
 
 
-
-        /* =================================================
-           BARRICADA
-
-           Está lejos del spawn y solo ocupa
-           una sección del pasillo.
-        ================================================= */
-
         this.createBarricade(
 
             floorY,
@@ -3404,36 +2481,153 @@ export class ObjectManager {
         );
 
 
-
         this.zoneAObjectsCreated =
             true;
 
 
-
         console.log(
 
-            "[Objects] Zona A poblada correctamente.",
+            "[Objects] Zona A poblada:",
 
-            {
-
-                dynamicObjects:
-
-                    this.dynamicObjects
-                        .length,
-
-                independentProps:
-
-                    placements.length,
-
-                barricadePieces:
-                    6
-
-            }
+            this.dynamicObjects.length
 
         );
 
     }
 
+
+    /* =====================================================
+       DESTROY OBJECT
+
+       Elimina:
+       - objeto Three.js
+       - geometrías
+       - rigid body Rapier
+       - registro dinámico
+    ====================================================== */
+
+    removeDynamicObjectByBody(
+        rigidBody
+    ) {
+
+        const index =
+
+            this.dynamicObjects
+                .findIndex(
+
+                    object =>
+
+                        object.rigidBody ===
+                        rigidBody
+
+                );
+
+
+        if (
+            index === -1
+        ) {
+
+            return false;
+
+        }
+
+
+        const object =
+
+            this.dynamicObjects[
+                index
+            ];
+
+
+        /* =================================================
+           THREE.JS
+        ================================================= */
+
+        if (
+            object.mesh.parent
+        ) {
+
+            object.mesh.parent.remove(
+                object.mesh
+            );
+
+        }
+
+
+        /*
+         * No eliminamos materiales porque
+         * son compartidos por otros props.
+         *
+         * Sí liberamos geometrías únicas.
+         */
+
+        const geometries =
+            new Set();
+
+
+        object.mesh.traverse(
+
+            child => {
+
+                if (
+                    child.geometry
+                ) {
+
+                    geometries.add(
+                        child.geometry
+                    );
+
+                }
+
+            }
+
+        );
+
+
+        for (
+            const geometry
+            of geometries
+        ) {
+
+            geometry.dispose();
+
+        }
+
+
+        /* =================================================
+           RAPIER
+        ================================================= */
+
+        this.physicsManager
+            .removeRigidBody(
+
+                rigidBody
+
+            );
+
+
+        /* =================================================
+           ARRAY
+        ================================================= */
+
+        this.dynamicObjects.splice(
+
+            index,
+            1
+
+        );
+
+
+        console.log(
+
+            `[Objects] ${object.type} eliminado.`
+
+        );
+
+
+        return true;
+
+    }
 
 
     /* =====================================================
@@ -3449,25 +2643,20 @@ export class ObjectManager {
 
             const position =
 
-                object
-                    .rigidBody
+                object.rigidBody
                     .translation();
 
 
             const rotation =
 
-                object
-                    .rigidBody
+                object.rigidBody
                     .rotation();
-
 
 
             object.mesh.position.set(
 
                 position.x,
-
                 position.y,
-
                 position.z
 
             );
@@ -3476,11 +2665,8 @@ export class ObjectManager {
             object.mesh.quaternion.set(
 
                 rotation.x,
-
                 rotation.y,
-
                 rotation.z,
-
                 rotation.w
 
             );
@@ -3488,7 +2674,6 @@ export class ObjectManager {
         }
 
     }
-
 
 
     /* =====================================================
@@ -3500,6 +2685,5 @@ export class ObjectManager {
         return this.dynamicObjects;
 
     }
-
 
 }

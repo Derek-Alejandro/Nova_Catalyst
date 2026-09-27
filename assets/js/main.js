@@ -3,11 +3,15 @@
    Project Nova
 
    Pre-Alpha v.01
-   Build v0.5
+   Build v0.6.7
 
-   PLAYER + PHYSICS + OBJECTS + TPS
+   - Real Sci-fi Handgun
+   - Strict RightHand
+   - TPS Shoulder Aim
+   - Full-body FPS
+   - Physical weapon ADS
+   - Rapier physics
 ========================================================= */
-
 
 import * as THREE from "three";
 
@@ -15,6 +19,7 @@ import * as THREE from "three";
 import {
 
     EnvironmentManager,
+
     ENVIRONMENTS
 
 } from "./environment.js";
@@ -48,9 +53,22 @@ import {
 } from "./objects.js";
 
 
+import {
+
+    WeaponManager
+
+} from "./weapons.js";
+
+
+import {
+
+    PauseMenu
+
+} from "./pause.js";
+
 
 /* =========================================================
-   ESTADOS
+   GAME STATE
 ========================================================= */
 
 const GAME_STATE = {
@@ -68,7 +86,10 @@ const GAME_STATE = {
         "loading",
 
     PLAYING:
-        "playing"
+        "playing",
+
+    PAUSED:
+        "paused"
 
 };
 
@@ -77,9 +98,8 @@ let currentState =
     GAME_STATE.MENU;
 
 
-
 /* =========================================================
-   SPAWN DEFINITIVO ZONA A
+   PLAYER SPAWN
 ========================================================= */
 
 const PLAYER_SPAWN_ZONE_A = {
@@ -96,106 +116,152 @@ const PLAYER_SPAWN_ZONE_A = {
 };
 
 
-
 /* =========================================================
-   HTML
+   DOM
 ========================================================= */
 
 const gameContainer =
+
     document.getElementById(
+
         "game-container"
+
     );
 
 
 const backgroundEffects =
+
     document.getElementById(
+
         "background-effects"
+
     );
 
 
 const mainMenu =
+
     document.getElementById(
+
         "main-menu"
+
     );
 
 
 const briefingScreen =
+
     document.getElementById(
+
         "briefing-screen"
+
     );
 
 
 const aboutScreen =
+
     document.getElementById(
+
         "about-screen"
+
     );
 
 
 const loadingScreen =
+
     document.getElementById(
+
         "loading-screen"
+
     );
 
 
 const loadingProgress =
+
     document.getElementById(
+
         "loading-progress"
+
     );
 
 
 const loadingText =
+
     document.getElementById(
+
         "loading-text"
+
     );
 
 
 const inspectionUI =
+
     document.getElementById(
+
         "inspection-ui"
+
     );
 
 
 const spawnDebug =
+
     document.getElementById(
+
         "spawn-debug"
+
     );
 
 
 const notification =
+
     document.getElementById(
+
         "notification"
+
     );
 
 
 const btnEnter =
+
     document.getElementById(
+
         "btn-enter"
+
     );
 
 
 const btnAbout =
+
     document.getElementById(
+
         "btn-about"
+
     );
 
 
 const btnBackBriefing =
+
     document.getElementById(
+
         "btn-back-from-briefing"
+
     );
 
 
 const btnBackAbout =
+
     document.getElementById(
+
         "btn-back-from-about"
+
     );
 
 
 const btnSurvive =
-    document.getElementById(
-        "btn-survive"
-    );
 
+    document.getElementById(
+
+        "btn-survive"
+
+    );
 
 
 /* =========================================================
@@ -207,10 +273,12 @@ const scene =
 
 
 scene.background =
-    new THREE.Color(
-        0x010204
-    );
 
+    new THREE.Color(
+
+        0x010204
+
+    );
 
 
 /* =========================================================
@@ -218,6 +286,7 @@ scene.background =
 ========================================================= */
 
 const camera =
+
     new THREE.PerspectiveCamera(
 
         60,
@@ -225,7 +294,7 @@ const camera =
         window.innerWidth /
         window.innerHeight,
 
-        0.05,
+        0.02,
 
         5000
 
@@ -233,11 +302,21 @@ const camera =
 
 
 camera.position.set(
+
     0,
+
     2,
+
     8
+
 );
 
+
+scene.add(
+
+    camera
+
+);
 
 
 /* =========================================================
@@ -245,6 +324,7 @@ camera.position.set(
 ========================================================= */
 
 const renderer =
+
     new THREE.WebGLRenderer({
 
         antialias:
@@ -303,9 +383,10 @@ renderer.shadowMap.autoUpdate =
 
 
 gameContainer.appendChild(
-    renderer.domElement
-);
 
+    renderer.domElement
+
+);
 
 
 /* =========================================================
@@ -314,7 +395,6 @@ gameContainer.appendChild(
 
 const clock =
     new THREE.Clock();
-
 
 
 /* =========================================================
@@ -338,7 +418,10 @@ function createStarField(
     const positions =
 
         new Float32Array(
-            count * 3
+
+            count *
+            3
+
         );
 
 
@@ -359,7 +442,8 @@ function createStarField(
                 0.5
             )
 
-            * radius;
+            *
+            radius;
 
 
         positions[index + 1] =
@@ -369,7 +453,8 @@ function createStarField(
                 0.5
             )
 
-            * radius;
+            *
+            radius;
 
 
         positions[index + 2] =
@@ -379,7 +464,8 @@ function createStarField(
                 0.5
             )
 
-            * radius;
+            *
+            radius;
 
     }
 
@@ -425,7 +511,7 @@ function createStarField(
         });
 
 
-    const starField =
+    const field =
 
         new THREE.Points(
 
@@ -437,14 +523,15 @@ function createStarField(
 
 
     scene.add(
-        starField
+
+        field
+
     );
 
 
-    return starField;
+    return field;
 
 }
-
 
 
 const stars =
@@ -481,7 +568,6 @@ const distantStars =
     );
 
 
-
 /* =========================================================
    SYSTEMS
 ========================================================= */
@@ -489,7 +575,9 @@ const distantStars =
 const environmentManager =
 
     new EnvironmentManager(
+
         scene
+
     );
 
 
@@ -512,7 +600,9 @@ const physicsManager =
 const playerController =
 
     new PlayerController(
+
         scene
+
     );
 
 
@@ -527,9 +617,74 @@ const objectManager =
     );
 
 
+const weaponManager =
+
+    new WeaponManager({
+
+        scene,
+
+        camera,
+
+        cameraManager,
+
+        playerController,
+
+        physicsManager,
+
+        objectManager
+
+    });
+
 
 /* =========================================================
-   TEMP VECTORS
+   ADS LINK
+
+   CameraManager puede consultar la posición real
+   de las miras de la pistola.
+========================================================= */
+
+cameraManager
+    .setADSAnchorProvider(
+
+        () => {
+
+            return weaponManager
+                .getADSAnchor();
+
+        }
+
+    );
+
+
+/* =========================================================
+   PAUSE MENU
+========================================================= */
+
+const pauseMenu =
+
+    new PauseMenu({
+
+        onResume:
+
+            () => {
+
+                resumeGame();
+
+            },
+
+        onExit:
+
+            () => {
+
+                window.location.reload();
+
+            }
+
+    });
+
+
+/* =========================================================
+   TEMP
 ========================================================= */
 
 const cameraForward =
@@ -539,6 +694,9 @@ const cameraForward =
 const cameraRight =
     new THREE.Vector3();
 
+
+const cameraAimDirection =
+    new THREE.Vector3();
 
 
 /* =========================================================
@@ -557,9 +715,10 @@ const ambientLight =
 
 
 scene.add(
-    ambientLight
-);
 
+    ambientLight
+
+);
 
 
 const hemisphereLight =
@@ -576,9 +735,10 @@ const hemisphereLight =
 
 
 scene.add(
-    hemisphereLight
-);
 
+    hemisphereLight
+
+);
 
 
 /* =========================================================
@@ -591,7 +751,7 @@ const directionalLight =
 
         0xeef9ff,
 
-        5.0
+        5
 
     );
 
@@ -611,13 +771,15 @@ directionalLight.castShadow =
     true;
 
 
-directionalLight.shadow.mapSize.set(
+directionalLight.shadow
+    .mapSize
+    .set(
 
-    2048,
+        2048,
 
-    2048
+        2048
 
-);
+    );
 
 
 directionalLight.shadow.camera.left =
@@ -657,13 +819,14 @@ directionalLight.shadow.radius =
 
 
 scene.add(
+
     directionalLight
+
 );
 
 
-
 /* =========================================================
-   SECONDARY DIRECTIONAL
+   SECONDARY LIGHT
 ========================================================= */
 
 const secondaryDirectional =
@@ -689,9 +852,10 @@ secondaryDirectional.position.set(
 
 
 scene.add(
-    secondaryDirectional
-);
 
+    secondaryDirectional
+
+);
 
 
 /* =========================================================
@@ -725,9 +889,10 @@ emergencyLightA.position.set(
 
 
 scene.add(
-    emergencyLightA
-);
 
+    emergencyLightA
+
+);
 
 
 const emergencyLightB =
@@ -757,9 +922,10 @@ emergencyLightB.position.set(
 
 
 scene.add(
-    emergencyLightB
-);
 
+    emergencyLightB
+
+);
 
 
 /* =========================================================
@@ -793,9 +959,10 @@ coldLightA.position.set(
 
 
 scene.add(
-    coldLightA
-);
 
+    coldLightA
+
+);
 
 
 const coldLightB =
@@ -825,13 +992,14 @@ coldLightB.position.set(
 
 
 scene.add(
+
     coldLightB
+
 );
 
 
-
 /* =========================================================
-   PLAYER FILL LIGHT
+   PLAYER FILL
 ========================================================= */
 
 const playerFillLight =
@@ -854,13 +1022,14 @@ playerFillLight.castShadow =
 
 
 scene.add(
+
     playerFillLight
+
 );
 
 
-
 /* =========================================================
-   PLAYER SHADOW LIGHT
+   PLAYER SHADOW
 ========================================================= */
 
 const playerShadowLight =
@@ -890,13 +1059,15 @@ playerShadowLight.visible =
     false;
 
 
-playerShadowLight.shadow.mapSize.set(
+playerShadowLight.shadow
+    .mapSize
+    .set(
 
-    2048,
+        2048,
 
-    2048
+        2048
 
-);
+    );
 
 
 playerShadowLight.shadow.camera.near =
@@ -919,19 +1090,18 @@ playerShadowLight.shadow.radius =
     2;
 
 
-playerShadowLight.penumbra =
-    0.25;
-
-
 scene.add(
+
     playerShadowLight
+
 );
 
 
 scene.add(
-    playerShadowLight.target
-);
 
+    playerShadowLight.target
+
+);
 
 
 /* =========================================================
@@ -953,12 +1123,16 @@ function hideMainScreens() {
         screen => {
 
             screen.classList.remove(
+
                 "screen-visible"
+
             );
 
 
             screen.classList.add(
+
                 "hidden-screen"
+
             );
 
         }
@@ -966,7 +1140,6 @@ function hideMainScreens() {
     );
 
 }
-
 
 
 function showScreen(
@@ -977,30 +1150,37 @@ function showScreen(
 
 
     loadingScreen.classList.add(
+
         "hidden-screen"
+
     );
 
 
     inspectionUI.classList.add(
+
         "hidden-interface"
+
     );
 
 
     target.classList.remove(
+
         "hidden-screen"
+
     );
 
 
     target.classList.add(
+
         "screen-visible"
+
     );
 
 }
 
 
-
 /* =========================================================
-   MENU
+   MENU EVENTS
 ========================================================= */
 
 btnEnter.addEventListener(
@@ -1014,13 +1194,14 @@ btnEnter.addEventListener(
 
 
         showScreen(
+
             briefingScreen
+
         );
 
     }
 
 );
-
 
 
 btnAbout.addEventListener(
@@ -1034,13 +1215,14 @@ btnAbout.addEventListener(
 
 
         showScreen(
+
             aboutScreen
+
         );
 
     }
 
 );
-
 
 
 btnBackBriefing.addEventListener(
@@ -1054,13 +1236,14 @@ btnBackBriefing.addEventListener(
 
 
         showScreen(
+
             mainMenu
+
         );
 
     }
 
 );
-
 
 
 btnBackAbout.addEventListener(
@@ -1074,13 +1257,14 @@ btnBackAbout.addEventListener(
 
 
         showScreen(
+
             mainMenu
+
         );
 
     }
 
 );
-
 
 
 btnSurvive.addEventListener(
@@ -1096,6 +1280,187 @@ btnSurvive.addEventListener(
 );
 
 
+/* =========================================================
+   POINTER LOCK
+========================================================= */
+
+cameraManager
+    .setPointerLockChangeHandler(
+
+        locked => {
+
+            pauseMenu
+                .setCaptureHintVisible(
+
+                    currentState ===
+                    GAME_STATE.PLAYING
+
+                    &&
+
+                    !locked
+
+                );
+
+
+            if (
+                !locked
+
+                &&
+
+                currentState ===
+                GAME_STATE.PLAYING
+            ) {
+
+                pauseGame();
+
+            }
+
+        }
+
+    );
+
+
+/* =========================================================
+   ESC FALLBACK
+========================================================= */
+
+window.addEventListener(
+
+    "keydown",
+
+    event => {
+
+        if (
+            event.code !==
+            "Escape"
+        ) {
+
+            return;
+
+        }
+
+
+        if (
+            currentState ===
+            GAME_STATE.PLAYING
+
+            &&
+
+            !cameraManager
+                .isInputCaptured()
+        ) {
+
+            pauseGame();
+
+        }
+
+    }
+
+);
+
+
+/* =========================================================
+   PAUSE
+========================================================= */
+
+function pauseGame() {
+
+    if (
+        currentState !==
+        GAME_STATE.PLAYING
+    ) {
+
+        return;
+
+    }
+
+
+    currentState =
+        GAME_STATE.PAUSED;
+
+
+    playerController
+        .setEnabled(
+            false
+        );
+
+
+    cameraManager
+        .setPaused(
+            true
+        );
+
+
+    weaponManager
+        .setPaused(
+            true
+        );
+
+
+    pauseMenu
+        .setCaptureHintVisible(
+            false
+        );
+
+
+    pauseMenu
+        .setVisible(
+            true
+        );
+
+}
+
+
+/* =========================================================
+   RESUME
+========================================================= */
+
+function resumeGame() {
+
+    if (
+        currentState !==
+        GAME_STATE.PAUSED
+    ) {
+
+        return;
+
+    }
+
+
+    pauseMenu.setVisible(
+
+        false
+
+    );
+
+
+    currentState =
+        GAME_STATE.PLAYING;
+
+
+    playerController
+        .setEnabled(
+            true
+        );
+
+
+    cameraManager
+        .setPaused(
+            false
+        );
+
+
+    weaponManager
+        .setPaused(
+            false
+        );
+
+
+    cameraManager
+        .requestPointerLock();
+
+}
+
 
 /* =========================================================
    ENTER ZONE A
@@ -1108,7 +1473,9 @@ async function enterZoneA() {
 
 
     backgroundEffects.classList.add(
+
         "gameplay-mode"
+
     );
 
 
@@ -1116,7 +1483,9 @@ async function enterZoneA() {
 
 
     loadingScreen.classList.remove(
+
         "hidden-screen"
+
     );
 
 
@@ -1125,6 +1494,7 @@ async function enterZoneA() {
 
 
     loadingText.textContent =
+
         "Estableciendo conexión con Nova Atlas...";
 
 
@@ -1148,12 +1518,14 @@ async function enterZoneA() {
                             Math.round(
 
                                 percent *
-                                0.50
+                                0.40
 
                             );
 
 
-                        loadingProgress.style.width =
+                        loadingProgress
+                            .style
+                            .width =
 
                             `${adjusted}%`;
 
@@ -1167,28 +1539,28 @@ async function enterZoneA() {
                 );
 
 
-
         /* =================================================
            PHYSICS
         ================================================= */
 
         loadingProgress.style.width =
-            "58%";
+            "48%";
 
 
         loadingText.textContent =
+
             "Inicializando sistema físico...";
 
 
         await physicsManager.init();
 
 
-
         loadingProgress.style.width =
-            "65%";
+            "57%";
 
 
         loadingText.textContent =
+
             "Generando colisiones de Nova Atlas...";
 
 
@@ -1200,25 +1572,21 @@ async function enterZoneA() {
             );
 
 
-
         /* =================================================
            SPAWN
         ================================================= */
 
         loadingProgress.style.width =
-            "72%";
-
-
-        loadingText.textContent =
-            "Localizando punto de inserción...";
+            "64%";
 
 
         const playerSpawn =
 
             calculateZoneASpawn(
-                zoneA
-            );
 
+                zoneA
+
+            );
 
 
         /* =================================================
@@ -1226,10 +1594,11 @@ async function enterZoneA() {
         ================================================= */
 
         loadingProgress.style.width =
-            "78%";
+            "70%";
 
 
         loadingText.textContent =
+
             "Cargando guardia de seguridad...";
 
 
@@ -1238,7 +1607,6 @@ async function enterZoneA() {
             playerSpawn
 
         );
-
 
 
         physicsManager
@@ -1252,10 +1620,20 @@ async function enterZoneA() {
             );
 
 
-        playerController.setEnabled(
-            true
-        );
+        /* =================================================
+           WEAPON
+        ================================================= */
 
+        loadingProgress.style.width =
+            "79%";
+
+
+        loadingText.textContent =
+
+            "Equipando Sci-fi Handgun...";
+
+
+        await weaponManager.load();
 
 
         /* =================================================
@@ -1263,11 +1641,12 @@ async function enterZoneA() {
         ================================================= */
 
         loadingProgress.style.width =
-            "88%";
+            "87%";
 
 
         loadingText.textContent =
-            "Desplegando objetos físicos...";
+
+            "Desplegando utilería física...";
 
 
         objectManager
@@ -1280,36 +1659,56 @@ async function enterZoneA() {
             );
 
 
+        weaponManager
+            .setEnvironment(
+
+                zoneA
+
+            );
+
 
         /* =================================================
-           CAMERA
+           ENABLE
         ================================================= */
 
-        cameraManager.setTarget(
+        playerController
+            .setEnabled(
+                true
+            );
 
-            playerController
-                .getObject(),
 
-            true
+        cameraManager
+            .setTarget(
 
-        );
+                playerController
+                    .getObject(),
+
+                true
+
+            );
 
 
         cameraManager.enable();
 
 
+        weaponManager
+            .setEnabled(
+                true
+            );
 
-        /* =================================================
-           SHADOW
-        ================================================= */
+
+        weaponManager
+            .setViewMode(
+                "TPS"
+            );
+
 
         playerShadowLight.visible =
             true;
 
 
-
         /* =================================================
-           COMPLETE
+           READY
         ================================================= */
 
         loadingProgress.style.width =
@@ -1320,21 +1719,21 @@ async function enterZoneA() {
             "Nova Atlas preparada";
 
 
-        spawnDebug.textContent =
-            "JUGADOR · RAPIER · OBJETOS ACTIVOS";
-
-
         setTimeout(
 
             () => {
 
                 loadingScreen.classList.add(
+
                     "hidden-screen"
+
                 );
 
 
                 inspectionUI.classList.remove(
+
                     "hidden-interface"
+
                 );
 
 
@@ -1342,9 +1741,15 @@ async function enterZoneA() {
                     GAME_STATE.PLAYING;
 
 
+                pauseMenu
+                    .setCaptureHintVisible(
+                        true
+                    );
+
+
                 showNotification(
 
-                    "OBJETOS FÍSICOS · ONLINE"
+                    "SCI-FI HANDGUN · ONLINE"
 
                 );
 
@@ -1353,7 +1758,6 @@ async function enterZoneA() {
             450
 
         );
-
 
 
         environmentManager
@@ -1393,7 +1797,6 @@ async function enterZoneA() {
 }
 
 
-
 /* =========================================================
    SPAWN
 ========================================================= */
@@ -1406,7 +1809,9 @@ function calculateZoneASpawn(
 
         new THREE.Box3()
             .setFromObject(
+
                 environment
+
             );
 
 
@@ -1415,15 +1820,19 @@ function calculateZoneASpawn(
 
 
     box.getSize(
+
         size
+
     );
 
 
     const spawnX =
+
         PLAYER_SPAWN_ZONE_A.x;
 
 
     const spawnZ =
+
         PLAYER_SPAWN_ZONE_A.z;
 
 
@@ -1435,7 +1844,8 @@ function calculateZoneASpawn(
 
                 spawnX,
 
-                box.max.y + 10,
+                box.max.y +
+                10,
 
                 spawnZ
 
@@ -1454,7 +1864,7 @@ function calculateZoneASpawn(
         );
 
 
-    const environmentMeshes =
+    const meshes =
         [];
 
 
@@ -1463,15 +1873,15 @@ function calculateZoneASpawn(
         object => {
 
             if (
-
-                object.isMesh &&
-
+                object.isMesh
+                &&
                 object.visible
-
             ) {
 
-                environmentMeshes.push(
+                meshes.push(
+
                     object
+
                 );
 
             }
@@ -1485,7 +1895,7 @@ function calculateZoneASpawn(
 
         raycaster.intersectObjects(
 
-            environmentMeshes,
+            meshes,
 
             true
 
@@ -1493,19 +1903,24 @@ function calculateZoneASpawn(
 
 
     if (
-        intersections.length > 0
+        intersections.length >
+        0
     ) {
-
-        const hit =
-            intersections[0];
-
 
         return new THREE.Vector3(
 
             spawnX,
 
-            hit.point.y +
-            0.08 +
+            intersections[0]
+                .point
+                .y
+
+            +
+
+            0.08
+
+            +
+
             PLAYER_SPAWN_ZONE_A
                 .heightOffset,
 
@@ -1516,16 +1931,12 @@ function calculateZoneASpawn(
     }
 
 
-    console.warn(
-        "[Nova] Spawn fallback activo."
-    );
-
-
     return new THREE.Vector3(
 
         spawnX,
 
         box.min.y +
+
         size.y *
         0.55,
 
@@ -1536,9 +1947,8 @@ function calculateZoneASpawn(
 }
 
 
-
 /* =========================================================
-   NOTIFICATIONS
+   NOTIFICATION
 ========================================================= */
 
 let notificationTimeout =
@@ -1554,7 +1964,9 @@ function showNotification(
 
 
     notification.classList.add(
+
         "visible"
+
     );
 
 
@@ -1563,7 +1975,9 @@ function showNotification(
     ) {
 
         clearTimeout(
+
             notificationTimeout
+
         );
 
     }
@@ -1576,7 +1990,9 @@ function showNotification(
             () => {
 
                 notification.classList.remove(
+
                     "visible"
+
                 );
 
             },
@@ -1588,54 +2004,49 @@ function showNotification(
 }
 
 
-
 /* =========================================================
    RESIZE
 ========================================================= */
-
-function handleResize() {
-
-    camera.aspect =
-
-        window.innerWidth /
-        window.innerHeight;
-
-
-    camera.updateProjectionMatrix();
-
-
-    renderer.setSize(
-
-        window.innerWidth,
-
-        window.innerHeight
-
-    );
-
-
-    renderer.setPixelRatio(
-
-        Math.min(
-
-            window.devicePixelRatio,
-
-            2
-
-        )
-
-    );
-
-}
-
 
 window.addEventListener(
 
     "resize",
 
-    handleResize
+    () => {
+
+        camera.aspect =
+
+            window.innerWidth /
+            window.innerHeight;
+
+
+        camera.updateProjectionMatrix();
+
+
+        renderer.setSize(
+
+            window.innerWidth,
+
+            window.innerHeight
+
+        );
+
+
+        renderer.setPixelRatio(
+
+            Math.min(
+
+                window.devicePixelRatio,
+
+                2
+
+            )
+
+        );
+
+    }
 
 );
-
 
 
 /* =========================================================
@@ -1651,10 +2062,8 @@ function update(
 ) {
 
     if (
-
         currentState ===
         GAME_STATE.PLAYING
-
     ) {
 
         /* =================================================
@@ -1677,9 +2086,73 @@ function update(
             );
 
 
+        cameraManager
+            .getAimDirection(
+
+                cameraAimDirection
+
+            );
+
+
+        const cameraMode =
+
+            cameraManager
+                .getMode();
+
 
         /* =================================================
-           PLAYER
+           CHARACTER MODE
+        ================================================= */
+
+        playerController
+            .setFirstPersonMode(
+
+                cameraMode ===
+                "FPS"
+
+            );
+
+
+        const combatAim =
+
+            cameraMode ===
+            "FPS"
+
+            ||
+
+            cameraManager
+                .isAiming();
+
+
+        playerController
+            .setAimState(
+
+                combatAim,
+
+                cameraAimDirection
+
+            );
+
+
+        weaponManager
+            .setViewMode(
+
+                cameraMode
+
+            );
+
+
+        weaponManager
+            .setAiming(
+
+                cameraManager
+                    .isAiming()
+
+            );
+
+
+        /* =================================================
+           ANIMATION
         ================================================= */
 
         playerController.update(
@@ -1691,7 +2164,6 @@ function update(
             cameraRight
 
         );
-
 
 
         /* =================================================
@@ -1709,25 +2181,12 @@ function update(
             );
 
 
-        /*
-         * Un único step de física para:
-         *
-         * jugador
-         * cajas
-         * barriles
-         * cilindros
-         * esferas
-         */
-
         physicsManager.step(
+
             deltaTime
+
         );
 
-
-
-        /* =================================================
-           SYNC PLAYER
-        ================================================= */
 
         physicsManager
             .syncCharacter(
@@ -1738,27 +2197,53 @@ function update(
             );
 
 
-
-        /* =================================================
-           SYNC PHYSICAL OBJECTS
-        ================================================= */
-
         objectManager.update();
 
+
+        /* =================================================
+           SKELETON MATRICES
+        ================================================= */
+
+        playerController
+            .getObject()
+            .updateMatrixWorld(
+
+                true
+
+            );
+
+
+        /* =================================================
+           WEAPON
+
+           Primero sincronizamos el arma con RightHand.
+
+           De este modo la cámara ADS tiene un punto
+           de mira actualizado.
+        ================================================= */
+
+        weaponManager.update(
+
+            deltaTime
+
+        );
 
 
         /* =================================================
            CAMERA
+
+           Después usamos el rear sight actualizado.
         ================================================= */
 
         cameraManager.update(
+
             deltaTime
+
         );
 
 
-
         /* =================================================
-           PLAYER POSITION
+           LIGHTING
         ================================================= */
 
         const playerPosition =
@@ -1766,11 +2251,6 @@ function update(
             playerController
                 .getPosition();
 
-
-
-        /* =================================================
-           PLAYER FILL LIGHT
-        ================================================= */
 
         playerFillLight.position.set(
 
@@ -1784,11 +2264,6 @@ function update(
 
         );
 
-
-
-        /* =================================================
-           PLAYER SHADOW
-        ================================================= */
 
         playerShadowLight.position.set(
 
@@ -1822,9 +2297,10 @@ function update(
         playerShadowLight
             .target
             .updateMatrixWorld(
-                true
-            );
 
+                true
+
+            );
 
 
         /* =================================================
@@ -1833,22 +2309,43 @@ function update(
 
         spawnDebug.textContent =
 
-            physicsManager.isGrounded()
+            `${cameraMode}`
 
-                ?
+            +
 
-                "JUGADOR · RAPIER · GROUNDED"
+            (
+                cameraManager
+                    .isAiming()
 
-                :
+                    ?
 
-                "JUGADOR · RAPIER · AIRBORNE";
+                    " · ADS"
+
+                    :
+
+                    ""
+            )
+
+            +
+
+            (
+                physicsManager
+                    .isGrounded()
+
+                    ?
+
+                    " · GROUNDED"
+
+                    :
+
+                    " · AIRBORNE"
+            );
 
     }
 
 
-
     /* =====================================================
-       STARS
+       BACKGROUND
     ====================================================== */
 
     stars.rotation.y +=
@@ -1863,14 +2360,11 @@ function update(
         0.00035;
 
 
-
-    /* =====================================================
-       EMERGENCY LIGHTS
-    ====================================================== */
-
     emergencyLightA.intensity =
 
-        78 +
+        78
+
+        +
 
         Math.sin(
 
@@ -1879,12 +2373,15 @@ function update(
 
         )
 
-        * 12;
+        *
+        12;
 
 
     emergencyLightB.intensity =
 
-        58 +
+        58
+
+        +
 
         Math.sin(
 
@@ -1894,10 +2391,10 @@ function update(
 
         )
 
-        * 10;
+        *
+        10;
 
 }
-
 
 
 /* =========================================================
@@ -1907,7 +2404,9 @@ function update(
 function animate() {
 
     requestAnimationFrame(
+
         animate
+
     );
 
 
@@ -1922,15 +2421,11 @@ function animate() {
         );
 
 
-    const elapsedTime =
-        clock.elapsedTime;
-
-
     update(
 
         deltaTime,
 
-        elapsedTime
+        clock.elapsedTime
 
     );
 
@@ -1949,7 +2444,6 @@ function animate() {
 animate();
 
 
-
 /* =========================================================
    CONSOLE
 ========================================================= */
@@ -1965,7 +2459,7 @@ console.log(
 
 console.log(
 
-    "%cPre-Alpha v.01 · Build v0.5",
+    "%cPre-Alpha v.01 · Build v0.6.7",
 
     "color:#b8c0c2;"
 
@@ -1974,7 +2468,7 @@ console.log(
 
 console.log(
 
-    "%cRapier Physics · ONLINE",
+    "%cRightHand Weapon Mount · ONLINE",
 
     "color:#55ff99;"
 
@@ -1983,7 +2477,7 @@ console.log(
 
 console.log(
 
-    "%cPhysical Objects System · STANDBY",
+    "%cPhysical Iron Sight ADS · ONLINE",
 
     "color:#55ff99;"
 
