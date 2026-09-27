@@ -3,9 +3,9 @@
    Project Nova
 
    Pre-Alpha v.01
-   Build v0.2
+   Build v0.4
 
-   ESCENARIO Y CÁMARA
+   PLAYER + PHYSICS + TPS
 ========================================================= */
 
 
@@ -27,9 +27,23 @@ import {
 } from "./camera.js";
 
 
+import {
+
+    PlayerController
+
+} from "./player.js";
+
+
+import {
+
+    PhysicsManager
+
+} from "./physics.js";
+
+
 
 /* =========================================================
-   ESTADOS DEL JUEGO
+   ESTADOS
 ========================================================= */
 
 const GAME_STATE = {
@@ -46,8 +60,8 @@ const GAME_STATE = {
     LOADING:
         "loading",
 
-    INSPECTION:
-        "inspection"
+    PLAYING:
+        "playing"
 
 };
 
@@ -58,30 +72,26 @@ let currentState =
 
 
 /* =========================================================
-   SPAWN OFICIAL - ZONA A
-
-   Punto de aparición calibrado manualmente
-   sobre la zona jugable del anillo exterior.
-
-   El eje Y continúa obteniéndose mediante
-   Raycaster y posteriormente se aplica el
-   ajuste vertical indicado.
+   SPAWN ZONA A
 ========================================================= */
 
 const PLAYER_SPAWN_ZONE_A = {
 
-    x: 16.0,
+    x:
+        16.0,
 
-    z: 0,
+    z:
+        0,
 
-    heightOffset: -4.2
+    heightOffset:
+        -4.4
 
 };
 
 
 
 /* =========================================================
-   ELEMENTOS HTML
+   HTML
 ========================================================= */
 
 const gameContainer =
@@ -198,7 +208,7 @@ const btnSurvive =
 
 
 /* =========================================================
-   ESCENA THREE.JS
+   SCENE
 ========================================================= */
 
 const scene =
@@ -214,7 +224,7 @@ scene.background =
 
 
 /* =========================================================
-   CÁMARA
+   CAMERA
 ========================================================= */
 
 const camera =
@@ -237,7 +247,7 @@ camera.position.set(
 
     0,
 
-    0,
+    2,
 
     8
 
@@ -294,7 +304,7 @@ renderer.toneMapping =
 
 
 renderer.toneMappingExposure =
-    1.25;
+    1.38;
 
 
 renderer.shadowMap.enabled =
@@ -303,6 +313,10 @@ renderer.shadowMap.enabled =
 
 renderer.shadowMap.type =
     THREE.PCFSoftShadowMap;
+
+
+renderer.shadowMap.autoUpdate =
+    true;
 
 
 gameContainer.appendChild(
@@ -314,7 +328,7 @@ gameContainer.appendChild(
 
 
 /* =========================================================
-   RELOJ
+   CLOCK
 ========================================================= */
 
 const clock =
@@ -323,7 +337,7 @@ const clock =
 
 
 /* =========================================================
-   ESTRELLAS
+   STAR FIELD
 ========================================================= */
 
 function createStarField(
@@ -348,16 +362,20 @@ function createStarField(
 
 
     for (
+
         let i = 0;
+
         i < count;
+
         i++
+
     ) {
 
-        const i3 =
+        const index =
             i * 3;
 
 
-        positions[i3] =
+        positions[index] =
 
             (
                 Math.random() -
@@ -367,7 +385,7 @@ function createStarField(
             * radius;
 
 
-        positions[i3 + 1] =
+        positions[index + 1] =
 
             (
                 Math.random() -
@@ -377,7 +395,7 @@ function createStarField(
             * radius;
 
 
-        positions[i3 + 2] =
+        positions[index + 2] =
 
             (
                 Math.random() -
@@ -389,7 +407,9 @@ function createStarField(
     }
 
 
+
     const geometry =
+
         new THREE.BufferGeometry();
 
 
@@ -406,6 +426,7 @@ function createStarField(
         )
 
     );
+
 
 
     const material =
@@ -430,7 +451,8 @@ function createStarField(
         });
 
 
-    const points =
+
+    const starField =
 
         new THREE.Points(
 
@@ -442,11 +464,11 @@ function createStarField(
 
 
     scene.add(
-        points
+        starField
     );
 
 
-    return points;
+    return starField;
 
 }
 
@@ -489,7 +511,7 @@ const distantStars =
 
 
 /* =========================================================
-   MANAGERS
+   SYSTEMS
 ========================================================= */
 
 const environmentManager =
@@ -510,18 +532,47 @@ const cameraManager =
     );
 
 
+const physicsManager =
+
+    new PhysicsManager();
+
+
+const playerController =
+
+    new PlayerController(
+        scene
+    );
+
+
 
 /* =========================================================
-   ILUMINACIÓN AMBIENTAL
+   MOVEMENT VECTORS
+========================================================= */
+
+const cameraForward =
+    new THREE.Vector3();
+
+
+const cameraRight =
+    new THREE.Vector3();
+
+
+
+/* =========================================================
+   LIGHTING
+========================================================= */
+
+/* =========================================================
+   AMBIENT
 ========================================================= */
 
 const ambientLight =
 
     new THREE.AmbientLight(
 
-        0xb8c8d2,
+        0xc9d8df,
 
-        1.15
+        1.45
 
     );
 
@@ -533,18 +584,18 @@ scene.add(
 
 
 /* =========================================================
-   LUZ HEMISFÉRICA
+   HEMISPHERE
 ========================================================= */
 
 const hemisphereLight =
 
     new THREE.HemisphereLight(
 
-        0xcce5f2,
+        0xd8efff,
 
-        0x101217,
+        0x111419,
 
-        2.1
+        2.55
 
     );
 
@@ -556,27 +607,27 @@ scene.add(
 
 
 /* =========================================================
-   LUZ PRINCIPAL
+   MAIN DIRECTIONAL
 ========================================================= */
 
 const directionalLight =
 
     new THREE.DirectionalLight(
 
-        0xe9f5ff,
+        0xeef9ff,
 
-        4.0
+        5.0
 
     );
 
 
 directionalLight.position.set(
 
-    20,
+    22,
 
-    35,
+    38,
 
-    15
+    18
 
 );
 
@@ -585,29 +636,31 @@ directionalLight.castShadow =
     true;
 
 
-directionalLight.shadow.mapSize.set(
+directionalLight.shadow
+    .mapSize
+    .set(
 
-    2048,
+        2048,
 
-    2048
+        2048
 
-);
+    );
 
 
 directionalLight.shadow.camera.left =
-    -45;
+    -50;
 
 
 directionalLight.shadow.camera.right =
-    45;
+    50;
 
 
 directionalLight.shadow.camera.top =
-    45;
+    50;
 
 
 directionalLight.shadow.camera.bottom =
-    -45;
+    -50;
 
 
 directionalLight.shadow.camera.near =
@@ -615,7 +668,19 @@ directionalLight.shadow.camera.near =
 
 
 directionalLight.shadow.camera.far =
-    150;
+    180;
+
+
+directionalLight.shadow.bias =
+    -0.00025;
+
+
+directionalLight.shadow.normalBias =
+    0.025;
+
+
+directionalLight.shadow.radius =
+    3;
 
 
 scene.add(
@@ -625,7 +690,39 @@ scene.add(
 
 
 /* =========================================================
-   LUZ DE EMERGENCIA ROJA A
+   SECONDARY DIRECTIONAL
+========================================================= */
+
+const secondaryDirectional =
+
+    new THREE.DirectionalLight(
+
+        0x7299ad,
+
+        1.65
+
+    );
+
+
+secondaryDirectional.position.set(
+
+    -24,
+
+    24,
+
+    -18
+
+);
+
+
+scene.add(
+    secondaryDirectional
+);
+
+
+
+/* =========================================================
+   RED EMERGENCY LIGHTS
 ========================================================= */
 
 const emergencyLightA =
@@ -634,9 +731,9 @@ const emergencyLightA =
 
         0xff251d,
 
-        75,
+        85,
 
-        35,
+        38,
 
         1.7
 
@@ -647,7 +744,7 @@ emergencyLightA.position.set(
 
     16,
 
-    12,
+    14,
 
     0
 
@@ -660,19 +757,15 @@ scene.add(
 
 
 
-/* =========================================================
-   LUZ DE EMERGENCIA ROJA B
-========================================================= */
-
 const emergencyLightB =
 
     new THREE.PointLight(
 
-        0xff251d,
+        0xff3024,
 
-        55,
+        65,
 
-        30,
+        34,
 
         1.7
 
@@ -683,7 +776,7 @@ emergencyLightB.position.set(
 
     -16,
 
-    12,
+    14,
 
     0
 
@@ -697,18 +790,18 @@ scene.add(
 
 
 /* =========================================================
-   LUZ FRÍA A
+   COLD LIGHTS
 ========================================================= */
 
 const coldLightA =
 
     new THREE.PointLight(
 
-        0x8fdcff,
+        0xa8e6ff,
 
-        65,
+        78,
 
-        35,
+        40,
 
         1.8
 
@@ -719,7 +812,7 @@ coldLightA.position.set(
 
     0,
 
-    15,
+    18,
 
     16
 
@@ -732,19 +825,15 @@ scene.add(
 
 
 
-/* =========================================================
-   LUZ FRÍA B
-========================================================= */
-
 const coldLightB =
 
     new THREE.PointLight(
 
-        0x669dba,
+        0x71b9db,
 
-        55,
+        68,
 
-        30,
+        38,
 
         1.8
 
@@ -755,7 +844,7 @@ coldLightB.position.set(
 
     0,
 
-    14,
+    17,
 
     -16
 
@@ -769,127 +858,32 @@ scene.add(
 
 
 /* =========================================================
-   MARCADOR TEMPORAL DEL SPAWN
-
-   Solamente se utiliza durante desarrollo.
-   Cuando integremos el personaje real,
-   este elemento desaparecerá.
+   PLAYER FILL LIGHT
 ========================================================= */
 
-const spawnGroup =
-    new THREE.Group();
+const playerFillLight =
 
+    new THREE.PointLight(
 
-spawnGroup.visible =
-    false;
+        0xcceeff,
 
+        18,
 
+        8,
 
-/* =========================================================
-   DISCO VERDE
-========================================================= */
-
-const spawnDisc =
-
-    new THREE.Mesh(
-
-        new THREE.CylinderGeometry(
-
-            0.75,
-
-            0.75,
-
-            0.08,
-
-            32
-
-        ),
-
-        new THREE.MeshStandardMaterial({
-
-            color:
-                0x39ff88,
-
-            emissive:
-                0x087b3c,
-
-            emissiveIntensity:
-                3,
-
-            roughness:
-                0.35,
-
-            metalness:
-                0.15
-
-        })
+        2
 
     );
-
-
-spawnDisc.castShadow =
-    true;
-
-
-spawnGroup.add(
-    spawnDisc
-);
-
-
-
-/* =========================================================
-   BEACON VERTICAL
-========================================================= */
-
-const spawnBeacon =
-
-    new THREE.Mesh(
-
-        new THREE.CylinderGeometry(
-
-            0.04,
-
-            0.04,
-
-            5,
-
-            10
-
-        ),
-
-        new THREE.MeshBasicMaterial({
-
-            color:
-                0x55ff99,
-
-            transparent:
-                true,
-
-            opacity:
-                0.55
-
-        })
-
-    );
-
-
-spawnBeacon.position.y =
-    2.5;
-
-
-spawnGroup.add(
-    spawnBeacon
-);
 
 
 scene.add(
-    spawnGroup
+    playerFillLight
 );
 
 
 
 /* =========================================================
-   GESTIÓN DE PANTALLAS
+   SCREEN MANAGEMENT
 ========================================================= */
 
 function hideMainScreens() {
@@ -906,14 +900,18 @@ function hideMainScreens() {
 
         screen => {
 
-            screen.classList.remove(
-                "screen-visible"
-            );
+            screen
+                .classList
+                .remove(
+                    "screen-visible"
+                );
 
 
-            screen.classList.add(
-                "hidden-screen"
-            );
+            screen
+                .classList
+                .add(
+                    "hidden-screen"
+                );
 
         }
 
@@ -930,31 +928,39 @@ function showScreen(
     hideMainScreens();
 
 
-    loadingScreen.classList.add(
-        "hidden-screen"
-    );
+    loadingScreen
+        .classList
+        .add(
+            "hidden-screen"
+        );
 
 
-    inspectionUI.classList.add(
-        "hidden-interface"
-    );
+    inspectionUI
+        .classList
+        .add(
+            "hidden-interface"
+        );
 
 
-    target.classList.remove(
-        "hidden-screen"
-    );
+    target
+        .classList
+        .remove(
+            "hidden-screen"
+        );
 
 
-    target.classList.add(
-        "screen-visible"
-    );
+    target
+        .classList
+        .add(
+            "screen-visible"
+        );
 
 }
 
 
 
 /* =========================================================
-   BOTÓN ENTRAR
+   MENU
 ========================================================= */
 
 btnEnter.addEventListener(
@@ -977,10 +983,6 @@ btnEnter.addEventListener(
 
 
 
-/* =========================================================
-   BOTÓN ACERCA DE
-========================================================= */
-
 btnAbout.addEventListener(
 
     "click",
@@ -1000,10 +1002,6 @@ btnAbout.addEventListener(
 );
 
 
-
-/* =========================================================
-   VOLVER DESDE BRIEFING
-========================================================= */
 
 btnBackBriefing.addEventListener(
 
@@ -1025,10 +1023,6 @@ btnBackBriefing.addEventListener(
 
 
 
-/* =========================================================
-   VOLVER DESDE ACERCA DE
-========================================================= */
-
 btnBackAbout.addEventListener(
 
     "click",
@@ -1049,10 +1043,6 @@ btnBackAbout.addEventListener(
 
 
 
-/* =========================================================
-   SOBREVIVIR
-========================================================= */
-
 btnSurvive.addEventListener(
 
     "click",
@@ -1068,7 +1058,7 @@ btnSurvive.addEventListener(
 
 
 /* =========================================================
-   ENTRAR A NOVA ATLAS - ZONA A
+   ENTER ZONE A
 ========================================================= */
 
 async function enterZoneA() {
@@ -1077,22 +1067,21 @@ async function enterZoneA() {
         GAME_STATE.LOADING;
 
 
-    /*
-     * Los filtros oscuros pertenecen
-     * solamente al menú inicial.
-     */
-
-    backgroundEffects.classList.add(
-        "gameplay-mode"
-    );
+    backgroundEffects
+        .classList
+        .add(
+            "gameplay-mode"
+        );
 
 
     hideMainScreens();
 
 
-    loadingScreen.classList.remove(
-        "hidden-screen"
-    );
+    loadingScreen
+        .classList
+        .remove(
+            "hidden-screen"
+        );
 
 
     loadingProgress.style.width =
@@ -1106,7 +1095,7 @@ async function enterZoneA() {
     try {
 
         /* =================================================
-           CARGAR ZONA A
+           ENVIRONMENT
         ================================================= */
 
         const zoneA =
@@ -1118,20 +1107,166 @@ async function enterZoneA() {
 
                     percent => {
 
+                        const adjusted =
+
+                            Math.round(
+
+                                percent *
+                                0.55
+
+                            );
+
+
                         loadingProgress
                             .style
                             .width =
 
-                            `${percent}%`;
+                            `${adjusted}%`;
 
 
                         loadingText.textContent =
 
-                            `Cargando Zona A · ${percent}%`;
+                            `Cargando Zona A · ${adjusted}%`;
 
                     }
 
                 );
+
+
+
+        /* =================================================
+           PHYSICS INIT
+        ================================================= */
+
+        loadingProgress.style.width =
+            "62%";
+
+
+        loadingText.textContent =
+            "Inicializando sistema físico...";
+
+
+        await physicsManager.init();
+
+
+
+        /* =================================================
+           ENVIRONMENT COLLIDERS
+        ================================================= */
+
+        loadingProgress.style.width =
+            "70%";
+
+
+        loadingText.textContent =
+            "Generando colisiones de Nova Atlas...";
+
+
+        physicsManager
+            .createEnvironmentColliders(
+
+                zoneA
+
+            );
+
+
+
+        /* =================================================
+           SPAWN
+        ================================================= */
+
+        loadingProgress.style.width =
+            "78%";
+
+
+        loadingText.textContent =
+            "Localizando punto de inserción...";
+
+
+        const playerSpawn =
+
+            calculateZoneASpawn(
+                zoneA
+            );
+
+
+
+        console.log(
+
+            "[Nova] Spawn:",
+
+            playerSpawn
+
+        );
+
+
+
+        /* =================================================
+           PLAYER
+        ================================================= */
+
+        loadingProgress.style.width =
+            "84%";
+
+
+        loadingText.textContent =
+            "Cargando guardia de seguridad...";
+
+
+        await playerController.load(
+
+            playerSpawn
+
+        );
+
+
+
+        /* =================================================
+           PLAYER PHYSICS
+        ================================================= */
+
+        physicsManager
+            .createCharacter(
+
+                playerSpawn,
+
+                playerController
+                    .getHeight()
+
+            );
+
+
+
+        playerController.setEnabled(
+            true
+        );
+
+
+
+        /* =================================================
+           CAMERA
+        ================================================= */
+
+        cameraManager.setTarget(
+
+            playerController
+                .getObject(),
+
+            true
+
+        );
+
+
+        cameraManager.enable();
+
+
+
+        /* =================================================
+           COMPLETE
+        ================================================= */
+
+        spawnDebug.textContent =
+            "JUGADOR · RAPIER ACTIVO";
 
 
         loadingProgress.style.width =
@@ -1139,33 +1274,9 @@ async function enterZoneA() {
 
 
         loadingText.textContent =
-            "Zona A preparada";
+            "Nova Atlas preparada";
 
 
-        /* =================================================
-           ENCUADRAR ESCENARIO
-        ================================================= */
-
-        cameraManager.focusEnvironment(
-            zoneA
-        );
-
-
-        cameraManager.enable();
-
-
-        /* =================================================
-           SPAWN OFICIAL DE ZONA A
-        ================================================= */
-
-        placeZoneASpawnMarker(
-            zoneA
-        );
-
-
-        /* =================================================
-           MOSTRAR ESCENARIO
-        ================================================= */
 
         setTimeout(
 
@@ -1186,7 +1297,14 @@ async function enterZoneA() {
 
 
                 currentState =
-                    GAME_STATE.INSPECTION;
+                    GAME_STATE.PLAYING;
+
+
+                showNotification(
+
+                    "SISTEMA RAPIER · ONLINE"
+
+                );
 
             },
 
@@ -1195,8 +1313,9 @@ async function enterZoneA() {
         );
 
 
+
         /* =================================================
-           PRECARGAR BOSS ARENA
+           PRELOAD BOSS ARENA
         ================================================= */
 
         environmentManager
@@ -1214,7 +1333,7 @@ async function enterZoneA() {
 
         console.error(
 
-            "No se pudo cargar Nova Atlas · Zona A:",
+            "❌ Error iniciando Zona A:",
 
             error
 
@@ -1222,12 +1341,12 @@ async function enterZoneA() {
 
 
         loadingText.textContent =
-            "ERROR AL CARGAR ZONA A";
+            "ERROR AL INICIAR ZONA A";
 
 
         showNotification(
 
-            "NO SE PUDO CARGAR EL ESCENARIO · REVISA F12"
+            "ERROR · REVISA F12"
 
         );
 
@@ -1238,25 +1357,12 @@ async function enterZoneA() {
 
 
 /* =========================================================
-   SPAWN OFICIAL DE ZONA A
-
-   Utilizamos:
-
-   X = 16.0
-   Z = 0
-
-   Raycaster determina la superficie vertical
-   y después aplicamos un offset de -4.2.
-
+   CALCULATE SPAWN
 ========================================================= */
 
-function placeZoneASpawnMarker(
+function calculateZoneASpawn(
     environment
 ) {
-
-    /* =====================================================
-       BOUNDING BOX
-    ====================================================== */
 
     const box =
 
@@ -1276,10 +1382,6 @@ function placeZoneASpawnMarker(
 
 
 
-    /* =====================================================
-       COORDENADAS HORIZONTALES
-    ====================================================== */
-
     const spawnX =
         PLAYER_SPAWN_ZONE_A.x;
 
@@ -1289,54 +1391,37 @@ function placeZoneASpawnMarker(
 
 
 
-    /* =====================================================
-       RAYCASTER DESDE ARRIBA
-    ====================================================== */
-
-    const rayOrigin =
-
-        new THREE.Vector3(
-
-            spawnX,
-
-            box.max.y + 10,
-
-            spawnZ
-
-        );
-
-
-    const rayDirection =
-
-        new THREE.Vector3(
-
-            0,
-
-            -1,
-
-            0
-
-        );
-
-
     const raycaster =
 
         new THREE.Raycaster(
 
-            rayOrigin,
+            new THREE.Vector3(
 
-            rayDirection
+                spawnX,
+
+                box.max.y + 10,
+
+                spawnZ
+
+            ),
+
+            new THREE.Vector3(
+
+                0,
+
+                -1,
+
+                0
+
+            )
 
         );
 
 
 
-    /* =====================================================
-       MESHES DEL ESCENARIO
-    ====================================================== */
-
     const environmentMeshes =
         [];
+
 
 
     environment.traverse(
@@ -1363,10 +1448,6 @@ function placeZoneASpawnMarker(
 
 
 
-    /* =====================================================
-       INTERSECCIONES
-    ====================================================== */
-
     const intersections =
 
         raycaster.intersectObjects(
@@ -1379,20 +1460,6 @@ function placeZoneASpawnMarker(
 
 
 
-    console.log(
-
-        "🔎 Superficies encontradas para spawn:",
-
-        intersections.length
-
-    );
-
-
-
-    /* =====================================================
-       SUPERFICIE ENCONTRADA
-    ====================================================== */
-
     if (
         intersections.length > 0
     ) {
@@ -1400,11 +1467,6 @@ function placeZoneASpawnMarker(
         const hit =
             intersections[0];
 
-
-        /*
-         * El -4.2 fue calibrado directamente
-         * sobre el modelo real de Zona A.
-         */
 
         const spawnY =
 
@@ -1417,7 +1479,7 @@ function placeZoneASpawnMarker(
 
 
 
-        spawnGroup.position.set(
+        return new THREE.Vector3(
 
             spawnX,
 
@@ -1427,113 +1489,42 @@ function placeZoneASpawnMarker(
 
         );
 
-
-        spawnGroup.visible =
-            true;
-
-
-
-        spawnDebug.textContent =
-
-            "SPAWN ZONA A · " +
-
-            `X ${spawnX.toFixed(2)} · ` +
-
-            `Y ${spawnY.toFixed(2)} · ` +
-
-            `Z ${spawnZ.toFixed(2)}`;
-
-
-
-        console.log(
-
-            "🟢 PLAYER SPAWN ZONA A:",
-
-            {
-
-                x:
-                    spawnX,
-
-                y:
-                    spawnY,
-
-                z:
-                    spawnZ,
-
-                heightOffset:
-
-                    PLAYER_SPAWN_ZONE_A
-                        .heightOffset,
-
-                mesh:
-
-                    hit.object.name ||
-
-                    "(mesh sin nombre)"
-
-            }
-
-        );
-
-
-        return;
-
     }
 
 
 
-    /* =====================================================
-       FALLBACK
-    ====================================================== */
-
     console.warn(
 
-        "⚠️ No se encontró superficie para PLAYER_SPAWN_ZONE_A."
+        "[Nova] No se encontró superficie de spawn. Fallback activo."
 
     );
 
 
-    const fallbackY =
 
-        box.min.y +
-        size.y * 0.55;
-
-
-    spawnGroup.position.set(
+    return new THREE.Vector3(
 
         spawnX,
 
-        fallbackY,
+        box.min.y +
+
+        size.y *
+        0.55,
 
         spawnZ
 
     );
-
-
-    spawnGroup.visible =
-        true;
-
-
-    spawnDebug.textContent =
-
-        "SPAWN FALLBACK · " +
-
-        `X ${spawnX.toFixed(2)} · ` +
-
-        `Y ${fallbackY.toFixed(2)} · ` +
-
-        `Z ${spawnZ.toFixed(2)}`;
 
 }
 
 
 
 /* =========================================================
-   NOTIFICACIONES
+   NOTIFICATIONS
 ========================================================= */
 
 let notificationTimeout =
     null;
+
 
 
 function showNotification(
@@ -1544,9 +1535,12 @@ function showNotification(
         text;
 
 
-    notification.classList.add(
-        "visible"
-    );
+    notification
+        .classList
+        .add(
+            "visible"
+        );
+
 
 
     if (
@@ -1558,6 +1552,7 @@ function showNotification(
         );
 
     }
+
 
 
     notificationTimeout =
@@ -1583,7 +1578,7 @@ function showNotification(
 
 
 /* =========================================================
-   RESPONSIVE
+   RESIZE
 ========================================================= */
 
 function handleResize() {
@@ -1595,6 +1590,7 @@ function handleResize() {
 
 
     camera.updateProjectionMatrix();
+
 
 
     renderer.setSize(
@@ -1621,6 +1617,7 @@ function handleResize() {
 }
 
 
+
 window.addEventListener(
 
     "resize",
@@ -1644,15 +1641,146 @@ function update(
 ) {
 
     /* =====================================================
-       CÁMARA
+       GAMEPLAY
     ====================================================== */
 
-    cameraManager.update();
+    if (
+
+        currentState ===
+        GAME_STATE.PLAYING
+
+    ) {
+
+        /* =================================================
+           CAMERA DIRECTIONS
+        ================================================= */
+
+        cameraManager
+            .getForwardDirection(
+
+                cameraForward
+
+            );
+
+
+        cameraManager
+            .getRightDirection(
+
+                cameraRight
+
+            );
+
+
+
+        /* =================================================
+           PLAYER INPUT + ANIMATIONS
+        ================================================= */
+
+        playerController.update(
+
+            deltaTime,
+
+            cameraForward,
+
+            cameraRight
+
+        );
+
+
+
+        /* =================================================
+           PHYSICS
+        ================================================= */
+
+        physicsManager
+            .moveCharacter(
+
+                playerController
+                    .getDesiredMovement(),
+
+                deltaTime
+
+            );
+
+
+
+        physicsManager.step(
+            deltaTime
+        );
+
+
+
+        physicsManager
+            .syncCharacter(
+
+                playerController
+                    .getObject()
+
+            );
+
+
+
+        /* =================================================
+           CAMERA FOLLOW
+        ================================================= */
+
+        cameraManager.update(
+            deltaTime
+        );
+
+
+
+        /* =================================================
+           PLAYER LIGHT
+        ================================================= */
+
+        const playerPosition =
+
+            playerController
+                .getPosition();
+
+
+
+        playerFillLight.position.set(
+
+            playerPosition.x,
+
+            playerPosition.y +
+            2.4,
+
+            playerPosition.z +
+            1.5
+
+        );
+
+
+
+        /* =================================================
+           DEBUG
+        ================================================= */
+
+        if (
+            physicsManager.isGrounded()
+        ) {
+
+            spawnDebug.textContent =
+                "JUGADOR · RAPIER · GROUNDED";
+
+        }
+
+        else {
+
+            spawnDebug.textContent =
+                "JUGADOR · RAPIER · AIRBORNE";
+
+        }
+
+    }
 
 
 
     /* =====================================================
-       ESTRELLAS
+       STARS
     ====================================================== */
 
     stars.rotation.y +=
@@ -1669,12 +1797,12 @@ function update(
 
 
     /* =====================================================
-       LUCES DE EMERGENCIA
+       EMERGENCY LIGHTS
     ====================================================== */
 
     emergencyLightA.intensity =
 
-        68 +
+        78 +
 
         Math.sin(
 
@@ -1683,12 +1811,13 @@ function update(
 
         )
 
-        * 10;
+        * 12;
+
 
 
     emergencyLightB.intensity =
 
-        50 +
+        58 +
 
         Math.sin(
 
@@ -1698,50 +1827,14 @@ function update(
 
         )
 
-        * 8;
-
-
-
-    /* =====================================================
-       ANIMACIÓN DEL MARCADOR
-    ====================================================== */
-
-    if (
-        spawnGroup.visible
-    ) {
-
-        const scale =
-
-            1 +
-
-            Math.sin(
-
-                elapsedTime *
-                3
-
-            )
-
-            * 0.06;
-
-
-        spawnDisc.scale.set(
-
-            scale,
-
-            1,
-
-            scale
-
-        );
-
-    }
+        * 10;
 
 }
 
 
 
 /* =========================================================
-   GAME LOOP
+   LOOP
 ========================================================= */
 
 function animate() {
@@ -1749,6 +1842,7 @@ function animate() {
     requestAnimationFrame(
         animate
     );
+
 
 
     const deltaTime =
@@ -1762,8 +1856,10 @@ function animate() {
         );
 
 
+
     const elapsedTime =
         clock.elapsedTime;
+
 
 
     update(
@@ -1773,6 +1869,7 @@ function animate() {
         elapsedTime
 
     );
+
 
 
     renderer.render(
@@ -1786,34 +1883,27 @@ function animate() {
 }
 
 
+
 animate();
 
 
 
 /* =========================================================
-   CONSOLA
+   CONSOLE
 ========================================================= */
 
 console.log(
 
     "%cNOVA CATALYST",
 
-    [
-
-        "color:#d72924",
-
-        "font-size:24px",
-
-        "font-weight:bold"
-
-    ].join(";")
+    "color:#d72924;font-size:24px;font-weight:bold;"
 
 );
 
 
 console.log(
 
-    "%cPre-Alpha v.01 · Build v0.2",
+    "%cPre-Alpha v.01 · Build v0.4",
 
     "color:#b8c0c2;"
 
@@ -1822,16 +1912,7 @@ console.log(
 
 console.log(
 
-    "%cEnvironment System · ONLINE",
-
-    "color:#64d78f;"
-
-);
-
-
-console.log(
-
-    "%cPLAYER SPAWN ZONA A · CALIBRADO",
+    "%cRapier Physics System · STANDBY",
 
     "color:#55ff99;"
 

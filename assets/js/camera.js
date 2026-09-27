@@ -1,22 +1,17 @@
 /* =========================================================
    NOVA CATALYST
-   Camera Manager
+   Third Person Camera
 
-   v0.2:
-   Cámara de inspección del escenario.
-
-   v0.3:
-   Será sustituida/evolucionada a cámara TPS.
+   Build v0.3
 ========================================================= */
+
 
 import * as THREE from "three";
 
-import {
-    OrbitControls
-} from "three/addons/controls/OrbitControls.js";
 
 
 export class CameraManager {
+
 
     constructor(
         camera,
@@ -31,56 +26,373 @@ export class CameraManager {
             renderer;
 
 
-        this.controls =
-            new OrbitControls(
-
-                camera,
-
-                renderer.domElement
-
-            );
+        this.domElement =
+            renderer.domElement;
 
 
-        this.controls.enabled =
+
+        /* =================================================
+           ESTADO
+        ================================================= */
+
+        this.enabled =
             false;
 
 
-        this.controls.enableDamping =
-            true;
+        this.target =
+            null;
 
 
-        this.controls.dampingFactor =
-            0.07;
+
+        /* =================================================
+           CONFIGURACIÓN TPS
+        ================================================= */
+
+        this.distance =
+            4.5;
 
 
-        this.controls.enablePan =
-            true;
+        this.minDistance =
+            2.5;
 
 
-        this.controls.enableZoom =
-            true;
+        this.maxDistance =
+            7.5;
 
 
-        this.controls.rotateSpeed =
-            0.55;
+        /*
+         * Altura a la que la cámara mira
+         * dentro del personaje.
+        */
+
+        this.lookHeight =
+            1.15;
 
 
-        this.controls.zoomSpeed =
-            0.8;
+        /*
+         * Giro horizontal inicial.
+         *
+         * 0 coloca la cámara detrás del
+         * jugador mirando hacia -Z.
+        */
+
+        this.yaw =
+            0;
 
 
-        this.controls.panSpeed =
-            0.7;
+        /*
+         * Inclinación vertical.
+        */
+
+        this.pitch =
+            0.20;
 
 
-        this.controls.minDistance =
-            1;
+        this.minPitch =
+            -0.05;
 
 
-        this.controls.maxDistance =
-            500;
+        this.maxPitch =
+            0.75;
+
+
+
+        /* =================================================
+           SENSIBILIDAD
+        ================================================= */
+
+        this.mouseSensitivity =
+            0.004;
+
+
+        this.zoomSensitivity =
+            0.005;
+
+
+        this.followSmoothing =
+            12;
+
+
+
+        /* =================================================
+           INPUT
+        ================================================= */
+
+        this.isRotating =
+            false;
+
+
+
+        /* =================================================
+           VECTORES TEMPORALES
+        ================================================= */
+
+        this.targetPosition =
+            new THREE.Vector3();
+
+
+        this.desiredPosition =
+            new THREE.Vector3();
+
+
+        this.offset =
+            new THREE.Vector3();
+
+
+        this.forward =
+            new THREE.Vector3();
+
+
+        this.right =
+            new THREE.Vector3();
+
+
+
+        this.setupInput();
 
     }
+
+
+
+    /* =====================================================
+       INPUT DE CÁMARA
+    ====================================================== */
+
+    setupInput() {
+
+        /*
+         * Por ahora botón derecho mantiene
+         * activado el movimiento de cámara.
+         *
+         * Más adelante este botón también
+         * se integrará con el modo de apuntado.
+        */
+
+        this.domElement.addEventListener(
+
+            "mousedown",
+
+            event => {
+
+                if (
+                    !this.enabled
+                ) {
+
+                    return;
+
+                }
+
+
+                if (
+                    event.button === 2
+                ) {
+
+                    this.isRotating =
+                        true;
+
+                }
+
+            }
+
+        );
+
+
+
+        window.addEventListener(
+
+            "mouseup",
+
+            event => {
+
+                if (
+                    event.button === 2
+                ) {
+
+                    this.isRotating =
+                        false;
+
+                }
+
+            }
+
+        );
+
+
+
+        window.addEventListener(
+
+            "mousemove",
+
+            event => {
+
+                if (
+                    !this.enabled ||
+                    !this.isRotating
+                ) {
+
+                    return;
+
+                }
+
+
+                /* =========================================
+                   ROTACIÓN HORIZONTAL
+                ========================================= */
+
+                this.yaw -=
+
+                    event.movementX *
+                    this.mouseSensitivity;
+
+
+
+                /* =========================================
+                   ROTACIÓN VERTICAL
+                ========================================= */
+
+                this.pitch +=
+
+                    event.movementY *
+                    this.mouseSensitivity;
+
+
+                this.pitch =
+
+                    THREE.MathUtils.clamp(
+
+                        this.pitch,
+
+                        this.minPitch,
+
+                        this.maxPitch
+
+                    );
+
+            }
+
+        );
+
+
+
+        /* =================================================
+           ZOOM CON RUEDA
+        ================================================= */
+
+        this.domElement.addEventListener(
+
+            "wheel",
+
+            event => {
+
+                if (
+                    !this.enabled
+                ) {
+
+                    return;
+
+                }
+
+
+                this.distance +=
+
+                    event.deltaY *
+                    this.zoomSensitivity;
+
+
+                this.distance =
+
+                    THREE.MathUtils.clamp(
+
+                        this.distance,
+
+                        this.minDistance,
+
+                        this.maxDistance
+
+                    );
+
+            },
+
+            {
+                passive:
+                    true
+            }
+
+        );
+
+
+
+        /* =================================================
+           EVITAR MENÚ CONTEXTUAL
+        ================================================= */
+
+        this.domElement.addEventListener(
+
+            "contextmenu",
+
+            event => {
+
+                if (
+                    this.enabled
+                ) {
+
+                    event.preventDefault();
+
+                }
+
+            }
+
+        );
+
+
+
+        /* =================================================
+           SI PIERDE FOCO, CANCELAR ROTACIÓN
+        ================================================= */
+
+        window.addEventListener(
+
+            "blur",
+
+            () => {
+
+                this.isRotating =
+                    false;
+
+            }
+
+        );
+
+    }
+
+
+
+    /* =====================================================
+       ASIGNAR JUGADOR
+    ====================================================== */
+
+    setTarget(
+
+        target,
+
+        snap = true
+
+    ) {
+
+        this.target =
+            target;
+
+
+        if (
+            snap
+        ) {
+
+            this.snapToTarget();
+
+        }
+
+    }
+
 
 
     /* =====================================================
@@ -89,10 +401,11 @@ export class CameraManager {
 
     enable() {
 
-        this.controls.enabled =
+        this.enabled =
             true;
 
     }
+
 
 
     /* =====================================================
@@ -101,174 +414,273 @@ export class CameraManager {
 
     disable() {
 
-        this.controls.enabled =
+        this.enabled =
+            false;
+
+
+        this.isRotating =
             false;
 
     }
 
 
+
     /* =====================================================
-       ENCUADRAR MODELO AUTOMÁTICAMENTE
+       DIRECCIÓN HACIA ADELANTE
+
+       Esta dirección será utilizada por
+       PlayerController para que WASD sea
+       relativo a la cámara.
     ====================================================== */
 
-    focusEnvironment(
-        environment
+    getForwardDirection(
+        target = this.forward
     ) {
 
-        const box =
-            new THREE.Box3()
-                .setFromObject(
-                    environment
-                );
+        target.set(
 
+            -Math.sin(
+                this.yaw
+            ),
 
-        const size =
-            new THREE.Vector3();
+            0,
 
-
-        const center =
-            new THREE.Vector3();
-
-
-        box.getSize(
-            size
-        );
-
-
-        box.getCenter(
-            center
-        );
-
-
-        const maxDimension =
-            Math.max(
-
-                size.x,
-
-                size.y,
-
-                size.z
-
-            );
-
-
-        /*
-         * Calculamos automáticamente
-         * una distancia adecuada.
-         */
-
-        const fov =
-            this.camera.fov
-            *
-            (
-                Math.PI / 180
-            );
-
-
-        let distance =
-
-            maxDimension /
-            (
-                2 *
-                Math.tan(
-                    fov / 2
-                )
-            );
-
-
-        distance *=
-            1.35;
-
-
-        /*
-         * Cámara ligeramente elevada.
-         */
-
-        this.camera.position.set(
-
-            center.x +
-            distance * 0.55,
-
-            center.y +
-            distance * 0.40,
-
-            center.z +
-            distance * 0.65
+            -Math.cos(
+                this.yaw
+            )
 
         );
 
 
-        this.camera.near =
-
-            Math.max(
-
-                maxDimension /
-                10000,
-
-                0.01
-
-            );
+        target.normalize();
 
 
-        this.camera.far =
-
-            Math.max(
-
-                maxDimension * 25,
-
-                1000
-
-            );
-
-
-        this.camera.updateProjectionMatrix();
-
-
-        /*
-         * OrbitControls mira al centro
-         * del escenario.
-         */
-
-        this.controls.target.copy(
-            center
-        );
-
-
-        this.controls.minDistance =
-
-            Math.max(
-
-                maxDimension * 0.02,
-
-                0.5
-
-            );
-
-
-        this.controls.maxDistance =
-
-            maxDimension * 4;
-
-
-        this.controls.update();
+        return target;
 
     }
+
+
+
+    /* =====================================================
+       DIRECCIÓN DERECHA
+    ====================================================== */
+
+    getRightDirection(
+        target = this.right
+    ) {
+
+        const forward =
+
+            this.getForwardDirection(
+                this.forward
+            );
+
+
+        target.set(
+
+            -forward.z,
+
+            0,
+
+            forward.x
+
+        );
+
+
+        target.normalize();
+
+
+        return target;
+
+    }
+
+
+
+    /* =====================================================
+       CALCULAR POSICIÓN DE CÁMARA
+    ====================================================== */
+
+    calculateDesiredPosition() {
+
+        if (
+            !this.target
+        ) {
+
+            return;
+
+        }
+
+
+        /* =================================================
+           PUNTO AL QUE MIRA
+        ================================================= */
+
+        this.targetPosition
+            .copy(
+                this.target.position
+            );
+
+
+        this.targetPosition.y +=
+            this.lookHeight;
+
+
+
+        /* =================================================
+           OFFSET ESFÉRICO
+        ================================================= */
+
+        const horizontalDistance =
+
+            Math.cos(
+                this.pitch
+            )
+
+            *
+
+            this.distance;
+
+
+
+        this.offset.set(
+
+            Math.sin(
+                this.yaw
+            )
+
+            *
+
+            horizontalDistance,
+
+
+            Math.sin(
+                this.pitch
+            )
+
+            *
+
+            this.distance,
+
+
+            Math.cos(
+                this.yaw
+            )
+
+            *
+
+            horizontalDistance
+
+        );
+
+
+
+        /* =================================================
+           POSICIÓN FINAL
+        ================================================= */
+
+        this.desiredPosition
+
+            .copy(
+                this.targetPosition
+            )
+
+            .add(
+                this.offset
+            );
+
+    }
+
+
+
+    /* =====================================================
+       POSICIONAR INSTANTÁNEAMENTE
+    ====================================================== */
+
+    snapToTarget() {
+
+        if (
+            !this.target
+        ) {
+
+            return;
+
+        }
+
+
+        this.calculateDesiredPosition();
+
+
+        this.camera.position.copy(
+
+            this.desiredPosition
+
+        );
+
+
+        this.camera.lookAt(
+
+            this.targetPosition
+
+        );
+
+    }
+
 
 
     /* =====================================================
        UPDATE
     ====================================================== */
 
-    update() {
+    update(
+        deltaTime
+    ) {
 
         if (
-            this.controls.enabled
+            !this.enabled ||
+            !this.target
         ) {
 
-            this.controls.update();
+            return;
 
         }
 
+
+        this.calculateDesiredPosition();
+
+
+
+        /* =================================================
+           SEGUIMIENTO SUAVE
+        ================================================= */
+
+        const smoothing =
+
+            1 -
+
+            Math.exp(
+
+                -this.followSmoothing *
+                deltaTime
+
+            );
+
+
+        this.camera.position.lerp(
+
+            this.desiredPosition,
+
+            smoothing
+
+        );
+
+
+        this.camera.lookAt(
+
+            this.targetPosition
+
+        );
+
     }
+
 
 }
