@@ -5,7 +5,7 @@
    Pre-Alpha v.01
    Build v0.4
 
-   PLAYER + PHYSICS + TPS
+   PLAYER + PHYSICS + TPS + DYNAMIC SHADOWS
 ========================================================= */
 
 
@@ -43,7 +43,7 @@ import {
 
 
 /* =========================================================
-   ESTADOS
+   ESTADOS DEL JUEGO
 ========================================================= */
 
 const GAME_STATE = {
@@ -72,7 +72,10 @@ let currentState =
 
 
 /* =========================================================
-   SPAWN ZONA A
+   SPAWN DEFINITIVO - ZONA A
+
+   Calibrado manualmente sobre el piso real
+   del anillo exterior de Nova Atlas.
 ========================================================= */
 
 const PLAYER_SPAWN_ZONE_A = {
@@ -91,7 +94,7 @@ const PLAYER_SPAWN_ZONE_A = {
 
 
 /* =========================================================
-   HTML
+   ELEMENTOS HTML
 ========================================================= */
 
 const gameContainer =
@@ -208,7 +211,7 @@ const btnSurvive =
 
 
 /* =========================================================
-   SCENE
+   ESCENA
 ========================================================= */
 
 const scene =
@@ -224,7 +227,7 @@ scene.background =
 
 
 /* =========================================================
-   CAMERA
+   CÁMARA
 ========================================================= */
 
 const camera =
@@ -272,7 +275,6 @@ const renderer =
     });
 
 
-
 renderer.setPixelRatio(
 
     Math.min(
@@ -303,9 +305,18 @@ renderer.toneMapping =
     THREE.ACESFilmicToneMapping;
 
 
+/*
+ * Exposición suficientemente clara
+ * para el escenario sin borrar las sombras.
+ */
+
 renderer.toneMappingExposure =
     1.38;
 
+
+/* =========================================================
+   SOMBRAS
+========================================================= */
 
 renderer.shadowMap.enabled =
     true;
@@ -328,7 +339,7 @@ gameContainer.appendChild(
 
 
 /* =========================================================
-   CLOCK
+   RELOJ
 ========================================================= */
 
 const clock =
@@ -337,7 +348,7 @@ const clock =
 
 
 /* =========================================================
-   STAR FIELD
+   CAMPO DE ESTRELLAS
 ========================================================= */
 
 function createStarField(
@@ -362,13 +373,9 @@ function createStarField(
 
 
     for (
-
         let i = 0;
-
         i < count;
-
         i++
-
     ) {
 
         const index =
@@ -407,7 +414,6 @@ function createStarField(
     }
 
 
-
     const geometry =
 
         new THREE.BufferGeometry();
@@ -426,7 +432,6 @@ function createStarField(
         )
 
     );
-
 
 
     const material =
@@ -449,7 +454,6 @@ function createStarField(
                 true
 
         });
-
 
 
     const starField =
@@ -491,7 +495,6 @@ const stars =
     );
 
 
-
 const distantStars =
 
     createStarField(
@@ -511,7 +514,7 @@ const distantStars =
 
 
 /* =========================================================
-   SYSTEMS
+   SISTEMAS
 ========================================================= */
 
 const environmentManager =
@@ -546,7 +549,7 @@ const playerController =
 
 
 /* =========================================================
-   MOVEMENT VECTORS
+   VECTORES TEMPORALES
 ========================================================= */
 
 const cameraForward =
@@ -559,11 +562,10 @@ const cameraRight =
 
 
 /* =========================================================
-   LIGHTING
-========================================================= */
+   ILUMINACIÓN AMBIENTAL
 
-/* =========================================================
-   AMBIENT
+   Reducida respecto a la versión anterior
+   para que las sombras puedan apreciarse.
 ========================================================= */
 
 const ambientLight =
@@ -572,7 +574,7 @@ const ambientLight =
 
         0xc9d8df,
 
-        1.45
+        0.95
 
     );
 
@@ -584,7 +586,10 @@ scene.add(
 
 
 /* =========================================================
-   HEMISPHERE
+   LUZ HEMISFÉRICA
+
+   También reducida ligeramente para mejorar
+   el contraste general.
 ========================================================= */
 
 const hemisphereLight =
@@ -595,7 +600,7 @@ const hemisphereLight =
 
         0x111419,
 
-        2.55
+        1.65
 
     );
 
@@ -607,7 +612,7 @@ scene.add(
 
 
 /* =========================================================
-   MAIN DIRECTIONAL
+   LUZ DIRECCIONAL PRINCIPAL
 ========================================================= */
 
 const directionalLight =
@@ -636,15 +641,13 @@ directionalLight.castShadow =
     true;
 
 
-directionalLight.shadow
-    .mapSize
-    .set(
+directionalLight.shadow.mapSize.set(
 
-        2048,
+    2048,
 
-        2048
+    2048
 
-    );
+);
 
 
 directionalLight.shadow.camera.left =
@@ -690,7 +693,10 @@ scene.add(
 
 
 /* =========================================================
-   SECONDARY DIRECTIONAL
+   LUZ DIRECCIONAL SECUNDARIA
+
+   Aporta iluminación al lado opuesto
+   sin generar sombras adicionales.
 ========================================================= */
 
 const secondaryDirectional =
@@ -722,7 +728,7 @@ scene.add(
 
 
 /* =========================================================
-   RED EMERGENCY LIGHTS
+   LUCES ROJAS DE EMERGENCIA
 ========================================================= */
 
 const emergencyLightA =
@@ -790,7 +796,7 @@ scene.add(
 
 
 /* =========================================================
-   COLD LIGHTS
+   LUCES FRÍAS
 ========================================================= */
 
 const coldLightA =
@@ -858,7 +864,11 @@ scene.add(
 
 
 /* =========================================================
-   PLAYER FILL LIGHT
+   LUZ DE RELLENO DEL JUGADOR
+
+   Solo ayuda a distinguir el personaje.
+
+   No genera sombras para evitar duplicarlas.
 ========================================================= */
 
 const playerFillLight =
@@ -867,13 +877,17 @@ const playerFillLight =
 
         0xcceeff,
 
-        18,
+        7,
 
-        8,
+        7,
 
         2
 
     );
+
+
+playerFillLight.castShadow =
+    false;
 
 
 scene.add(
@@ -883,7 +897,97 @@ scene.add(
 
 
 /* =========================================================
-   SCREEN MANAGEMENT
+   LUZ DE SOMBRA DEL JUGADOR
+
+   Esta SpotLight se mantiene dentro del pasillo
+   y sigue al personaje.
+
+   Su objetivo principal es generar una sombra
+   dinámica visible en el piso.
+========================================================= */
+
+const playerShadowLight =
+
+    new THREE.SpotLight(
+
+        0xf4fbff,
+
+        95,
+
+        10,
+
+        Math.PI / 4,
+
+        0.28,
+
+        1.25
+
+    );
+
+
+playerShadowLight.castShadow =
+    true;
+
+
+playerShadowLight.visible =
+    false;
+
+
+/* =========================================================
+   CALIDAD DE SOMBRA
+========================================================= */
+
+playerShadowLight.shadow.mapSize.set(
+
+    2048,
+
+    2048
+
+);
+
+
+playerShadowLight.shadow.camera.near =
+    0.1;
+
+
+playerShadowLight.shadow.camera.far =
+    12;
+
+
+playerShadowLight.shadow.bias =
+    -0.00015;
+
+
+playerShadowLight.shadow.normalBias =
+    0.015;
+
+
+playerShadowLight.shadow.radius =
+    2;
+
+
+playerShadowLight.penumbra =
+    0.25;
+
+
+scene.add(
+    playerShadowLight
+);
+
+
+/*
+ * El target de SpotLight debe pertenecer
+ * a la escena para actualizar correctamente.
+ */
+
+scene.add(
+    playerShadowLight.target
+);
+
+
+
+/* =========================================================
+   GESTIÓN DE PANTALLAS
 ========================================================= */
 
 function hideMainScreens() {
@@ -960,7 +1064,7 @@ function showScreen(
 
 
 /* =========================================================
-   MENU
+   BOTÓN ENTRAR
 ========================================================= */
 
 btnEnter.addEventListener(
@@ -983,6 +1087,10 @@ btnEnter.addEventListener(
 
 
 
+/* =========================================================
+   BOTÓN ACERCA DE
+========================================================= */
+
 btnAbout.addEventListener(
 
     "click",
@@ -1002,6 +1110,10 @@ btnAbout.addEventListener(
 );
 
 
+
+/* =========================================================
+   VOLVER DESDE BRIEFING
+========================================================= */
 
 btnBackBriefing.addEventListener(
 
@@ -1023,6 +1135,10 @@ btnBackBriefing.addEventListener(
 
 
 
+/* =========================================================
+   VOLVER DESDE ABOUT
+========================================================= */
+
 btnBackAbout.addEventListener(
 
     "click",
@@ -1043,6 +1159,10 @@ btnBackAbout.addEventListener(
 
 
 
+/* =========================================================
+   SOBREVIVIR
+========================================================= */
+
 btnSurvive.addEventListener(
 
     "click",
@@ -1058,7 +1178,7 @@ btnSurvive.addEventListener(
 
 
 /* =========================================================
-   ENTER ZONE A
+   ENTRAR A ZONA A
 ========================================================= */
 
 async function enterZoneA() {
@@ -1095,7 +1215,7 @@ async function enterZoneA() {
     try {
 
         /* =================================================
-           ENVIRONMENT
+           CARGAR ESCENARIO
         ================================================= */
 
         const zoneA =
@@ -1135,7 +1255,7 @@ async function enterZoneA() {
 
 
         /* =================================================
-           PHYSICS INIT
+           RAPIER
         ================================================= */
 
         loadingProgress.style.width =
@@ -1151,7 +1271,7 @@ async function enterZoneA() {
 
 
         /* =================================================
-           ENVIRONMENT COLLIDERS
+           COLLIDERS
         ================================================= */
 
         loadingProgress.style.width =
@@ -1190,10 +1310,9 @@ async function enterZoneA() {
             );
 
 
-
         console.log(
 
-            "[Nova] Spawn:",
+            "[Nova] Spawn del jugador:",
 
             playerSpawn
 
@@ -1202,7 +1321,7 @@ async function enterZoneA() {
 
 
         /* =================================================
-           PLAYER
+           CARGAR JUGADOR
         ================================================= */
 
         loadingProgress.style.width =
@@ -1222,7 +1341,7 @@ async function enterZoneA() {
 
 
         /* =================================================
-           PLAYER PHYSICS
+           CÁPSULA RAPIER DEL JUGADOR
         ================================================= */
 
         physicsManager
@@ -1236,7 +1355,6 @@ async function enterZoneA() {
             );
 
 
-
         playerController.setEnabled(
             true
         );
@@ -1244,7 +1362,7 @@ async function enterZoneA() {
 
 
         /* =================================================
-           CAMERA
+           CÁMARA TPS
         ================================================= */
 
         cameraManager.setTarget(
@@ -1262,7 +1380,16 @@ async function enterZoneA() {
 
 
         /* =================================================
-           COMPLETE
+           ACTIVAR SOMBRA DEL JUGADOR
+        ================================================= */
+
+        playerShadowLight.visible =
+            true;
+
+
+
+        /* =================================================
+           FINALIZAR CARGA
         ================================================= */
 
         spawnDebug.textContent =
@@ -1302,7 +1429,7 @@ async function enterZoneA() {
 
                 showNotification(
 
-                    "SISTEMA RAPIER · ONLINE"
+                    "NOVA ATLAS · SISTEMAS ONLINE"
 
                 );
 
@@ -1315,7 +1442,7 @@ async function enterZoneA() {
 
 
         /* =================================================
-           PRELOAD BOSS ARENA
+           PRECARGAR BOSS ARENA
         ================================================= */
 
         environmentManager
@@ -1357,7 +1484,10 @@ async function enterZoneA() {
 
 
 /* =========================================================
-   CALCULATE SPAWN
+   CALCULAR SPAWN
+
+   Conserva exactamente el sistema calibrado
+   durante las versiones anteriores.
 ========================================================= */
 
 function calculateZoneASpawn(
@@ -1381,7 +1511,6 @@ function calculateZoneASpawn(
     );
 
 
-
     const spawnX =
         PLAYER_SPAWN_ZONE_A.x;
 
@@ -1390,6 +1519,10 @@ function calculateZoneASpawn(
         PLAYER_SPAWN_ZONE_A.z;
 
 
+
+    /* =====================================================
+       RAYCASTER
+    ====================================================== */
 
     const raycaster =
 
@@ -1421,7 +1554,6 @@ function calculateZoneASpawn(
 
     const environmentMeshes =
         [];
-
 
 
     environment.traverse(
@@ -1460,6 +1592,10 @@ function calculateZoneASpawn(
 
 
 
+    /* =====================================================
+       SUPERFICIE ENCONTRADA
+    ====================================================== */
+
     if (
         intersections.length > 0
     ) {
@@ -1478,7 +1614,6 @@ function calculateZoneASpawn(
                 .heightOffset;
 
 
-
         return new THREE.Vector3(
 
             spawnX,
@@ -1493,12 +1628,15 @@ function calculateZoneASpawn(
 
 
 
+    /* =====================================================
+       FALLBACK
+    ====================================================== */
+
     console.warn(
 
         "[Nova] No se encontró superficie de spawn. Fallback activo."
 
     );
-
 
 
     return new THREE.Vector3(
@@ -1519,12 +1657,11 @@ function calculateZoneASpawn(
 
 
 /* =========================================================
-   NOTIFICATIONS
+   NOTIFICACIONES
 ========================================================= */
 
 let notificationTimeout =
     null;
-
 
 
 function showNotification(
@@ -1542,7 +1679,6 @@ function showNotification(
         );
 
 
-
     if (
         notificationTimeout
     ) {
@@ -1552,7 +1688,6 @@ function showNotification(
         );
 
     }
-
 
 
     notificationTimeout =
@@ -1578,7 +1713,7 @@ function showNotification(
 
 
 /* =========================================================
-   RESIZE
+   RESPONSIVE
 ========================================================= */
 
 function handleResize() {
@@ -1590,7 +1725,6 @@ function handleResize() {
 
 
     camera.updateProjectionMatrix();
-
 
 
     renderer.setSize(
@@ -1615,7 +1749,6 @@ function handleResize() {
     );
 
 }
-
 
 
 window.addEventListener(
@@ -1652,7 +1785,7 @@ function update(
     ) {
 
         /* =================================================
-           CAMERA DIRECTIONS
+           DIRECCIONES DE CÁMARA
         ================================================= */
 
         cameraManager
@@ -1673,7 +1806,9 @@ function update(
 
 
         /* =================================================
-           PLAYER INPUT + ANIMATIONS
+           JUGADOR
+
+           Input + animaciones.
         ================================================= */
 
         playerController.update(
@@ -1689,7 +1824,7 @@ function update(
 
 
         /* =================================================
-           PHYSICS
+           FÍSICA RAPIER
         ================================================= */
 
         physicsManager
@@ -1703,11 +1838,9 @@ function update(
             );
 
 
-
         physicsManager.step(
             deltaTime
         );
-
 
 
         physicsManager
@@ -1721,7 +1854,7 @@ function update(
 
 
         /* =================================================
-           CAMERA FOLLOW
+           CÁMARA TPS
         ================================================= */
 
         cameraManager.update(
@@ -1731,7 +1864,7 @@ function update(
 
 
         /* =================================================
-           PLAYER LIGHT
+           POSICIÓN ACTUAL DEL JUGADOR
         ================================================= */
 
         const playerPosition =
@@ -1741,46 +1874,100 @@ function update(
 
 
 
+        /* =================================================
+           PLAYER FILL LIGHT
+
+           Luz pequeña que ayuda a leer el modelo.
+        ================================================= */
+
         playerFillLight.position.set(
 
             playerPosition.x,
 
             playerPosition.y +
-            2.4,
+            2.1,
 
             playerPosition.z +
-            1.5
+            1.2
 
         );
 
 
 
         /* =================================================
-           DEBUG
+           PLAYER SHADOW LIGHT
+
+           Está deliberadamente desplazada para
+           que la sombra sea visible junto al jugador.
+
+           La colocamos dentro del pasillo,
+           no por encima de todo el escenario.
         ================================================= */
 
-        if (
+        playerShadowLight.position.set(
+
+            playerPosition.x +
+            2.2,
+
+            playerPosition.y +
+            2.8,
+
+            playerPosition.z +
+            1.8
+
+        );
+
+
+
+        /*
+         * La luz apunta cerca de los pies.
+         */
+
+        playerShadowLight
+            .target
+            .position
+            .set(
+
+                playerPosition.x,
+
+                playerPosition.y +
+                0.05,
+
+                playerPosition.z
+
+            );
+
+
+        playerShadowLight
+            .target
+            .updateMatrixWorld(
+                true
+            );
+
+
+
+        /* =================================================
+           DEBUG RAPIER
+        ================================================= */
+
+        spawnDebug.textContent =
+
             physicsManager.isGrounded()
-        ) {
 
-            spawnDebug.textContent =
-                "JUGADOR · RAPIER · GROUNDED";
+                ?
 
-        }
+                "JUGADOR · RAPIER · GROUNDED"
 
-        else {
+                :
 
-            spawnDebug.textContent =
                 "JUGADOR · RAPIER · AIRBORNE";
-
-        }
 
     }
 
 
 
     /* =====================================================
-       STARS
+       ESTRELLAS
     ====================================================== */
 
     stars.rotation.y +=
@@ -1797,7 +1984,9 @@ function update(
 
 
     /* =====================================================
-       EMERGENCY LIGHTS
+       LUCES DE EMERGENCIA
+
+       Mantienen una ligera variación dinámica.
     ====================================================== */
 
     emergencyLightA.intensity =
@@ -1812,7 +2001,6 @@ function update(
         )
 
         * 12;
-
 
 
     emergencyLightB.intensity =
@@ -1834,7 +2022,7 @@ function update(
 
 
 /* =========================================================
-   LOOP
+   GAME LOOP
 ========================================================= */
 
 function animate() {
@@ -1842,7 +2030,6 @@ function animate() {
     requestAnimationFrame(
         animate
     );
-
 
 
     const deltaTime =
@@ -1856,10 +2043,8 @@ function animate() {
         );
 
 
-
     const elapsedTime =
         clock.elapsedTime;
-
 
 
     update(
@@ -1869,7 +2054,6 @@ function animate() {
         elapsedTime
 
     );
-
 
 
     renderer.render(
@@ -1883,13 +2067,12 @@ function animate() {
 }
 
 
-
 animate();
 
 
 
 /* =========================================================
-   CONSOLE
+   CONSOLA
 ========================================================= */
 
 console.log(
@@ -1912,7 +2095,25 @@ console.log(
 
 console.log(
 
-    "%cRapier Physics System · STANDBY",
+    "%cRapier Physics · ONLINE",
+
+    "color:#55ff99;"
+
+);
+
+
+console.log(
+
+    "%cDynamic Layered Animations · ONLINE",
+
+    "color:#55ff99;"
+
+);
+
+
+console.log(
+
+    "%cCharacter Shadow System · ONLINE",
 
     "color:#55ff99;"
 
