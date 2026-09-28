@@ -2,15 +2,17 @@
    NOVA CATALYST
    Weapon Manager
 
-   Build v0.11.3
+   Build v0.12.0
 
-   - Sci-fi Handgun
-   - TPS + FPS
+   - Pistol / SMG / Shotgun
+   - Mouse wheel weapon switching
+   - TPS / FPS visuals
    - ADS
+   - Synchronized reload animation
+   - Semi-auto / automatic / shotgun pellets
+   - Independent magazines and reserves
    - Enemy damage
-   - Physics objects
-   - Explosive barrels
-   - Synchronized Reload
+   - Physical objects / explosive barrels
 ========================================================= */
 
 import * as THREE from "three";
@@ -21,139 +23,495 @@ import {
 
 
 /* =========================================================
-   ASSET
+   WEAPON DEFINITIONS
 ========================================================= */
 
-const PISTOL_ASSET = {
+const WEAPON_ORDER = [
 
-    paths: [
+    "pistol",
 
-        "./assets/models/weapons/pistol/scene.gltf",
+    "smg",
 
-        "./assets/models/weapons/pistol/scene.glb",
+    "shotgun"
 
-        "./assets/models/weapons/pistol/pistol.glb",
+];
 
-        "./assets/models/weapons/scene.gltf",
-
-        "./assets/models/weapons/pistol.glb"
-
-    ],
-
-    targetLength:
-        0.28
-
-};
-
-
-/* =========================================================
-   TPS
-========================================================= */
-
-const TPS_CONFIG = {
-
-    positionOffset:
-        new THREE.Vector3(
-            0.00,
-            0.005,
-            0.015
-        ),
-
-    rotationOffset:
-        new THREE.Euler(
-            0,
-            0,
-            -0.04
-        )
-
-};
-
-
-/* =========================================================
-   FPS HIP
-========================================================= */
-
-const FPS_HIP = {
-
-    position:
-        new THREE.Vector3(
-            0.17,
-            -0.16,
-            -0.34
-        ),
-
-    rotation:
-        new THREE.Euler(
-            0,
-            Math.PI,
-            0
-        ),
-
-    response:
-        22
-
-};
-
-
-/* =========================================================
-   FPS ADS
-========================================================= */
-
-const FPS_ADS = {
-
-    sightDistance:
-        0.215,
-
-    sightHeight:
-        -0.012,
-
-    sightSide:
-        0,
-
-    rotation:
-        new THREE.Euler(
-            0,
-            Math.PI,
-            0
-        ),
-
-    response:
-        26
-
-};
-
-
-/* =========================================================
-   CONFIG
-========================================================= */
 
 const WEAPON_CONFIG = {
 
+
+    /* =====================================================
+       PISTOL
+    ====================================================== */
+
     pistol: {
+
+        key:
+            "pistol",
+
+        displayName:
+            "SCI-FI HANDGUN",
+
 
         magazineSize:
             12,
 
-        fireRate:
-            0.22,
+        initialReserve:
+            Infinity,
 
-        reloadTime:
-            1.65,
-
-        range:
-            60,
 
         damage:
             20,
 
+        fireRate:
+            0.22,
+
+        automatic:
+            false,
+
+
+        range:
+            60,
+
+        pellets:
+            1,
+
+        spread:
+            0,
+
+
         objectImpulse:
             1.35,
+
 
         explosionRadius:
             5.5,
 
         explosionForce:
-            11.5
+            11.5,
+
+
+        targetLength:
+            0.28,
+
+
+        assetPaths: [
+
+            "./assets/models/weapons/pistol/scene.gltf",
+
+            "./assets/models/weapons/pistol/scene.glb",
+
+            "./assets/models/weapons/pistol/pistol.glb",
+
+            "./assets/models/weapons/scene.gltf",
+
+            "./assets/models/weapons/pistol.glb"
+
+        ],
+
+
+        tps: {
+
+            positionOffset:
+                new THREE.Vector3(
+
+                    0.00,
+
+                    0.005,
+
+                    0.015
+
+                ),
+
+            rotationOffset:
+                new THREE.Euler(
+
+                    0,
+
+                    0,
+
+                    -0.04
+
+                )
+
+        },
+
+
+        fpsHip: {
+
+            position:
+                new THREE.Vector3(
+
+                    0.17,
+
+                    -0.16,
+
+                    -0.34
+
+                ),
+
+            rotation:
+                new THREE.Euler(
+
+                    0,
+
+                    Math.PI,
+
+                    0
+
+                ),
+
+            response:
+                22
+
+        },
+
+
+        fpsADS: {
+
+            sightDistance:
+                0.215,
+
+            sightHeight:
+                -0.012,
+
+            sightSide:
+                0,
+
+            rotation:
+                new THREE.Euler(
+
+                    0,
+
+                    Math.PI,
+
+                    0
+
+                ),
+
+            response:
+                26
+
+        },
+
+
+        muzzleFlash:
+            13,
+
+        recoil:
+            0.012,
+
+
+        initiallyUnlocked:
+            true
+
+    },
+
+
+    /* =====================================================
+       SMG
+    ====================================================== */
+
+    smg: {
+
+        key:
+            "smg",
+
+        displayName:
+            "NOVA SMG",
+
+
+        magazineSize:
+            30,
+
+        initialReserve:
+            180,
+
+
+        damage:
+            11,
+
+        fireRate:
+            0.085,
+
+        automatic:
+            true,
+
+
+        range:
+            48,
+
+        pellets:
+            1,
+
+        spread:
+            0.010,
+
+
+        objectImpulse:
+            0.90,
+
+
+        targetLength:
+            0.46,
+
+
+        /*
+         * Todavía no tenemos modelo externo.
+         *
+         * El sistema utilizará temporalmente
+         * un modelo procedural.
+         */
+        assetPaths: [],
+
+
+        tps: {
+
+            positionOffset:
+                new THREE.Vector3(
+
+                    0.005,
+
+                    -0.015,
+
+                    0.055
+
+                ),
+
+            rotationOffset:
+                new THREE.Euler(
+
+                    0,
+
+                    0,
+
+                    -0.035
+
+                )
+
+        },
+
+
+        fpsHip: {
+
+            position:
+                new THREE.Vector3(
+
+                    0.19,
+
+                    -0.19,
+
+                    -0.43
+
+                ),
+
+            rotation:
+                new THREE.Euler(
+
+                    0,
+
+                    Math.PI,
+
+                    0
+
+                ),
+
+            response:
+                24
+
+        },
+
+
+        fpsADS: {
+
+            sightDistance:
+                0.235,
+
+            sightHeight:
+                -0.015,
+
+            sightSide:
+                0,
+
+            rotation:
+                new THREE.Euler(
+
+                    0,
+
+                    Math.PI,
+
+                    0
+
+                ),
+
+            response:
+                28
+
+        },
+
+
+        muzzleFlash:
+            10,
+
+        recoil:
+            0.008,
+
+
+        initiallyUnlocked:
+            true
+
+    },
+
+
+    /* =====================================================
+       SHOTGUN
+    ====================================================== */
+
+    shotgun: {
+
+        key:
+            "shotgun",
+
+        displayName:
+            "NOVA SHOTGUN",
+
+
+        magazineSize:
+            6,
+
+        initialReserve:
+            36,
+
+
+        damage:
+            16,
+
+        fireRate:
+            0.82,
+
+        automatic:
+            false,
+
+
+        range:
+            28,
+
+        pellets:
+            7,
+
+        spread:
+            0.045,
+
+
+        objectImpulse:
+            2.7,
+
+
+        targetLength:
+            0.68,
+
+
+        /*
+         * También utilizamos provisionalmente
+         * un modelo procedural.
+         */
+        assetPaths: [],
+
+
+        tps: {
+
+            positionOffset:
+                new THREE.Vector3(
+
+                    0.00,
+
+                    -0.025,
+
+                    0.095
+
+                ),
+
+            rotationOffset:
+                new THREE.Euler(
+
+                    0,
+
+                    0,
+
+                    -0.025
+
+                )
+
+        },
+
+
+        fpsHip: {
+
+            position:
+                new THREE.Vector3(
+
+                    0.22,
+
+                    -0.21,
+
+                    -0.54
+
+                ),
+
+            rotation:
+                new THREE.Euler(
+
+                    0,
+
+                    Math.PI,
+
+                    0
+
+                ),
+
+            response:
+                20
+
+        },
+
+
+        fpsADS: {
+
+            sightDistance:
+                0.255,
+
+            sightHeight:
+                -0.015,
+
+            sightSide:
+                0,
+
+            rotation:
+                new THREE.Euler(
+
+                    0,
+
+                    Math.PI,
+
+                    0
+
+                ),
+
+            response:
+                24
+
+        },
+
+
+        muzzleFlash:
+            18,
+
+        recoil:
+            0.020,
+
+
+        initiallyUnlocked:
+            true
 
     }
 
@@ -165,6 +523,7 @@ const WEAPON_CONFIG = {
 ========================================================= */
 
 export class WeaponManager {
+
 
     constructor({
 
@@ -207,18 +566,6 @@ export class WeaponManager {
 
 
         /* =================================================
-           ENEMIES
-        ================================================= */
-
-        this.enemyManager =
-            null;
-
-
-        this.enemyTargets =
-            [];
-
-
-        /* =================================================
            LOADER
         ================================================= */
 
@@ -250,42 +597,135 @@ export class WeaponManager {
             false;
 
 
-        this.ammo =
-            WEAPON_CONFIG
-                .pistol
-                .magazineSize;
+        /* =================================================
+           ENEMIES
+        ================================================= */
 
+        this.enemyManager =
+            null;
+
+
+        this.enemyTargets =
+            [];
+
+
+        /* =================================================
+           ENVIRONMENT
+        ================================================= */
+
+        this.environmentMeshes =
+            [];
+
+
+        this.dynamicTargets =
+            [];
+
+
+        /* =================================================
+           WEAPON COLLECTION
+        ================================================= */
+
+        this.weaponEntries =
+            new Map();
+
+
+        this.weaponState =
+            new Map();
+
+
+        this.unlockedWeapons =
+            new Set();
+
+
+        /* =================================================
+           INITIAL AMMO
+        ================================================= */
+
+        for (
+            const key
+            of WEAPON_ORDER
+        ) {
+
+            const config =
+                WEAPON_CONFIG[key];
+
+
+            this.weaponState.set(
+
+                key,
+
+                {
+
+                    magazine:
+                        config.magazineSize,
+
+                    reserve:
+                        config.initialReserve
+
+                }
+
+            );
+
+
+            if (
+                config.initiallyUnlocked
+            ) {
+
+                this.unlockedWeapons.add(
+                    key
+                );
+
+            }
+
+        }
+
+
+        /* =================================================
+           CURRENT WEAPON
+        ================================================= */
+
+        this.activeWeaponKey =
+            "pistol";
+
+
+        this.activeEntry =
+            null;
+
+
+        /* =================================================
+           RELOAD
+        ================================================= */
 
         this.isReloading =
             false;
 
 
-        this.lastShotTime =
-            -Infinity;
+        this.reloadingWeaponKey =
+            null;
 
-
-        /* =================================================
-           AUTO RELOAD DELAY
-        ================================================= */
 
         this.autoReloadDelay =
             0;
 
 
         /* =================================================
-           SYNCHRONIZE WITH Reload.fbx
+           FIRE
         ================================================= */
 
-        this.playerController
-            .setReloadFinishedHandler?.(
+        this.lastShotTime =
+            -Infinity;
 
-                () => {
 
-                    this.finishReload();
+        this.triggerHeld =
+            false;
 
-                }
 
-            );
+        /* =================================================
+           WHEEL
+        ================================================= */
+
+        this.wheelCooldown =
+            0;
 
 
         /* =================================================
@@ -297,57 +737,23 @@ export class WeaponManager {
 
 
         /* =================================================
-           TEMPLATE
+           RAYCAST
         ================================================= */
 
-        this.weaponTemplate =
-            null;
+        this.raycaster =
+            new THREE.Raycaster();
+
+
+        this.fireNDC =
+            new THREE.Vector2();
+
+
+        this.shotDirection =
+            new THREE.Vector3();
 
 
         /* =================================================
-           TPS ROOT
-        ================================================= */
-
-        this.tpsWeaponRoot =
-            new THREE.Group();
-
-
-        this.tpsWeaponRoot.name =
-            "Nova_TPS_Handgun";
-
-
-        this.scene.add(
-            this.tpsWeaponRoot
-        );
-
-
-        this.tpsVisual =
-            null;
-
-
-        /* =================================================
-           FPS ROOT
-        ================================================= */
-
-        this.fpsWeaponRoot =
-            new THREE.Group();
-
-
-        this.fpsWeaponRoot.name =
-            "Nova_FPS_Handgun";
-
-
-        this.camera.add(
-            this.fpsWeaponRoot
-        );
-
-
-        this.fpsVisual =
-            null;
-
-
-        /* =================================================
-           TEMP
+           TEMP VECTORS
         ================================================= */
 
         this.handPosition =
@@ -362,109 +768,12 @@ export class WeaponManager {
             new THREE.Vector3();
 
 
-        this.tpsRotationOffset =
-            new THREE.Quaternion()
-                .setFromEuler(
-                    TPS_CONFIG.rotationOffset
-                );
-
-
-        /* =================================================
-           BOUNDS
-        ================================================= */
-
-        this.weaponBox =
-            new THREE.Box3();
-
-
-        this.weaponSize =
+        this.tempWorldPosition =
             new THREE.Vector3();
 
-
-        this.weaponCenter =
-            new THREE.Vector3();
-
-
-        /* =================================================
-           LOCAL ANCHORS
-        ================================================= */
-
-        this.muzzleLocal =
-            new THREE.Vector3();
-
-
-        this.rearSightLocal =
-            new THREE.Vector3();
-
-
-        this.frontSightLocal =
-            new THREE.Vector3();
-
-
-        /* =================================================
-           TPS ANCHORS
-        ================================================= */
-
-        this.tpsMuzzle =
-            new THREE.Object3D();
-
-
-        this.tpsRearSight =
-            new THREE.Object3D();
-
-
-        this.tpsFrontSight =
-            new THREE.Object3D();
-
-
-        this.tpsWeaponRoot.add(
-
-            this.tpsMuzzle,
-
-            this.tpsRearSight,
-
-            this.tpsFrontSight
-
-        );
-
-
-        /* =================================================
-           FPS ANCHORS
-        ================================================= */
-
-        this.fpsMuzzle =
-            new THREE.Object3D();
-
-
-        this.fpsRearSight =
-            new THREE.Object3D();
-
-
-        this.fpsFrontSight =
-            new THREE.Object3D();
-
-
-        this.fpsWeaponRoot.add(
-
-            this.fpsMuzzle,
-
-            this.fpsRearSight,
-
-            this.fpsFrontSight
-
-        );
-
-
-        /* =================================================
-           FPS TRANSFORMS
-        ================================================= */
 
         this.fpsTargetPosition =
             new THREE.Vector3();
-
-
-        this.fpsTargetQuaternion =
-            new THREE.Quaternion();
 
 
         this.rotatedRearSight =
@@ -472,33 +781,6 @@ export class WeaponManager {
 
 
         this.desiredRearSight =
-            new THREE.Vector3();
-
-
-        /* =================================================
-           RAYCAST
-        ================================================= */
-
-        this.raycaster =
-            new THREE.Raycaster();
-
-
-        this.fireNDC =
-            new THREE.Vector2(
-                0,
-                0
-            );
-
-
-        this.environmentMeshes =
-            [];
-
-
-        this.dynamicTargets =
-            [];
-
-
-        this.shotDirection =
             new THREE.Vector3();
 
 
@@ -513,6 +795,10 @@ export class WeaponManager {
         this.explodedBodies =
             new WeakSet();
 
+
+        /* =================================================
+           IMPACT MATERIAL
+        ================================================= */
 
         this.impactMaterial =
             new THREE.PointsMaterial({
@@ -538,6 +824,10 @@ export class WeaponManager {
             });
 
 
+        /* =================================================
+           WALL IMPACT
+        ================================================= */
+
         this.wallImpactMaterial =
             new THREE.PointsMaterial({
 
@@ -562,6 +852,10 @@ export class WeaponManager {
             });
 
 
+        /* =================================================
+           ENEMY IMPACT
+        ================================================= */
+
         this.enemyImpactMaterial =
             new THREE.PointsMaterial({
 
@@ -585,6 +879,10 @@ export class WeaponManager {
 
             });
 
+
+        /* =================================================
+           EXPLOSION MATERIAL
+        ================================================= */
 
         this.explosionMaterial =
             new THREE.PointsMaterial({
@@ -611,7 +909,7 @@ export class WeaponManager {
 
 
         /* =================================================
-           MUZZLE
+           MUZZLE LIGHT
         ================================================= */
 
         this.muzzleLight =
@@ -641,12 +939,16 @@ export class WeaponManager {
             0;
 
 
-        this.tempWorldPosition =
-            new THREE.Vector3();
+        /* =================================================
+           RECOIL
+        ================================================= */
+
+        this.recoilTimer =
+            0;
 
 
         /* =================================================
-           HUD
+           HUD / INPUT
         ================================================= */
 
         this.createHUD();
@@ -654,11 +956,176 @@ export class WeaponManager {
 
         this.setupInput();
 
+
+        /* =================================================
+           REAL RELOAD CALLBACK
+
+           La munición se actualiza cuando termina
+           Reload.fbx.
+        ================================================= */
+
+        this.playerController
+            .setReloadFinishedHandler?.(
+
+                () => {
+
+                    this.finishReload();
+
+                }
+
+            );
+
     }
 
 
     /* =====================================================
-       LOAD GLTF
+       CONFIG GETTERS
+    ====================================================== */
+
+    getActiveConfig() {
+
+        return WEAPON_CONFIG[
+            this.activeWeaponKey
+        ];
+
+    }
+
+
+    getActiveState() {
+
+        return this.weaponState.get(
+            this.activeWeaponKey
+        );
+
+    }
+
+
+    getCurrentWeapon() {
+
+        return this.activeWeaponKey;
+
+    }
+
+
+    /* =====================================================
+       UNLOCK
+    ====================================================== */
+
+    isWeaponUnlocked(
+        key
+    ) {
+
+        return this.unlockedWeapons.has(
+            key
+        );
+
+    }
+
+
+    setWeaponUnlocked(
+
+        key,
+
+        unlocked = true
+
+    ) {
+
+        if (
+            !WEAPON_CONFIG[key]
+        ) {
+
+            return false;
+
+        }
+
+
+        if (
+            unlocked
+        ) {
+
+            this.unlockedWeapons.add(
+                key
+            );
+
+        }
+
+        else if (
+            key !==
+            "pistol"
+        ) {
+
+            this.unlockedWeapons.delete(
+                key
+            );
+
+        }
+
+
+        this.updateHUD();
+
+
+        return true;
+
+    }
+
+
+    /* =====================================================
+       ADD AMMO
+
+       La usaremos después para pickups.
+    ====================================================== */
+
+    addReserveAmmo(
+
+        key,
+
+        amount
+
+    ) {
+
+        const state =
+            this.weaponState.get(
+                key
+            );
+
+
+        if (
+            !state
+
+            ||
+
+            !Number.isFinite(
+                state.reserve
+            )
+        ) {
+
+            return false;
+
+        }
+
+
+        state.reserve +=
+            Math.max(
+
+                0,
+
+                Math.floor(
+                    amount
+                )
+
+            );
+
+
+        this.updateHUD();
+
+
+        return true;
+
+    }
+
+
+    /* =====================================================
+       GLTF
     ====================================================== */
 
     loadGLTF(
@@ -669,7 +1136,9 @@ export class WeaponManager {
 
             (
                 resolve,
+
                 reject
+
             ) => {
 
                 this.loader.load(
@@ -692,10 +1161,12 @@ export class WeaponManager {
 
 
     /* =====================================================
-       LOAD ASSET
+       LOAD CONFIGURED ASSET
     ====================================================== */
 
-    async loadWeaponAsset() {
+    async loadConfiguredAsset(
+        config
+    ) {
 
         let lastError =
             null;
@@ -703,7 +1174,7 @@ export class WeaponManager {
 
         for (
             const path
-            of PISTOL_ASSET.paths
+            of config.assetPaths
         ) {
 
             try {
@@ -716,14 +1187,14 @@ export class WeaponManager {
 
                 console.log(
 
-                    "[Weapon] Modelo cargado:",
+                    `[Weapon] ${config.displayName} cargada:`,
 
                     path
 
                 );
 
 
-                return gltf;
+                return gltf.scene;
 
             }
 
@@ -739,81 +1210,547 @@ export class WeaponManager {
         }
 
 
-        throw new Error(
+        if (
+            config.assetPaths.length >
+            0
+        ) {
 
-            "No se encontró Sci-fi Handgun. "
+            console.warn(
 
-            +
+                `[Weapon] No se encontró modelo para ${config.displayName}. Usando fallback.`,
 
-            (
-                lastError?.message
-                ??
+                lastError ??
                 ""
-            )
 
+            );
+
+        }
+
+
+        return this.createFallbackWeapon(
+            config.key
         );
 
     }
 
 
     /* =====================================================
-       LOAD
+       PROCEDURAL WEAPONS
+
+       SMG y Shotgun provisionales.
     ====================================================== */
 
-    async load() {
+    createFallbackWeapon(
+        key
+    ) {
+
+        const group =
+            new THREE.Group();
+
+
+        group.name =
+            `Fallback_${key}`;
+
+
+        const dark =
+            new THREE.MeshStandardMaterial({
+
+                color:
+                    0x232a32,
+
+                roughness:
+                    0.48,
+
+                metalness:
+                    0.68
+
+            });
+
+
+        const accent =
+            new THREE.MeshStandardMaterial({
+
+                color:
+                    0x9ba9b5,
+
+                roughness:
+                    0.38,
+
+                metalness:
+                    0.75
+
+            });
+
+
+        const grip =
+            new THREE.MeshStandardMaterial({
+
+                color:
+                    0x111417,
+
+                roughness:
+                    0.8,
+
+                metalness:
+                    0.12
+
+            });
+
+
+        /* =================================================
+           SMG
+        ================================================= */
 
         if (
-            this.loaded
+            key ===
+            "smg"
         ) {
 
-            return;
+            const body =
+                new THREE.Mesh(
 
-        }
+                    new THREE.BoxGeometry(
+
+                        0.11,
+
+                        0.11,
+
+                        0.32
+
+                    ),
+
+                    dark
+
+                );
 
 
-        console.log(
-            "[Weapon] Cargando arma..."
-        );
+            body.position.z =
+                0.08;
 
 
-        this.rightHandBone =
-            this.playerController
-                .getRightHandBone();
+            const barrel =
+                new THREE.Mesh(
+
+                    new THREE.CylinderGeometry(
+
+                        0.018,
+
+                        0.018,
+
+                        0.22,
+
+                        10
+
+                    ),
+
+                    accent
+
+                );
 
 
-        if (
-            !this.rightHandBone
-        ) {
+            barrel.rotation.x =
+                Math.PI /
+                2;
 
-            throw new Error(
-                "No se encontró RightHand."
+
+            barrel.position.set(
+
+                0,
+
+                0.015,
+
+                0.33
+
+            );
+
+
+            const handle =
+                new THREE.Mesh(
+
+                    new THREE.BoxGeometry(
+
+                        0.07,
+
+                        0.18,
+
+                        0.075
+
+                    ),
+
+                    grip
+
+                );
+
+
+            handle.rotation.x =
+                -0.20;
+
+
+            handle.position.set(
+
+                0,
+
+                -0.12,
+
+                -0.01
+
+            );
+
+
+            const magazine =
+                new THREE.Mesh(
+
+                    new THREE.BoxGeometry(
+
+                        0.055,
+
+                        0.19,
+
+                        0.065
+
+                    ),
+
+                    dark
+
+                );
+
+
+            magazine.rotation.x =
+                -0.10;
+
+
+            magazine.position.set(
+
+                0,
+
+                -0.13,
+
+                0.12
+
+            );
+
+
+            const stock =
+                new THREE.Mesh(
+
+                    new THREE.BoxGeometry(
+
+                        0.075,
+
+                        0.075,
+
+                        0.18
+
+                    ),
+
+                    dark
+
+                );
+
+
+            stock.position.set(
+
+                0,
+
+                0,
+
+                -0.17
+
+            );
+
+
+            group.add(
+
+                body,
+
+                barrel,
+
+                handle,
+
+                magazine,
+
+                stock
+
             );
 
         }
 
 
-        console.log(
+        /* =================================================
+           SHOTGUN
+        ================================================= */
 
-            "[Weapon] RightHand:",
+        else if (
+            key ===
+            "shotgun"
+        ) {
 
-            this.rightHandBone.name
+            const body =
+                new THREE.Mesh(
 
-        );
+                    new THREE.BoxGeometry(
+
+                        0.105,
+
+                        0.12,
+
+                        0.30
+
+                    ),
+
+                    dark
+
+                );
 
 
-        const gltf =
-            await this.loadWeaponAsset();
+            body.position.z =
+                -0.02;
 
 
-        this.weaponTemplate =
-            gltf.scene;
+            const barrel =
+                new THREE.Mesh(
+
+                    new THREE.CylinderGeometry(
+
+                        0.025,
+
+                        0.025,
+
+                        0.44,
+
+                        12
+
+                    ),
+
+                    accent
+
+                );
 
 
-        this.weaponTemplate.name =
-            "SciFi_Handgun_Template";
+            barrel.rotation.x =
+                Math.PI /
+                2;
 
 
-        this.weaponTemplate.traverse(
+            barrel.position.set(
+
+                0,
+
+                0.02,
+
+                0.32
+
+            );
+
+
+            const pump =
+                new THREE.Mesh(
+
+                    new THREE.BoxGeometry(
+
+                        0.095,
+
+                        0.095,
+
+                        0.15
+
+                    ),
+
+                    grip
+
+                );
+
+
+            pump.position.set(
+
+                0,
+
+                -0.025,
+
+                0.22
+
+            );
+
+
+            const handle =
+                new THREE.Mesh(
+
+                    new THREE.BoxGeometry(
+
+                        0.07,
+
+                        0.18,
+
+                        0.075
+
+                    ),
+
+                    grip
+
+                );
+
+
+            handle.rotation.x =
+                -0.22;
+
+
+            handle.position.set(
+
+                0,
+
+                -0.13,
+
+                -0.08
+
+            );
+
+
+            const stock =
+                new THREE.Mesh(
+
+                    new THREE.BoxGeometry(
+
+                        0.11,
+
+                        0.13,
+
+                        0.28
+
+                    ),
+
+                    dark
+
+                );
+
+
+            stock.position.set(
+
+                0,
+
+                -0.01,
+
+                -0.29
+
+            );
+
+
+            group.add(
+
+                body,
+
+                barrel,
+
+                pump,
+
+                handle,
+
+                stock
+
+            );
+
+        }
+
+
+        /* =================================================
+           GENERIC FALLBACK
+        ================================================= */
+
+        else {
+
+            const body =
+                new THREE.Mesh(
+
+                    new THREE.BoxGeometry(
+
+                        0.09,
+
+                        0.11,
+
+                        0.24
+
+                    ),
+
+                    dark
+
+                );
+
+
+            const barrel =
+                new THREE.Mesh(
+
+                    new THREE.CylinderGeometry(
+
+                        0.016,
+
+                        0.016,
+
+                        0.14,
+
+                        10
+
+                    ),
+
+                    accent
+
+                );
+
+
+            barrel.rotation.x =
+                Math.PI /
+                2;
+
+
+            barrel.position.z =
+                0.18;
+
+
+            const handle =
+                new THREE.Mesh(
+
+                    new THREE.BoxGeometry(
+
+                        0.065,
+
+                        0.18,
+
+                        0.07
+
+                    ),
+
+                    grip
+
+                );
+
+
+            handle.rotation.x =
+                -0.18;
+
+
+            handle.position.set(
+
+                0,
+
+                -0.13,
+
+                -0.06
+
+            );
+
+
+            group.add(
+
+                body,
+
+                barrel,
+
+                handle
+
+            );
+
+        }
+
+
+        group.traverse(
 
             object => {
 
@@ -842,121 +1779,227 @@ export class WeaponManager {
                     .ignoreWeaponRaycast =
                     true;
 
-
-                const materials =
-                    Array.isArray(
-                        object.material
-                    )
-
-                        ?
-
-                        object.material
-
-                        :
-
-                        [
-                            object.material
-                        ];
-
-
-                for (
-                    const material
-                    of materials
-                ) {
-
-                    if (
-                        material
-                    ) {
-
-                        material.needsUpdate =
-                            true;
-
-                    }
-
-                }
-
             }
 
         );
 
 
-        this.normalizeWeaponModel(
-            this.weaponTemplate
+        return group;
+
+    }
+
+
+    /* =====================================================
+       LOAD
+    ====================================================== */
+
+    async load() {
+
+        if (
+            this.loaded
+        ) {
+
+            return;
+
+        }
+
+
+        console.log(
+
+            "[Weapon] Cargando sistema multi-arma..."
+
         );
 
 
-        this.tpsVisual =
-            this.weaponTemplate
-                .clone(
-                    true
-                );
+        this.rightHandBone =
+            this.playerController
+                .getRightHandBone();
 
 
-        this.fpsVisual =
-            this.weaponTemplate
-                .clone(
-                    true
-                );
+        if (
+            !this.rightHandBone
+        ) {
 
+            throw new Error(
 
-        this.tpsVisual.name =
-            "TPS_SciFi_Handgun";
+                "No se encontró RightHand."
 
-
-        this.fpsVisual.name =
-            "FPS_SciFi_Handgun";
-
-
-        this.tpsWeaponRoot.add(
-            this.tpsVisual
-        );
-
-
-        this.fpsWeaponRoot.add(
-            this.fpsVisual
-        );
-
-
-        this.calculateLocalAnchors();
-
-
-        this.installAnchors();
-
-
-        this.fpsWeaponRoot.position.copy(
-            FPS_HIP.position
-        );
-
-
-        this.fpsWeaponRoot.quaternion
-            .setFromEuler(
-                FPS_HIP.rotation
             );
 
+        }
+
+
+        /* =================================================
+           LOAD EACH WEAPON
+        ================================================= */
+
+        for (
+            const key
+            of WEAPON_ORDER
+        ) {
+
+            const config =
+                WEAPON_CONFIG[key];
+
+
+            const template =
+                await this
+                    .loadConfiguredAsset(
+                        config
+                    );
+
+
+            template.name =
+                `${config.displayName}_Template`;
+
+
+            template.traverse(
+
+                object => {
+
+                    if (
+                        !object.isMesh
+                    ) {
+
+                        return;
+
+                    }
+
+
+                    object.castShadow =
+                        true;
+
+
+                    object.receiveShadow =
+                        true;
+
+
+                    object.frustumCulled =
+                        false;
+
+
+                    object.userData
+                        .ignoreWeaponRaycast =
+                        true;
+
+
+                    const materials =
+                        Array.isArray(
+                            object.material
+                        )
+
+                            ?
+
+                            object.material
+
+                            :
+
+                            [
+                                object.material
+                            ];
+
+
+                    for (
+                        const material
+                        of materials
+                    ) {
+
+                        if (
+                            material
+                        ) {
+
+                            material.needsUpdate =
+                                true;
+
+                        }
+
+                    }
+
+                }
+
+            );
+
+
+            this.normalizeWeaponModel(
+
+                template,
+
+                config.targetLength
+
+            );
+
+
+            const entry =
+                this.createWeaponEntry(
+
+                    key,
+
+                    template,
+
+                    config
+
+                );
+
+
+            this.weaponEntries.set(
+
+                key,
+
+                entry
+
+            );
+
+        }
+
+
+        /* =================================================
+           READY
+        ================================================= */
 
         this.loaded =
             true;
 
 
-        this.updateTPSWeapon();
+        this.equipWeapon(
+
+            "pistol",
+
+            true
+
+        );
+
+
+        this.refreshDynamicTargets();
+
+
+        this.refreshEnemyTargets();
 
 
         this.updateVisibility();
 
 
+        this.updateHUD();
+
+
         console.log(
-            "[Weapon] TPS + FPS weapons ONLINE"
+
+            "[Weapon] PISTOL + SMG + SHOTGUN ONLINE"
+
         );
 
     }
 
 
     /* =====================================================
-       NORMALIZE
+       NORMALIZE WEAPON
     ====================================================== */
 
     normalizeWeaponModel(
-        model
+
+        model,
+
+        targetLength
+
     ) {
 
         model.position.set(
@@ -1001,6 +2044,10 @@ export class WeaponManager {
         );
 
 
+        /* =================================================
+           LONGEST AXIS -> Z
+        ================================================= */
+
         if (
             originalSize.x >=
             originalSize.y
@@ -1039,6 +2086,10 @@ export class WeaponManager {
         );
 
 
+        /* =================================================
+           SCALE
+        ================================================= */
+
         box =
             new THREE.Box3()
                 .setFromObject(
@@ -1073,7 +2124,9 @@ export class WeaponManager {
         ) {
 
             throw new Error(
+
                 "Modelo de arma inválido."
+
             );
 
         }
@@ -1081,7 +2134,7 @@ export class WeaponManager {
 
         model.scale.multiplyScalar(
 
-            PISTOL_ASSET.targetLength /
+            targetLength /
             length
 
         );
@@ -1092,39 +2145,15 @@ export class WeaponManager {
         );
 
 
+        /* =================================================
+           GRIP ORIGIN
+        ================================================= */
+
         box =
             new THREE.Box3()
                 .setFromObject(
                     model
                 );
-
-
-        if (
-            !this.isHandleAtNegativeZ(
-
-                model,
-
-                box
-
-            )
-        ) {
-
-            model.rotation.y +=
-                Math.PI;
-
-
-            model.updateMatrixWorld(
-                true
-            );
-
-
-            box =
-                new THREE.Box3()
-                    .setFromObject(
-                        model
-                    );
-
-        }
 
 
         const size =
@@ -1170,308 +2199,603 @@ export class WeaponManager {
             true
         );
 
-
-        console.log(
-            "[Weapon] Modelo normalizado."
-        );
-
     }
 
 
     /* =====================================================
-       HANDLE DETECTION
+       CREATE WEAPON ENTRY
     ====================================================== */
 
-    isHandleAtNegativeZ(
+    createWeaponEntry(
 
-        model,
+        key,
 
-        box
+        template,
+
+        config
 
     ) {
 
-        const depth =
-            box.max.z -
-            box.min.z;
+        /* =================================================
+           ROOTS
+        ================================================= */
+
+        const tpsRoot =
+            new THREE.Group();
 
 
-        if (
-            depth <
-            0.0001
-        ) {
-
-            return true;
-
-        }
+        const fpsRoot =
+            new THREE.Group();
 
 
-        const minLimit =
-            box.min.z +
-            depth *
-            0.30;
+        tpsRoot.name =
+            `Nova_TPS_${key}`;
 
 
-        const maxLimit =
-            box.max.z -
-            depth *
-            0.30;
+        fpsRoot.name =
+            `Nova_FPS_${key}`;
 
 
-        let negativeLowest =
-            Infinity;
-
-
-        let positiveLowest =
-            Infinity;
-
-
-        const point =
-            new THREE.Vector3();
-
-
-        model.updateMatrixWorld(
-            true
+        this.scene.add(
+            tpsRoot
         );
 
 
-        model.traverse(
-
-            object => {
-
-                if (
-                    !object.isMesh
-
-                    ||
-
-                    !object.geometry
-                ) {
-
-                    return;
-
-                }
-
-
-                const attribute =
-                    object.geometry
-                        .attributes
-                        .position;
-
-
-                if (
-                    !attribute
-                ) {
-
-                    return;
-
-                }
-
-
-                const step =
-                    Math.max(
-
-                        1,
-
-                        Math.floor(
-
-                            attribute.count /
-                            2000
-
-                        )
-
-                    );
-
-
-                for (
-                    let i = 0;
-                    i < attribute.count;
-                    i += step
-                ) {
-
-                    point.fromBufferAttribute(
-
-                        attribute,
-
-                        i
-
-                    );
-
-
-                    point.applyMatrix4(
-                        object.matrixWorld
-                    );
-
-
-                    if (
-                        point.z <=
-                        minLimit
-                    ) {
-
-                        negativeLowest =
-                            Math.min(
-
-                                negativeLowest,
-
-                                point.y
-
-                            );
-
-                    }
-
-
-                    if (
-                        point.z >=
-                        maxLimit
-                    ) {
-
-                        positiveLowest =
-                            Math.min(
-
-                                positiveLowest,
-
-                                point.y
-
-                            );
-
-                    }
-
-                }
-
-            }
-
+        this.camera.add(
+            fpsRoot
         );
 
 
-        if (
-            !Number.isFinite(
-                negativeLowest
-            )
+        /* =================================================
+           VISUAL COPIES
+        ================================================= */
 
-            ||
-
-            !Number.isFinite(
-                positiveLowest
-            )
-        ) {
-
-            return true;
-
-        }
-
-
-        return (
-
-            negativeLowest <
-            positiveLowest
-
-        );
-
-    }
-
-
-    /* =====================================================
-       ANCHORS
-    ====================================================== */
-
-    calculateLocalAnchors() {
-
-        this.weaponTemplate
-            .updateMatrixWorld(
+        const tpsVisual =
+            template.clone(
                 true
             );
 
 
-        this.weaponBox
-            .setFromObject(
-                this.weaponTemplate
+        const fpsVisual =
+            template.clone(
+                true
             );
 
 
-        this.weaponBox.getSize(
-            this.weaponSize
+        tpsVisual.name =
+            `TPS_${key}_Visual`;
+
+
+        fpsVisual.name =
+            `FPS_${key}_Visual`;
+
+
+        tpsRoot.add(
+            tpsVisual
         );
 
 
-        this.weaponBox.getCenter(
-            this.weaponCenter
+        fpsRoot.add(
+            fpsVisual
         );
 
 
-        this.muzzleLocal.set(
+        /* =================================================
+           ANCHORS
+        ================================================= */
 
-            this.weaponCenter.x,
+        const anchors =
+            this.calculateLocalAnchors(
+                template
+            );
 
-            this.weaponBox.max.y -
-            this.weaponSize.y *
-            0.25,
 
-            this.weaponBox.max.z +
-            0.006
+        const tpsMuzzle =
+            new THREE.Object3D();
+
+
+        const tpsRearSight =
+            new THREE.Object3D();
+
+
+        const tpsFrontSight =
+            new THREE.Object3D();
+
+
+        const fpsMuzzle =
+            new THREE.Object3D();
+
+
+        const fpsRearSight =
+            new THREE.Object3D();
+
+
+        const fpsFrontSight =
+            new THREE.Object3D();
+
+
+        tpsMuzzle.position.copy(
+            anchors.muzzle
+        );
+
+
+        tpsRearSight.position.copy(
+            anchors.rearSight
+        );
+
+
+        tpsFrontSight.position.copy(
+            anchors.frontSight
+        );
+
+
+        fpsMuzzle.position.copy(
+            anchors.muzzle
+        );
+
+
+        fpsRearSight.position.copy(
+            anchors.rearSight
+        );
+
+
+        fpsFrontSight.position.copy(
+            anchors.frontSight
+        );
+
+
+        tpsRoot.add(
+
+            tpsMuzzle,
+
+            tpsRearSight,
+
+            tpsFrontSight
 
         );
 
 
-        this.rearSightLocal.set(
+        fpsRoot.add(
 
-            this.weaponCenter.x,
+            fpsMuzzle,
 
-            this.weaponBox.max.y -
-            this.weaponSize.y *
-            0.06,
+            fpsRearSight,
 
-            this.weaponBox.min.z +
-            this.weaponSize.z *
-            0.18
+            fpsFrontSight
 
         );
 
 
-        this.frontSightLocal.set(
+        /* =================================================
+           FPS START TRANSFORM
+        ================================================= */
 
-            this.weaponCenter.x,
-
-            this.weaponBox.max.y -
-            this.weaponSize.y *
-            0.06,
-
-            this.weaponBox.max.z -
-            this.weaponSize.z *
-            0.11
-
+        fpsRoot.position.copy(
+            config.fpsHip.position
         );
+
+
+        fpsRoot.quaternion
+            .setFromEuler(
+                config.fpsHip.rotation
+            );
+
+
+        /* =================================================
+           TPS ROTATION OFFSET
+        ================================================= */
+
+        const tpsRotationOffset =
+            new THREE.Quaternion()
+                .setFromEuler(
+
+                    config
+                        .tps
+                        .rotationOffset
+
+                );
+
+
+        tpsRoot.visible =
+            false;
+
+
+        fpsRoot.visible =
+            false;
+
+
+        return {
+
+            key,
+
+            template,
+
+            tpsRoot,
+
+            fpsRoot,
+
+            tpsVisual,
+
+            fpsVisual,
+
+            tpsMuzzle,
+
+            tpsRearSight,
+
+            tpsFrontSight,
+
+            fpsMuzzle,
+
+            fpsRearSight,
+
+            fpsFrontSight,
+
+            anchors,
+
+            tpsRotationOffset
+
+        };
 
     }
 
 
-    installAnchors() {
+    /* =====================================================
+       CALCULATE ANCHORS
+    ====================================================== */
 
-        this.tpsMuzzle.position.copy(
-            this.muzzleLocal
+    calculateLocalAnchors(
+        template
+    ) {
+
+        template.updateMatrixWorld(
+            true
         );
 
 
-        this.tpsRearSight.position.copy(
-            this.rearSightLocal
+        const box =
+            new THREE.Box3()
+                .setFromObject(
+                    template
+                );
+
+
+        const size =
+            new THREE.Vector3();
+
+
+        const center =
+            new THREE.Vector3();
+
+
+        box.getSize(
+            size
         );
 
 
-        this.tpsFrontSight.position.copy(
-            this.frontSightLocal
+        box.getCenter(
+            center
         );
 
 
-        this.fpsMuzzle.position.copy(
-            this.muzzleLocal
+        return {
+
+            muzzle:
+                new THREE.Vector3(
+
+                    center.x,
+
+                    box.max.y -
+                    size.y *
+                    0.25,
+
+                    box.max.z +
+                    0.006
+
+                ),
+
+
+            rearSight:
+                new THREE.Vector3(
+
+                    center.x,
+
+                    box.max.y -
+                    size.y *
+                    0.06,
+
+                    box.min.z +
+                    size.z *
+                    0.18
+
+                ),
+
+
+            frontSight:
+                new THREE.Vector3(
+
+                    center.x,
+
+                    box.max.y -
+                    size.y *
+                    0.06,
+
+                    box.max.z -
+                    size.z *
+                    0.11
+
+                )
+
+        };
+
+    }
+
+
+    /* =====================================================
+       EQUIP WEAPON
+    ====================================================== */
+
+    equipWeapon(
+
+        key,
+
+        force = false
+
+    ) {
+
+        if (
+            !this.loaded
+
+            &&
+
+            !force
+        ) {
+
+            return false;
+
+        }
+
+
+        if (
+            !WEAPON_CONFIG[key]
+        ) {
+
+            return false;
+
+        }
+
+
+        if (
+            !this.isWeaponUnlocked(
+                key
+            )
+        ) {
+
+            return false;
+
+        }
+
+
+        /*
+         * No permitimos cancelar Reload
+         * cambiando de arma.
+         */
+        if (
+            this.isReloading
+
+            &&
+
+            !force
+        ) {
+
+            return false;
+
+        }
+
+
+        if (
+            this.activeWeaponKey ===
+            key
+
+            &&
+
+            this.activeEntry
+
+            &&
+
+            !force
+        ) {
+
+            return true;
+
+        }
+
+
+        /* =================================================
+           HIDE ALL
+        ================================================= */
+
+        for (
+            const entry
+            of this.weaponEntries.values()
+        ) {
+
+            entry.tpsRoot.visible =
+                false;
+
+
+            entry.fpsRoot.visible =
+                false;
+
+        }
+
+
+        this.triggerHeld =
+            false;
+
+
+        this.autoReloadDelay =
+            0;
+
+
+        this.lastShotTime =
+            -Infinity;
+
+
+        this.cameraManager
+            .cancelAim?.();
+
+
+        this.aiming =
+            false;
+
+
+        this.activeWeaponKey =
+            key;
+
+
+        this.activeEntry =
+            this.weaponEntries.get(
+                key
+            )
+
+            ??
+
+            null;
+
+
+        this.updateVisibility();
+
+
+        this.updateHUD();
+
+
+        console.log(
+
+            `[Weapon] Equipada: ${WEAPON_CONFIG[key].displayName}`
+
         );
 
 
-        this.fpsRearSight.position.copy(
-            this.rearSightLocal
-        );
+        return true;
+
+    }
 
 
-        this.fpsFrontSight.position.copy(
-            this.frontSightLocal
-        );
+    /* =====================================================
+       MOUSE WHEEL SWITCH
+    ====================================================== */
+
+    cycleWeapon(
+        direction
+    ) {
+
+        if (
+            !this.loaded
+
+            ||
+
+            !this.enabled
+
+            ||
+
+            this.paused
+
+            ||
+
+            this.isReloading
+
+            ||
+
+            this.wheelCooldown >
+            0
+        ) {
+
+            return false;
+
+        }
+
+
+        const available =
+            WEAPON_ORDER.filter(
+
+                key =>
+                    this.isWeaponUnlocked(
+                        key
+                    )
+
+            );
+
+
+        if (
+            available.length <=
+            1
+        ) {
+
+            return false;
+
+        }
+
+
+        let index =
+            available.indexOf(
+                this.activeWeaponKey
+            );
+
+
+        if (
+            index <
+            0
+        ) {
+
+            index =
+                0;
+
+        }
+
+
+        index =
+            (
+
+                index
+
+                +
+
+                direction
+
+                +
+
+                available.length
+
+            )
+
+            %
+
+            available.length;
+
+
+        const changed =
+            this.equipWeapon(
+
+                available[index]
+
+            );
+
+
+        if (
+            changed
+        ) {
+
+            /*
+             * Evita saltarse varias armas con
+             * una sola rueda sensible.
+             */
+            this.wheelCooldown =
+                0.12;
+
+        }
+
+
+        return changed;
 
     }
 
@@ -1488,6 +2812,10 @@ export class WeaponManager {
             ||
 
             !this.rightHandBone
+
+            ||
+
+            !this.activeEntry
         ) {
 
             return;
@@ -1495,10 +2823,21 @@ export class WeaponManager {
         }
 
 
+        const config =
+            this.getActiveConfig();
+
+
+        const entry =
+            this.activeEntry;
+
+
         this.rightHandBone
             .updateWorldMatrix(
+
                 true,
+
                 false
+
             );
 
 
@@ -1517,14 +2856,14 @@ export class WeaponManager {
 
         this.tpsOffset
             .copy(
-                TPS_CONFIG.positionOffset
+                config.tps.positionOffset
             )
             .applyQuaternion(
                 this.playerQuaternion
             );
 
 
-        this.tpsWeaponRoot
+        entry.tpsRoot
             .position
             .copy(
                 this.handPosition
@@ -1534,27 +2873,26 @@ export class WeaponManager {
             );
 
 
-        this.tpsWeaponRoot
+        entry.tpsRoot
             .quaternion
             .copy(
                 this.playerQuaternion
             )
             .multiply(
-                this.tpsRotationOffset
+                entry.tpsRotationOffset
             );
 
 
-        this.tpsWeaponRoot.scale.set(
+        entry.tpsRoot.scale.set(
             1,
             1,
             1
         );
 
 
-        this.tpsWeaponRoot
-            .updateMatrixWorld(
-                true
-            );
+        entry.tpsRoot.updateMatrixWorld(
+            true
+        );
 
     }
 
@@ -1567,10 +2905,53 @@ export class WeaponManager {
         deltaTime
     ) {
 
+        if (
+            !this.activeEntry
+        ) {
+
+            return;
+
+        }
+
+
+        const config =
+            this.getActiveConfig();
+
+
+        const entry =
+            this.activeEntry;
+
+
+        const targetPosition =
+            config
+                .fpsHip
+                .position
+                .clone();
+
+
+        /* =================================================
+           SMALL RECOIL
+        ================================================= */
+
+        if (
+            this.recoilTimer >
+            0
+        ) {
+
+            targetPosition.z +=
+                config.recoil;
+
+        }
+
+
         const targetQuaternion =
             new THREE.Quaternion()
                 .setFromEuler(
-                    FPS_HIP.rotation
+
+                    config
+                        .fpsHip
+                        .rotation
+
                 );
 
 
@@ -1581,24 +2962,29 @@ export class WeaponManager {
 
             Math.exp(
 
-                -FPS_HIP.response *
+                -config
+                    .fpsHip
+                    .response
+
+                *
+
                 deltaTime
 
             );
 
 
-        this.fpsWeaponRoot
+        entry.fpsRoot
             .position
             .lerp(
 
-                FPS_HIP.position,
+                targetPosition,
 
                 alpha
 
             );
 
 
-        this.fpsWeaponRoot
+        entry.fpsRoot
             .quaternion
             .slerp(
 
@@ -1609,7 +2995,7 @@ export class WeaponManager {
             );
 
 
-        this.fpsWeaponRoot
+        entry.fpsRoot
             .updateMatrixWorld(
                 true
             );
@@ -1625,27 +3011,56 @@ export class WeaponManager {
         deltaTime
     ) {
 
+        if (
+            !this.activeEntry
+        ) {
+
+            return;
+
+        }
+
+
+        const config =
+            this.getActiveConfig();
+
+
+        const entry =
+            this.activeEntry;
+
+
         const targetQuaternion =
             new THREE.Quaternion()
                 .setFromEuler(
-                    FPS_ADS.rotation
+
+                    config
+                        .fpsADS
+                        .rotation
+
                 );
 
 
         this.desiredRearSight.set(
 
-            FPS_ADS.sightSide,
+            config
+                .fpsADS
+                .sightSide,
 
-            FPS_ADS.sightHeight,
+            config
+                .fpsADS
+                .sightHeight,
 
-            -FPS_ADS.sightDistance
+            -config
+                .fpsADS
+                .sightDistance
 
         );
 
 
         this.rotatedRearSight
             .copy(
-                this.rearSightLocal
+                entry
+                    .anchors
+                    .rearSight
             )
             .applyQuaternion(
                 targetQuaternion
@@ -1661,6 +3076,17 @@ export class WeaponManager {
             );
 
 
+        if (
+            this.recoilTimer >
+            0
+        ) {
+
+            this.fpsTargetPosition.z +=
+                config.recoil;
+
+        }
+
+
         const alpha =
             1
 
@@ -1668,13 +3094,18 @@ export class WeaponManager {
 
             Math.exp(
 
-                -FPS_ADS.response *
+                -config
+                    .fpsADS
+                    .response
+
+                *
+
                 deltaTime
 
             );
 
 
-        this.fpsWeaponRoot
+        entry.fpsRoot
             .position
             .lerp(
 
@@ -1685,7 +3116,7 @@ export class WeaponManager {
             );
 
 
-        this.fpsWeaponRoot
+        entry.fpsRoot
             .quaternion
             .slerp(
 
@@ -1696,7 +3127,7 @@ export class WeaponManager {
             );
 
 
-        this.fpsWeaponRoot
+        entry.fpsRoot
             .updateMatrixWorld(
                 true
             );
@@ -1710,6 +3141,21 @@ export class WeaponManager {
 
     updateVisibility() {
 
+        for (
+            const entry
+            of this.weaponEntries.values()
+        ) {
+
+            entry.tpsRoot.visible =
+                false;
+
+
+            entry.fpsRoot.visible =
+                false;
+
+        }
+
+
         const gameVisible =
 
             this.loaded
@@ -1720,56 +3166,71 @@ export class WeaponManager {
 
             &&
 
-            !this.paused;
-
-
-        const fps =
-            this.viewMode ===
-            "FPS";
-
-
-        this.tpsWeaponRoot.visible =
-
-            gameVisible
+            !this.paused
 
             &&
 
-            !fps;
+            this.activeEntry;
 
 
-        this.fpsWeaponRoot.visible =
-
+        if (
             gameVisible
+        ) {
 
-            &&
+            if (
+                this.viewMode ===
+                "FPS"
+            ) {
 
-            fps;
+                this.activeEntry
+                    .fpsRoot
+                    .visible =
+                    true;
+
+            }
+
+            else {
+
+                this.activeEntry
+                    .tpsRoot
+                    .visible =
+                    true;
+
+            }
+
+        }
 
 
-        this.ammoHUD.style.display =
+        if (
+            this.ammoHUD
+        ) {
 
-            this.enabled
+            this.ammoHUD.style.display =
 
-                ?
+                this.enabled
 
-                "block"
+                    ?
 
-                :
+                    "block"
 
-                "none";
+                    :
+
+                    "none";
 
 
-        this.ammoHUD.style.opacity =
+            this.ammoHUD.style.opacity =
 
-            this.paused
+                this.paused
 
-                ?
+                    ?
 
-                "0.2"
+                    "0.2"
 
-                :
+                    :
 
-                "1";
+                    "1";
+
+        }
 
 
         const ads =
@@ -1778,41 +3239,58 @@ export class WeaponManager {
 
             &&
 
-            fps
+            this.viewMode ===
+            "FPS"
 
             &&
 
-            this.aiming;
-
-
-        this.crosshair.style.display =
-
-            gameVisible
+            this.aiming
 
             &&
 
-            !ads
-
-                ?
-
-                "block"
-
-                :
-
-                "none";
+            !this.isReloading;
 
 
-        this.adsReticle.style.display =
+        if (
+            this.crosshair
+        ) {
 
-            ads
+            this.crosshair.style.display =
 
-                ?
+                gameVisible
 
-                "block"
+                &&
 
-                :
+                !ads
 
-                "none";
+                    ?
+
+                    "block"
+
+                    :
+
+                    "none";
+
+        }
+
+
+        if (
+            this.adsReticle
+        ) {
+
+            this.adsReticle.style.display =
+
+                ads
+
+                    ?
+
+                    "block"
+
+                    :
+
+                    "none";
+
+        }
 
     }
 
@@ -1830,8 +3308,15 @@ export class WeaponManager {
 
 
         if (
-            enabled
+            !enabled
         ) {
+
+            this.triggerHeld =
+                false;
+
+        }
+
+        else {
 
             this.refreshDynamicTargets();
 
@@ -1856,6 +3341,16 @@ export class WeaponManager {
 
         this.paused =
             paused;
+
+
+        if (
+            paused
+        ) {
+
+            this.triggerHeld =
+                false;
+
+        }
 
 
         this.updateVisibility();
@@ -1889,7 +3384,14 @@ export class WeaponManager {
     ) {
 
         this.aiming =
-            aiming;
+
+            Boolean(
+                aiming
+            )
+
+            &&
+
+            !this.isReloading;
 
 
         this.updateVisibility();
@@ -1905,6 +3407,10 @@ export class WeaponManager {
 
         if (
             !this.loaded
+
+            ||
+
+            !this.activeEntry
         ) {
 
             return null;
@@ -1929,19 +3435,22 @@ export class WeaponManager {
             "FPS"
         ) {
 
-            this.fpsRearSight
+            this.activeEntry
+                .fpsRearSight
                 .getWorldPosition(
                     rearSight
                 );
 
 
-            this.fpsFrontSight
+            this.activeEntry
+                .fpsFrontSight
                 .getWorldPosition(
                     frontSight
                 );
 
 
-            this.fpsMuzzle
+            this.activeEntry
+                .fpsMuzzle
                 .getWorldPosition(
                     muzzle
                 );
@@ -1950,19 +3459,22 @@ export class WeaponManager {
 
         else {
 
-            this.tpsRearSight
+            this.activeEntry
+                .tpsRearSight
                 .getWorldPosition(
                     rearSight
                 );
 
 
-            this.tpsFrontSight
+            this.activeEntry
+                .tpsFrontSight
                 .getWorldPosition(
                     frontSight
                 );
 
 
-            this.tpsMuzzle
+            this.activeEntry
+                .tpsMuzzle
                 .getWorldPosition(
                     muzzle
                 );
@@ -2021,7 +3533,7 @@ export class WeaponManager {
 
 
     /* =====================================================
-       ENEMIES
+       ENEMY MANAGER
     ====================================================== */
 
     setEnemyManager(
@@ -2102,11 +3614,68 @@ export class WeaponManager {
 
             if (
                 current.userData
+
                 &&
+
                 current.userData.enemy
             ) {
 
-                return current.userData.enemy;
+                return current
+                    .userData
+                    .enemy;
+
+            }
+
+
+            current =
+                current.parent;
+
+        }
+
+
+        return null;
+
+    }
+
+
+    /* =====================================================
+       FIND PHYSICAL OBJECT
+    ====================================================== */
+
+    findPhysicalObject(
+        object
+    ) {
+
+        let current =
+            object;
+
+
+        while (
+            current
+        ) {
+
+            if (
+                current.userData
+
+                &&
+
+                current.userData.rigidBody
+            ) {
+
+                return {
+
+                    root:
+                        current,
+
+                    rigidBody:
+                        current.userData
+                            .rigidBody,
+
+                    type:
+                        current.userData
+                            .objectType
+
+                };
 
             }
 
@@ -2127,6 +3696,10 @@ export class WeaponManager {
     ====================================================== */
 
     createHUD() {
+
+        /* =================================================
+           CROSSHAIR
+        ================================================= */
 
         this.crosshair =
             document.createElement(
@@ -2295,7 +3868,7 @@ export class WeaponManager {
 
 
         /* =================================================
-           AMMO
+           AMMO HUD
         ================================================= */
 
         this.ammoHUD =
@@ -2320,7 +3893,7 @@ export class WeaponManager {
                     "26px",
 
                 minWidth:
-                    "150px",
+                    "190px",
 
                 padding:
                     "10px 14px",
@@ -2373,31 +3946,121 @@ export class WeaponManager {
 
     updateHUD() {
 
+        if (
+            !this.ammoHUD
+        ) {
+
+            return;
+
+        }
+
+
+        const config =
+            this.getActiveConfig();
+
+
+        const state =
+            this.getActiveState();
+
+
+        if (
+            !config
+
+            ||
+
+            !state
+        ) {
+
+            return;
+
+        }
+
+
+        const reserveText =
+
+            Number.isFinite(
+                state.reserve
+            )
+
+                ?
+
+                state.reserve
+
+                :
+
+                "∞";
+
+
+        const availableNames =
+
+            WEAPON_ORDER
+
+                .filter(
+
+                    key =>
+                        this.isWeaponUnlocked(
+                            key
+                        )
+
+                )
+
+                .map(
+
+                    key => {
+
+                        const active =
+                            key ===
+                            this.activeWeaponKey;
+
+
+                        return active
+
+                            ?
+
+                            `[${WEAPON_CONFIG[key].displayName}]`
+
+                            :
+
+                            WEAPON_CONFIG[key]
+                                .displayName;
+
+                    }
+
+                )
+
+                .join(
+                    " · "
+                );
+
+
         this.ammoHUD.innerHTML = `
 
             <div style="
-                opacity:.55;
+                opacity:.58;
                 font-size:8px;
                 margin-bottom:5px;
                 letter-spacing:1.4px;
             ">
-                SCI-FI HANDGUN
+                ${config.displayName}
             </div>
+
 
             <span style="
                 font-size:20px;
                 font-weight:700;
             ">
-                ${this.ammo}
+                ${state.magazine}
             </span>
 
+
             <span style="
-                opacity:.45;
+                opacity:.55;
                 margin-left:4px;
                 font-size:11px;
             ">
-                / ∞
+                / ${reserveText}
             </span>
+
 
             ${
                 this.isReloading
@@ -2419,6 +4082,17 @@ export class WeaponManager {
                     ""
             }
 
+
+            <div style="
+                opacity:.36;
+                font-size:6px;
+                margin-top:6px;
+                letter-spacing:.8px;
+                white-space:nowrap;
+            ">
+                RUEDA · ${availableNames}
+            </div>
+
         `;
 
     }
@@ -2429,6 +4103,10 @@ export class WeaponManager {
     ====================================================== */
 
     setupInput() {
+
+        /* =================================================
+           LEFT CLICK
+        ================================================= */
 
         window.addEventListener(
 
@@ -2459,12 +4137,45 @@ export class WeaponManager {
                 }
 
 
+                this.triggerHeld =
+                    true;
+
+
                 this.fire();
 
             }
 
         );
 
+
+        /* =================================================
+           RELEASE LEFT CLICK
+        ================================================= */
+
+        window.addEventListener(
+
+            "mouseup",
+
+            event => {
+
+                if (
+                    event.button ===
+                    0
+                ) {
+
+                    this.triggerHeld =
+                        false;
+
+                }
+
+            }
+
+        );
+
+
+        /* =================================================
+           R = RELOAD
+        ================================================= */
 
         window.addEventListener(
 
@@ -2507,6 +4218,86 @@ export class WeaponManager {
 
         );
 
+
+        /* =================================================
+           MOUSE WHEEL
+
+           Down = next
+           Up   = previous
+        ================================================= */
+
+        window.addEventListener(
+
+            "wheel",
+
+            event => {
+
+                if (
+                    !this.enabled
+
+                    ||
+
+                    this.paused
+
+                    ||
+
+                    !this.cameraManager
+                        .isInputCaptured()
+                ) {
+
+                    return;
+
+                }
+
+
+                event.preventDefault();
+
+
+                if (
+                    event.deltaY >
+                    0
+                ) {
+
+                    this.cycleWeapon(
+                        1
+                    );
+
+                }
+
+                else if (
+                    event.deltaY <
+                    0
+                ) {
+
+                    this.cycleWeapon(
+                        -1
+                    );
+
+                }
+
+            },
+
+            {
+                passive:
+                    false
+            }
+
+        );
+
+
+        window.addEventListener(
+
+            "blur",
+
+            () => {
+
+                this.triggerHeld =
+                    false;
+
+            }
+
+        );
+
     }
 
 
@@ -2516,19 +4307,40 @@ export class WeaponManager {
 
     fire() {
 
-        const config =
-            WEAPON_CONFIG.pistol;
-
-
-        /* =================================================
-           BLOCK WHILE RELOADING
-        ================================================= */
-
         if (
+            !this.enabled
+
+            ||
+
+            this.paused
+
+            ||
+
             this.isReloading
         ) {
 
-            return;
+            return false;
+
+        }
+
+
+        const config =
+            this.getActiveConfig();
+
+
+        const state =
+            this.getActiveState();
+
+
+        if (
+            !config
+
+            ||
+
+            !state
+        ) {
+
+            return false;
 
         }
 
@@ -2538,13 +4350,17 @@ export class WeaponManager {
             1000;
 
 
+        /* =================================================
+           FIRE RATE
+        ================================================= */
+
         if (
             now -
             this.lastShotTime <
             config.fireRate
         ) {
 
-            return;
+            return false;
 
         }
 
@@ -2554,14 +4370,14 @@ export class WeaponManager {
         ================================================= */
 
         if (
-            this.ammo <=
+            state.magazine <=
             0
         ) {
 
             this.reload();
 
 
-            return;
+            return false;
 
         }
 
@@ -2570,27 +4386,289 @@ export class WeaponManager {
             now;
 
 
-        this.ammo--;
+        /* =================================================
+           CONSUME ROUND
+        ================================================= */
+
+        state.magazine--;
 
 
         this.updateHUD();
 
 
+        /* =================================================
+           PLAYER SHOOT ANIMATION
+        ================================================= */
+
         this.playerController
             .shoot();
 
+
+        /* =================================================
+           EFFECTS
+        ================================================= */
 
         this.muzzleFlashTimer =
             0.045;
 
 
+        this.recoilTimer =
+            0.075;
+
+
         /* =================================================
-           HITSCAN
+           TARGET CACHE
         ================================================= */
 
-        this.fireNDC.set(
-            0,
+        this.refreshEnemyTargets();
+
+
+        /* =================================================
+           SHOTGUN
+        ================================================= */
+
+        if (
+            config.pellets >
+            1
+        ) {
+
+            this.fireShotgun(
+                config
+            );
+
+        }
+
+
+        /* =================================================
+           PISTOL / SMG
+        ================================================= */
+
+        else {
+
+            this.fireSingleProjectile(
+                config
+            );
+
+        }
+
+
+        /* =================================================
+           EMPTY -> AUTO RELOAD
+        ================================================= */
+
+        if (
+            state.magazine ===
             0
+        ) {
+
+            this.autoReloadDelay =
+                0.14;
+
+        }
+
+
+        return true;
+
+    }
+
+
+    /* =====================================================
+       SINGLE PROJECTILE
+    ====================================================== */
+
+    fireSingleProjectile(
+        config
+    ) {
+
+        const spread =
+            config.spread;
+
+
+        const x =
+
+            spread >
+            0
+
+                ?
+
+                (
+                    Math.random() -
+                    0.5
+                )
+
+                *
+
+                spread
+
+                :
+
+                0;
+
+
+        const y =
+
+            spread >
+            0
+
+                ?
+
+                (
+                    Math.random() -
+                    0.5
+                )
+
+                *
+
+                spread
+
+                :
+
+                0;
+
+
+        const hit =
+            this.findNearestHit(
+
+                x,
+
+                y,
+
+                config.range
+
+            );
+
+
+        if (
+            hit
+        ) {
+
+            this.processHit(
+
+                hit,
+
+                config.damage,
+
+                config.objectImpulse
+
+            );
+
+        }
+
+    }
+
+
+    /* =====================================================
+       SHOTGUN
+
+       7 raycasts con dispersión.
+    ====================================================== */
+
+    fireShotgun(
+        config
+    ) {
+
+        for (
+            let i = 0;
+            i < config.pellets;
+            i++
+        ) {
+
+            /*
+             * Distribución circular.
+             */
+            const angle =
+                Math.random() *
+                Math.PI *
+                2;
+
+
+            const radius =
+                Math.sqrt(
+                    Math.random()
+                )
+
+                *
+
+                config.spread;
+
+
+            const x =
+                Math.cos(
+                    angle
+                )
+
+                *
+
+                radius;
+
+
+            const y =
+                Math.sin(
+                    angle
+                )
+
+                *
+
+                radius;
+
+
+            const hit =
+                this.findNearestHit(
+
+                    x,
+
+                    y,
+
+                    config.range
+
+                );
+
+
+            if (
+                !hit
+            ) {
+
+                continue;
+
+            }
+
+
+            this.processHit(
+
+                hit,
+
+                config.damage,
+
+                config.objectImpulse /
+                config.pellets
+
+            );
+
+        }
+
+    }
+
+
+    /* =====================================================
+       FIND NEAREST HIT
+    ====================================================== */
+
+    findNearestHit(
+
+        ndcX,
+
+        ndcY,
+
+        range
+
+    ) {
+
+        this.fireNDC.set(
+
+            ndcX,
+
+            ndcY
+
         );
 
 
@@ -2605,14 +4683,12 @@ export class WeaponManager {
 
 
         this.raycaster.far =
-            config.range;
+            range;
 
 
-        /*
-         * Los enemigos cambian durante las waves.
-         */
-        this.refreshEnemyTargets();
-
+        /* =================================================
+           ENVIRONMENT
+        ================================================= */
 
         const environmentHits =
             this.raycaster
@@ -2625,6 +4701,10 @@ export class WeaponManager {
                 );
 
 
+        /* =================================================
+           PHYSICAL OBJECTS
+        ================================================= */
+
         const dynamicHits =
             this.raycaster
                 .intersectObjects(
@@ -2635,6 +4715,10 @@ export class WeaponManager {
 
                 );
 
+
+        /* =================================================
+           ENEMIES
+        ================================================= */
 
         const enemyHits =
 
@@ -2718,87 +4802,7 @@ export class WeaponManager {
         }
 
 
-        if (
-            hit
-        ) {
-
-            this.processHit(
-                hit
-            );
-
-        }
-
-
-        /* =================================================
-           AUTO RELOAD
-
-           La última bala todavía muestra su Shoot.
-           0.14s después Reload toma prioridad.
-        ================================================= */
-
-        if (
-            this.ammo ===
-            0
-        ) {
-
-            this.autoReloadDelay =
-                0.14;
-
-        }
-
-    }
-
-
-    /* =====================================================
-       FIND PHYSICAL OBJECT
-    ====================================================== */
-
-    findPhysicalObject(
-        object
-    ) {
-
-        let current =
-            object;
-
-
-        while (
-            current
-        ) {
-
-            if (
-                current.userData
-
-                &&
-
-                current.userData
-                    .rigidBody
-            ) {
-
-                return {
-
-                    root:
-                        current,
-
-                    rigidBody:
-                        current.userData
-                            .rigidBody,
-
-                    type:
-                        current.userData
-                            .objectType
-
-                };
-
-            }
-
-
-            current =
-                current.parent;
-
-        }
-
-
-        return null;
+        return hit;
 
     }
 
@@ -2808,7 +4812,13 @@ export class WeaponManager {
     ====================================================== */
 
     processHit(
-        hit
+
+        hit,
+
+        damage,
+
+        objectImpulse
+
     ) {
 
         /* =================================================
@@ -2836,26 +4846,17 @@ export class WeaponManager {
             );
 
 
-            const wasKilled =
+            const killed =
                 enemy.takeDamage(
-
-                    WEAPON_CONFIG
-                        .pistol
-                        .damage
-
+                    damage
                 );
 
 
             if (
-                wasKilled
+                killed
             ) {
 
                 this.refreshEnemyTargets();
-
-
-                console.log(
-                    "[Weapon] Infectado neutralizado."
-                );
 
             }
 
@@ -2866,7 +4867,7 @@ export class WeaponManager {
 
 
         /* =================================================
-           PHYSICAL / ENVIRONMENT
+           PHYSICAL OBJECT
         ================================================= */
 
         const physical =
@@ -2897,6 +4898,10 @@ export class WeaponManager {
         }
 
 
+        /* =================================================
+           BARREL
+        ================================================= */
+
         if (
             physical.type ===
             "industrial-barrel"
@@ -2912,23 +4917,25 @@ export class WeaponManager {
         }
 
 
-        this.camera.getWorldDirection(
-            this.shotDirection
-        );
+        /* =================================================
+           NORMAL PHYSICAL IMPULSE
+        ================================================= */
+
+        this.camera
+            .getWorldDirection(
+                this.shotDirection
+            );
 
 
-        this.shotDirection.normalize();
+        this.shotDirection
+            .normalize();
 
 
         const impulse =
             this.shotDirection
                 .clone()
                 .multiplyScalar(
-
-                    WEAPON_CONFIG
-                        .pistol
-                        .objectImpulse
-
+                    objectImpulse
                 );
 
 
@@ -2950,6 +4957,9 @@ export class WeaponManager {
 
     /* =====================================================
        BARREL EXPLOSION
+
+       barrelCombatBridge.js sigue envolviendo esta función
+       para aplicar daño a los enemigos.
     ====================================================== */
 
     explodeBarrel(
@@ -2995,7 +5005,14 @@ export class WeaponManager {
         );
 
 
-        const config =
+        /*
+         * La fuerza de explosión del barril continúa
+         * utilizando la configuración de la pistola.
+         *
+         * Es una propiedad del barril, no del arma
+         * equipada.
+         */
+        const explosionConfig =
             WEAPON_CONFIG.pistol;
 
 
@@ -3053,7 +5070,8 @@ export class WeaponManager {
                 ||
 
                 distance >
-                config.explosionRadius
+                explosionConfig
+                    .explosionRadius
             ) {
 
                 continue;
@@ -3072,12 +5090,14 @@ export class WeaponManager {
                     -
 
                     distance /
-                    config.explosionRadius
+                    explosionConfig
+                        .explosionRadius
                 )
 
                 *
 
-                config.explosionForce;
+                explosionConfig
+                    .explosionForce;
 
 
             direction.multiplyScalar(
@@ -3086,6 +5106,7 @@ export class WeaponManager {
 
 
             direction.y +=
+
                 strength *
                 0.30;
 
@@ -3104,11 +5125,79 @@ export class WeaponManager {
 
         this.objectManager
             .removeDynamicObjectByBody(
+
                 barrel.rigidBody
+
             );
 
 
         this.refreshDynamicTargets();
+
+    }
+
+
+    /* =====================================================
+       CAN RELOAD
+    ====================================================== */
+
+    canReload() {
+
+        const config =
+            this.getActiveConfig();
+
+
+        const state =
+            this.getActiveState();
+
+
+        if (
+            !config
+
+            ||
+
+            !state
+        ) {
+
+            return false;
+
+        }
+
+
+        /* =================================================
+           ALREADY FULL
+        ================================================= */
+
+        if (
+            state.magazine >=
+            config.magazineSize
+        ) {
+
+            return false;
+
+        }
+
+
+        /* =================================================
+           NO RESERVE
+        ================================================= */
+
+        if (
+            Number.isFinite(
+                state.reserve
+            )
+
+            &&
+
+            state.reserve <=
+            0
+        ) {
+
+            return false;
+
+        }
+
+
+        return true;
 
     }
 
@@ -3119,30 +5208,12 @@ export class WeaponManager {
 
     reload() {
 
-        const config =
-            WEAPON_CONFIG.pistol;
-
-
-        /* =================================================
-           ALREADY RELOADING
-        ================================================= */
-
         if (
             this.isReloading
-        ) {
 
-            return false;
+            ||
 
-        }
-
-
-        /* =================================================
-           FULL MAGAZINE
-        ================================================= */
-
-        if (
-            this.ammo ===
-            config.magazineSize
+            !this.canReload()
         ) {
 
             return false;
@@ -3159,7 +5230,10 @@ export class WeaponManager {
 
 
         /* =================================================
-           START REAL Reload.fbx
+           PLAYER Reload.fbx
+
+           Reload puede interrumpir Shoot gracias al
+           PlayerController actual.
         ================================================= */
 
         const animationStarted =
@@ -3177,18 +5251,24 @@ export class WeaponManager {
         }
 
 
-        /*
-         * IMPORTANTE:
-         *
-         * isReloading se activa después de comprobar
-         * que la animación realmente pudo iniciar.
-         */
+        /* =================================================
+           LOCK WEAPON
+        ================================================= */
+
         this.isReloading =
             true;
 
 
+        this.reloadingWeaponKey =
+            this.activeWeaponKey;
+
+
         this.autoReloadDelay =
             0;
+
+
+        this.triggerHeld =
+            false;
 
 
         this.aiming =
@@ -3202,7 +5282,9 @@ export class WeaponManager {
 
 
         console.log(
-            "[Weapon] Reload iniciado."
+
+            `[Weapon] Reload ${this.getActiveConfig().displayName}`
+
         );
 
 
@@ -3214,15 +5296,17 @@ export class WeaponManager {
     /* =====================================================
        FINISH RELOAD
 
-       Esta función NO se ejecuta por timeout.
-       PlayerController la llama cuando AnimationMixer
-       termina Reload.fbx.
+       SOLO se ejecuta cuando termina Reload.fbx.
     ====================================================== */
 
     finishReload() {
 
         if (
             !this.isReloading
+
+            ||
+
+            !this.reloadingWeaponKey
         ) {
 
             return;
@@ -3230,16 +5314,105 @@ export class WeaponManager {
         }
 
 
+        const key =
+            this.reloadingWeaponKey;
+
+
         const config =
-            WEAPON_CONFIG.pistol;
+            WEAPON_CONFIG[key];
 
 
-        this.ammo =
-            config.magazineSize;
+        const state =
+            this.weaponState.get(
+                key
+            );
+
+
+        if (
+            !config
+
+            ||
+
+            !state
+        ) {
+
+            this.isReloading =
+                false;
+
+
+            this.reloadingWeaponKey =
+                null;
+
+
+            return;
+
+        }
+
+
+        const needed =
+
+            config.magazineSize
+
+            -
+
+            state.magazine;
+
+
+        if (
+            needed >
+            0
+        ) {
+
+            /* =================================================
+               FINITE RESERVE
+            ================================================= */
+
+            if (
+                Number.isFinite(
+                    state.reserve
+                )
+            ) {
+
+                const transferred =
+                    Math.min(
+
+                        needed,
+
+                        state.reserve
+
+                    );
+
+
+                state.magazine +=
+                    transferred;
+
+
+                state.reserve -=
+                    transferred;
+
+            }
+
+
+            /* =================================================
+               INFINITE RESERVE
+            ================================================= */
+
+            else {
+
+                state.magazine =
+                    config.magazineSize;
+
+            }
+
+        }
 
 
         this.isReloading =
             false;
+
+
+        this.reloadingWeaponKey =
+            null;
 
 
         this.autoReloadDelay =
@@ -3249,9 +5422,12 @@ export class WeaponManager {
         this.updateHUD();
 
 
+        this.updateVisibility();
+
+
         console.log(
 
-            `[Weapon] Reload terminado · ${this.ammo} / ∞`
+            `[Weapon] Reload terminado · ${config.displayName}`
 
         );
 
@@ -3302,17 +5478,28 @@ export class WeaponManager {
                     (
                         Math.random() -
                         0.5
-                    ) *
+                    )
+
+                    *
+
                     2,
 
-                    0.35 +
+
+                    0.35
+
+                    +
+
                     Math.random() *
                     1.25,
+
 
                     (
                         Math.random() -
                         0.5
-                    ) *
+                    )
+
+                    *
+
                     2
 
                 )
@@ -3341,30 +5528,35 @@ export class WeaponManager {
         );
 
 
+        const material =
+
+            enemy
+
+                ?
+
+                this.enemyImpactMaterial
+
+                :
+
+                (
+                    dynamic
+
+                        ?
+
+                        this.impactMaterial
+
+                        :
+
+                        this.wallImpactMaterial
+                );
+
+
         const particles =
             new THREE.Points(
 
                 geometry,
 
-                enemy
-
-                    ?
-
-                    this.enemyImpactMaterial
-
-                    :
-
-                    (
-                        dynamic
-
-                            ?
-
-                            this.impactMaterial
-
-                            :
-
-                            this.wallImpactMaterial
-                    )
+                material
 
             );
 
@@ -3546,7 +5738,7 @@ export class WeaponManager {
 
 
     /* =====================================================
-       UPDATE EFFECT
+       UPDATE PARTICLE EFFECT
     ====================================================== */
 
     updateEffect(
@@ -3558,7 +5750,8 @@ export class WeaponManager {
     ) {
 
         const attribute =
-            effect.object
+            effect
+                .object
                 .geometry
                 .attributes
                 .position;
@@ -3579,6 +5772,7 @@ export class WeaponManager {
 
 
             velocity.y -=
+
                 4.5 *
                 deltaTime;
 
@@ -3589,16 +5783,19 @@ export class WeaponManager {
 
 
             array[index] +=
+
                 velocity.x *
                 deltaTime;
 
 
             array[index + 1] +=
+
                 velocity.y *
                 deltaTime;
 
 
             array[index + 2] +=
+
                 velocity.z *
                 deltaTime;
 
@@ -3651,6 +5848,10 @@ export class WeaponManager {
             ||
 
             this.paused
+
+            ||
+
+            !this.activeEntry
         ) {
 
             this.muzzleLight.visible =
@@ -3669,21 +5870,26 @@ export class WeaponManager {
 
                 ?
 
-                this.fpsMuzzle
+                this.activeEntry
+                    .fpsMuzzle
 
                 :
 
-                this.tpsMuzzle;
+                this.activeEntry
+                    .tpsMuzzle;
 
 
-        activeMuzzle.getWorldPosition(
-            this.tempWorldPosition
-        );
+        activeMuzzle
+            .getWorldPosition(
+                this.tempWorldPosition
+            );
 
 
-        this.muzzleLight.position.copy(
-            this.tempWorldPosition
-        );
+        this.muzzleLight
+            .position
+            .copy(
+                this.tempWorldPosition
+            );
 
 
         if (
@@ -3701,7 +5907,8 @@ export class WeaponManager {
 
             this.muzzleLight.intensity =
 
-                13
+                this.getActiveConfig()
+                    .muzzleFlash
 
                 *
 
@@ -3752,12 +5959,69 @@ export class WeaponManager {
 
 
         /* =================================================
+           WHEEL COOLDOWN
+        ================================================= */
+
+        this.wheelCooldown =
+            Math.max(
+
+                0,
+
+                this.wheelCooldown -
+                deltaTime
+
+            );
+
+
+        /* =================================================
+           RECOIL
+        ================================================= */
+
+        this.recoilTimer =
+            Math.max(
+
+                0,
+
+                this.recoilTimer -
+                deltaTime
+
+            );
+
+
+        const config =
+            this.getActiveConfig();
+
+
+        /* =================================================
+           AUTOMATIC FIRE
+
+           Solo SMG tiene automatic = true.
+        ================================================= */
+
+        if (
+            this.triggerHeld
+
+            &&
+
+            config?.automatic
+
+            &&
+
+            !this.isReloading
+
+            &&
+
+            this.cameraManager
+                .isInputCaptured()
+        ) {
+
+            this.fire();
+
+        }
+
+
+        /* =================================================
            AUTO RELOAD
-
-           No usamos setTimeout.
-
-           Al quedar en 0 esperamos ligeramente el final
-           del último disparo y después forzamos Reload.
         ================================================= */
 
         if (
@@ -3786,12 +6050,17 @@ export class WeaponManager {
 
                 &&
 
-                this.ammo ===
+                this.getActiveState()
+                    ?.magazine ===
                 0
 
                 &&
 
                 this.enabled
+
+                &&
+
+                this.canReload()
             ) {
 
                 this.reload();
