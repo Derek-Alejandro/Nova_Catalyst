@@ -2,27 +2,23 @@
    NOVA CATALYST
    Environment Manager
 
-   Build v0.2
+   Build v0.3
+   - Zone A stable
+   - Boss Arena enlarged
 ========================================================= */
-
 
 import * as THREE from "three";
 
-
 import {
-
     GLTFLoader
-
 } from "three/addons/loaders/GLTFLoader.js";
 
 
-
 /* =========================================================
-   ESCENARIOS
+   ENVIRONMENTS
 ========================================================= */
 
 export const ENVIRONMENTS = {
-
 
     ZONE_A: {
 
@@ -34,11 +30,6 @@ export const ENVIRONMENTS = {
 
         path:
             "./assets/models/environment/zone-a/scene.gltf",
-
-        /*
-         * Diámetro aproximado deseado
-         * después de normalización.
-         */
 
         targetSize:
             48
@@ -57,14 +48,22 @@ export const ENVIRONMENTS = {
         path:
             "./assets/models/environment/boss-arena/scene.gltf",
 
+        /*
+         * Antes:
+         *
+         * targetSize: 42
+         *
+         * Era demasiado pequeña respecto al jugador
+         * de 1.8 m y al Boss de 3.25 m.
+         *
+         * Ahora la hacemos aproximadamente 2x.
+         */
         targetSize:
-            42
+            150
 
     }
 
-
 };
-
 
 
 /* =========================================================
@@ -72,7 +71,6 @@ export const ENVIRONMENTS = {
 ========================================================= */
 
 export class EnvironmentManager {
-
 
     constructor(
         scene
@@ -96,9 +94,8 @@ export class EnvironmentManager {
     }
 
 
-
     /* =====================================================
-       CARGAR
+       LOAD
     ====================================================== */
 
     async loadEnvironment(
@@ -109,18 +106,13 @@ export class EnvironmentManager {
 
     ) {
 
-
         /*
-         * Si ya está cargado,
-         * reutilizamos el modelo.
+         * Reutilizamos ambientes ya cargados.
          */
-
         if (
-
             this.loaded.has(
                 environmentData.id
             )
-
         ) {
 
             return this.loaded.get(
@@ -130,7 +122,6 @@ export class EnvironmentManager {
         }
 
 
-
         console.log(
 
             `[Environment] Cargando ${environmentData.name}...`
@@ -138,16 +129,12 @@ export class EnvironmentManager {
         );
 
 
-
         const gltf =
-
             await this.loader.loadAsync(
 
                 environmentData.path,
 
-
-                (event) => {
-
+                event => {
 
                     if (
                         !onProgress
@@ -158,13 +145,9 @@ export class EnvironmentManager {
                     }
 
 
-                    /*
-                     * Algunos servidores no
-                     * proporcionan event.total.
-                     */
-
                     if (
-                        event.total > 0
+                        event.total >
+                        0
                     ) {
 
                         const percent =
@@ -174,16 +157,21 @@ export class EnvironmentManager {
                                 event.total
                             )
 
-                            * 100;
+                            *
+
+                            100;
 
 
                         onProgress(
 
                             Math.min(
+
                                 100,
+
                                 Math.round(
                                     percent
                                 )
+
                             )
 
                         );
@@ -195,25 +183,21 @@ export class EnvironmentManager {
             );
 
 
-
         const environment =
             gltf.scene;
-
 
 
         environment.name =
             environmentData.name;
 
 
-
         /* =================================================
-           SOMBRAS / MATERIALES
+           MESH CONFIG
         ================================================= */
 
         environment.traverse(
 
             object => {
-
 
                 if (
                     !object.isMesh
@@ -232,16 +216,13 @@ export class EnvironmentManager {
                     true;
 
 
+                object.frustumCulled =
+                    true;
+
 
                 if (
                     object.material
                 ) {
-
-
-                    /*
-                     * Algunos GLTF utilizan
-                     * arrays de materiales.
-                     */
 
                     const materials =
 
@@ -249,28 +230,32 @@ export class EnvironmentManager {
                             object.material
                         )
 
-                        ?
+                            ?
 
-                        object.material
-
-                        :
-
-                        [
                             object.material
-                        ];
+
+                            :
+
+                            [
+                                object.material
+                            ];
 
 
+                    for (
+                        const material
+                        of materials
+                    ) {
 
-                    materials.forEach(
-
-                        material => {
+                        if (
+                            material
+                        ) {
 
                             material.needsUpdate =
                                 true;
 
                         }
 
-                    );
+                    }
 
                 }
 
@@ -279,20 +264,16 @@ export class EnvironmentManager {
         );
 
 
-
         /*
-         * Inicialmente oculto.
+         * Inicia oculto.
          */
-
         environment.visible =
             false;
-
 
 
         this.scene.add(
             environment
         );
-
 
 
         this.loaded.set(
@@ -303,11 +284,6 @@ export class EnvironmentManager {
 
         );
 
-
-
-        /*
-         * Información original.
-         */
 
         this.printEnvironmentInfo(
 
@@ -320,15 +296,13 @@ export class EnvironmentManager {
         );
 
 
-
         return environment;
 
     }
 
 
-
     /* =====================================================
-       NORMALIZAR ESCALA Y POSICIÓN
+       NORMALIZE
     ====================================================== */
 
     normalizeEnvironment(
@@ -339,12 +313,9 @@ export class EnvironmentManager {
 
     ) {
 
-
         /*
-         * No volver a normalizar
-         * el mismo modelo.
+         * Un modelo solo se normaliza una vez.
          */
-
         if (
             environment.userData
                 .novaNormalized
@@ -357,25 +328,24 @@ export class EnvironmentManager {
         }
 
 
-
         environment.updateMatrixWorld(
             true
         );
 
 
+        /* =================================================
+           ORIGINAL BOUNDS
+        ================================================= */
 
         const originalBox =
-
             new THREE.Box3()
                 .setFromObject(
                     environment
                 );
 
 
-
         const originalSize =
             new THREE.Vector3();
-
 
 
         originalBox.getSize(
@@ -383,9 +353,7 @@ export class EnvironmentManager {
         );
 
 
-
         const horizontalSize =
-
             Math.max(
 
                 originalSize.x,
@@ -395,9 +363,9 @@ export class EnvironmentManager {
             );
 
 
-
         if (
-            horizontalSize <= 0
+            horizontalSize <=
+            0
         ) {
 
             console.warn(
@@ -412,10 +380,9 @@ export class EnvironmentManager {
         }
 
 
-
-        /*
-         * Escala uniforme.
-         */
+        /* =================================================
+           UNIFORM SCALE
+        ================================================= */
 
         const scaleFactor =
 
@@ -423,11 +390,9 @@ export class EnvironmentManager {
             horizontalSize;
 
 
-
         environment.scale.setScalar(
             scaleFactor
         );
-
 
 
         environment.updateMatrixWorld(
@@ -435,23 +400,19 @@ export class EnvironmentManager {
         );
 
 
-
-        /*
-         * Caja después de escalar.
-         */
+        /* =================================================
+           SCALED BOUNDS
+        ================================================= */
 
         const scaledBox =
-
             new THREE.Box3()
                 .setFromObject(
                     environment
                 );
 
 
-
         const scaledCenter =
             new THREE.Vector3();
-
 
 
         scaledBox.getCenter(
@@ -459,13 +420,9 @@ export class EnvironmentManager {
         );
 
 
-
-        /*
-         * Centramos X/Z.
-         *
-         * El punto más bajo del modelo
-         * pasa a Y = 0.
-         */
+        /* =================================================
+           CENTER X/Z + FLOOR Y=0
+        ================================================= */
 
         environment.position.x -=
             scaledCenter.x;
@@ -479,34 +436,28 @@ export class EnvironmentManager {
             scaledBox.min.y;
 
 
-
         environment.updateMatrixWorld(
             true
         );
 
 
-
-        /*
-         * Caja final.
-         */
+        /* =================================================
+           FINAL BOUNDS
+        ================================================= */
 
         const finalBox =
-
             new THREE.Box3()
                 .setFromObject(
                     environment
                 );
 
 
-
         const finalSize =
             new THREE.Vector3();
 
 
-
         const finalCenter =
             new THREE.Vector3();
-
 
 
         finalBox.getSize(
@@ -519,10 +470,11 @@ export class EnvironmentManager {
         );
 
 
-
         const normalizationData = {
 
             scaleFactor,
+
+            targetSize,
 
             box:
                 finalBox,
@@ -536,11 +488,9 @@ export class EnvironmentManager {
         };
 
 
-
         environment.userData
             .novaNormalized =
             true;
-
 
 
         environment.userData
@@ -548,10 +498,18 @@ export class EnvironmentManager {
             normalizationData;
 
 
-
         console.group(
 
             `📐 NORMALIZACIÓN · ${environment.name}`
+
+        );
+
+
+        console.log(
+
+            "Target Size:",
+
+            targetSize
 
         );
 
@@ -608,15 +566,13 @@ export class EnvironmentManager {
         console.groupEnd();
 
 
-
         return normalizationData;
 
     }
 
 
-
     /* =====================================================
-       ACTIVAR ESCENARIO
+       ACTIVATE
     ====================================================== */
 
     async activateEnvironment(
@@ -627,9 +583,7 @@ export class EnvironmentManager {
 
     ) {
 
-
         const environment =
-
             await this.loadEnvironment(
 
                 environmentData,
@@ -638,11 +592,6 @@ export class EnvironmentManager {
 
             );
 
-
-
-        /*
-         * Normalización.
-         */
 
         this.normalizeEnvironment(
 
@@ -653,18 +602,16 @@ export class EnvironmentManager {
         );
 
 
-
         /*
          * Ocultar escenario anterior.
          */
-
         if (
+            this.activeEnvironment
 
-            this.activeEnvironment &&
+            &&
 
             this.activeEnvironment !==
             environment
-
         ) {
 
             this.activeEnvironment.visible =
@@ -673,21 +620,17 @@ export class EnvironmentManager {
         }
 
 
-
         environment.visible =
             true;
-
 
 
         this.activeEnvironment =
             environment;
 
 
-
         return environment;
 
     }
-
 
 
     /* =====================================================
@@ -700,7 +643,6 @@ export class EnvironmentManager {
 
         try {
 
-
             await this.loadEnvironment(
                 environmentData
             );
@@ -712,13 +654,11 @@ export class EnvironmentManager {
 
             );
 
-
         }
 
         catch (
             error
         ) {
-
 
             console.error(
 
@@ -733,9 +673,8 @@ export class EnvironmentManager {
     }
 
 
-
     /* =====================================================
-       INFORMACIÓN
+       INFO
     ====================================================== */
 
     printEnvironmentInfo(
@@ -748,30 +687,24 @@ export class EnvironmentManager {
 
     ) {
 
-
         environment.updateMatrixWorld(
             true
         );
 
 
-
         const box =
-
             new THREE.Box3()
                 .setFromObject(
                     environment
                 );
 
 
-
         const size =
             new THREE.Vector3();
 
 
-
         const center =
             new THREE.Vector3();
-
 
 
         box.getSize(
@@ -782,7 +715,6 @@ export class EnvironmentManager {
         box.getCenter(
             center
         );
-
 
 
         console.group(
@@ -811,7 +743,6 @@ export class EnvironmentManager {
         });
 
 
-
         console.log(
             "Centro:"
         );
@@ -831,7 +762,6 @@ export class EnvironmentManager {
         });
 
 
-
         console.log(
 
             "Bounding Box:",
@@ -844,7 +774,6 @@ export class EnvironmentManager {
         console.groupEnd();
 
     }
-
 
 
     /* =====================================================
@@ -868,9 +797,8 @@ export class EnvironmentManager {
     }
 
 
-
     /* =====================================================
-       TAMAÑO
+       SIZE
     ====================================================== */
 
     getSize(
@@ -895,6 +823,5 @@ export class EnvironmentManager {
         return size;
 
     }
-
 
 }

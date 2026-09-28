@@ -16,5 +16,8 @@
   "bugs": {
     "url": "https://github.com/Derek-Alejandro/proyecto_nova/issues"
   },
-  "homepage": "https://github.com/Derek-Alejandro/proyecto_nova#readme"
+  "homepage": "https://github.com/Derek-Alejandro/proyecto_nova#readme",
+  "devDependencies": {
+    "fbx2gltf": "^0.9.7-p1"
+  }
 }

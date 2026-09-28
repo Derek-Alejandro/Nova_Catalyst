@@ -2,22 +2,31 @@
    NOVA CATALYST
    Boss Manager
 
-   Build v0.16.1
-   - Boss Arena combat
-   - Protected asset preloading
-   - Idle / Walk / Run
-   - Melee
-   - Cannon
+   Build v0.17.0 · GLB BOSS
+
+   ---------------------------------------------------------
+   - GLTFLoader
+   - boss.glb
+   - Animation GLB
+   - Idle
+   - Walk
+   - Run
+   - MeleeAttack
+   - CannonCharge
    - Hit
    - Death
+   - 1600 HP
    - Boss HUD
+   - Cannon projectile
+   - Direct damage: 50 HP
+   - Splash damage: 25 HP
 ========================================================= */
 
 import * as THREE from "three";
 
 import {
-    FBXLoader
-} from "three/addons/loaders/FBXLoader.js";
+    GLTFLoader
+} from "three/addons/loaders/GLTFLoader.js";
 
 
 /* =========================================================
@@ -44,8 +53,16 @@ const BOSS_CONFIG = {
     rotationSpeed:
         6.5,
 
+    /*
+     * Si después vemos que camina de espaldas,
+     * únicamente cambiamos esto a Math.PI.
+     */
     modelRotationOffset:
         0,
+
+    /* =====================================================
+       MELEE
+    ====================================================== */
 
     meleeDistance:
         2.25,
@@ -61,6 +78,11 @@ const BOSS_CONFIG = {
 
     meleeImpactRatio:
         0.54,
+
+
+    /* =====================================================
+       CANNON
+    ====================================================== */
 
     cannonMinDistance:
         7.0,
@@ -95,6 +117,11 @@ const BOSS_CONFIG = {
     splashRadius:
         4.5,
 
+
+    /* =====================================================
+       MOVEMENT / COLLISION
+    ====================================================== */
+
     bodyRadius:
         0.82,
 
@@ -110,6 +137,11 @@ const BOSS_CONFIG = {
     maxFloorStep:
         0.75,
 
+
+    /* =====================================================
+       ANIMATION
+    ====================================================== */
+
     hitAnimationCooldown:
         0.40,
 
@@ -120,36 +152,36 @@ const BOSS_CONFIG = {
 
 
 /* =========================================================
-   PATHS
+   GLB PATHS
 ========================================================= */
 
 const BOSS_PATHS = {
 
     model:
-        "./assets/models/boss/boss.fbx",
+        "./assets/models/boss_glb/boss.glb",
 
     animations: {
 
         Idle:
-            "./assets/models/boss/animations/Idle.fbx",
+            "./assets/models/boss_glb/animations/Idle.glb",
 
         Walk:
-            "./assets/models/boss/animations/Walk.fbx",
+            "./assets/models/boss_glb/animations/Walk.glb",
 
         Run:
-            "./assets/models/boss/animations/Run.fbx",
+            "./assets/models/boss_glb/animations/Run.glb",
 
         MeleeAttack:
-            "./assets/models/boss/animations/MeleeAttack.fbx",
+            "./assets/models/boss_glb/animations/MeleeAttack.glb",
 
         CannonCharge:
-            "./assets/models/boss/animations/CannonCharge.fbx",
+            "./assets/models/boss_glb/animations/CannonCharge.glb",
 
         Hit:
-            "./assets/models/boss/animations/Hit.fbx",
+            "./assets/models/boss_glb/animations/Hit.glb",
 
         Death:
-            "./assets/models/boss/animations/Death.fbx"
+            "./assets/models/boss_glb/animations/Death.glb"
 
     }
 
@@ -204,6 +236,10 @@ export class BossManager {
 
     }) {
 
+        /* =================================================
+           REFERENCES
+        ================================================= */
+
         this.scene =
             scene;
 
@@ -220,8 +256,12 @@ export class BossManager {
             onDeath;
 
 
+        /* =================================================
+           GLTF LOADER
+        ================================================= */
+
         this.loader =
-            new FBXLoader();
+            new GLTFLoader();
 
 
         /* =================================================
@@ -249,28 +289,13 @@ export class BossManager {
             null;
 
 
+        /* =================================================
+           MIXER
+        ================================================= */
+
         this.mixer =
             null;
 
-
-        /* =================================================
-           LOADING
-
-           Evita cargar dos veces el boss si el preload
-           todavía está en curso cuando termina Wave 5.
-        ================================================= */
-
-        this.loaded =
-            false;
-
-
-        this.loadingPromise =
-            null;
-
-
-        /* =================================================
-           ANIMATIONS
-        ================================================= */
 
         this.actions =
             new Map();
@@ -285,7 +310,19 @@ export class BossManager {
 
 
         /* =================================================
-           HITBOXES
+           LOADING
+        ================================================= */
+
+        this.loaded =
+            false;
+
+
+        this.loadingPromise =
+            null;
+
+
+        /* =================================================
+           HIT TARGETS
         ================================================= */
 
         this.hitMeshes =
@@ -337,8 +374,7 @@ export class BossManager {
 
 
         this.cannonCooldown =
-            BOSS_CONFIG
-                .cannonInitialDelay;
+            BOSS_CONFIG.cannonInitialDelay;
 
 
         this.hitAnimationCooldown =
@@ -387,7 +423,7 @@ export class BossManager {
 
 
         /* =================================================
-           TEMP
+           TEMP VECTORS
         ================================================= */
 
         this.playerPosition =
@@ -472,10 +508,10 @@ export class BossManager {
 
 
     /* =====================================================
-       FBX
+       LOAD GLB
     ====================================================== */
 
-    loadFBX(
+    loadGLB(
         path
     ) {
 
@@ -490,11 +526,32 @@ export class BossManager {
 
                     path,
 
-                    resolve,
+                    gltf => {
+
+                        resolve(
+                            gltf
+                        );
+
+                    },
 
                     undefined,
 
-                    reject
+                    error => {
+
+                        console.error(
+
+                            `[Boss] Error cargando GLB: ${path}`,
+
+                            error
+
+                        );
+
+
+                        reject(
+                            error
+                        );
+
+                    }
 
                 );
 
@@ -517,7 +574,7 @@ export class BossManager {
 
 
     /* =====================================================
-       LOAD PROTECTED
+       PROTECTED LOAD
     ====================================================== */
 
     async load() {
@@ -531,9 +588,6 @@ export class BossManager {
         }
 
 
-        /*
-         * Ya existe una carga en curso.
-         */
         if (
             this.loadingPromise
         ) {
@@ -549,22 +603,23 @@ export class BossManager {
 
         try {
 
-            const result =
-                await this.loadingPromise;
-
-
-            return result;
+            return await this.loadingPromise;
 
         }
 
-        finally {
+        catch (
+            error
+        ) {
 
             /*
-             * Si falló, queda libre para volver
-             * a intentarlo durante la transición.
+             * Si algo falla permitimos volver
+             * a intentar la carga.
              */
             this.loadingPromise =
                 null;
+
+
+            throw error;
 
         }
 
@@ -572,20 +627,45 @@ export class BossManager {
 
 
     /* =====================================================
-       REAL LOADER
+       PERFORM LOAD
     ====================================================== */
 
     async performLoad() {
 
         console.log(
-            "[Boss] Cargando boss..."
+            "[Boss] Cargando modelo GLB..."
         );
 
 
-        this.model =
-            await this.loadFBX(
+        /* =================================================
+           MAIN MODEL
+        ================================================= */
+
+        const bossGLTF =
+            await this.loadGLB(
                 BOSS_PATHS.model
             );
+
+
+        if (
+            !bossGLTF
+
+            ||
+
+            !bossGLTF.scene
+        ) {
+
+            throw new Error(
+
+                "boss.glb no contiene una escena válida."
+
+            );
+
+        }
+
+
+        this.model =
+            bossGLTF.scene;
 
 
         this.model.name =
@@ -596,12 +676,20 @@ export class BossManager {
             0;
 
 
+        /* =================================================
+           MESH CONFIG
+        ================================================= */
+
         this.model.traverse(
 
             object => {
 
                 if (
                     !object.isMesh
+
+                    &&
+
+                    !object.isSkinnedMesh
                 ) {
 
                     return;
@@ -622,7 +710,8 @@ export class BossManager {
 
 
                 /*
-                 * WeaponManager busca userData.enemy.
+                 * WeaponManager encuentra enemigos
+                 * mediante userData.enemy.
                  */
                 object.userData.enemy =
                     this;
@@ -649,6 +738,10 @@ export class BossManager {
         );
 
 
+        /* =================================================
+           MIXER
+        ================================================= */
+
         this.mixer =
             new THREE.AnimationMixer(
                 this.model
@@ -656,7 +749,7 @@ export class BossManager {
 
 
         /* =================================================
-           ANIMATIONS
+           LOAD ANIMATION GLBs
         ================================================= */
 
         for (
@@ -671,24 +764,31 @@ export class BossManager {
 
             try {
 
-                const fbx =
-                    await this.loadFBX(
+                console.log(
+
+                    `[Boss] Cargando animación: ${name}`
+
+                );
+
+
+                const animationGLTF =
+                    await this.loadGLB(
                         path
                     );
 
 
                 if (
-                    !fbx.animations
+                    !animationGLTF.animations
 
                     ||
 
-                    fbx.animations.length ===
+                    animationGLTF.animations.length ===
                     0
                 ) {
 
                     console.warn(
 
-                        `[Boss] ${name} sin animación.`
+                        `[Boss] ${name} no contiene AnimationClip.`
 
                     );
 
@@ -699,7 +799,8 @@ export class BossManager {
 
 
                 let clip =
-                    fbx.animations[0]
+                    animationGLTF
+                        .animations[0]
                         .clone();
 
 
@@ -719,6 +820,10 @@ export class BossManager {
                             clip
                         );
 
+
+                /* =========================================
+                   LOOP ANIMATIONS
+                ========================================= */
 
                 if (
                     name ===
@@ -743,7 +848,16 @@ export class BossManager {
 
                     );
 
+
+                    action.clampWhenFinished =
+                        false;
+
                 }
+
+
+                /* =========================================
+                   ONE SHOT
+                ========================================= */
 
                 else {
 
@@ -770,6 +884,13 @@ export class BossManager {
 
                 );
 
+
+                console.log(
+
+                    `[Boss] ${name} OK · ${clip.duration.toFixed(2)} s`
+
+                );
+
             }
 
             catch (
@@ -778,7 +899,7 @@ export class BossManager {
 
                 console.error(
 
-                    `[Boss] Error cargando ${name}:`,
+                    `[Boss] Error cargando animación ${name}:`,
 
                     error
 
@@ -790,7 +911,37 @@ export class BossManager {
 
 
         /* =================================================
-           FINISHED
+           VALIDATE CRITICAL ANIMATIONS
+        ================================================= */
+
+        if (
+            !this.actions.has(
+                "Idle"
+            )
+        ) {
+
+            console.warn(
+                "[Boss] Idle no está disponible."
+            );
+
+        }
+
+
+        if (
+            !this.actions.has(
+                "Death"
+            )
+        ) {
+
+            console.warn(
+                "[Boss] Death no está disponible."
+            );
+
+        }
+
+
+        /* =================================================
+           MIXER FINISHED
         ================================================= */
 
         this.mixer.addEventListener(
@@ -813,6 +964,10 @@ export class BossManager {
                     this.currentActionName;
 
 
+                /* =========================================
+                   DEATH
+                ========================================= */
+
                 if (
                     finished ===
                     "Death"
@@ -820,10 +975,15 @@ export class BossManager {
 
                     this.finishDeath();
 
+
                     return;
 
                 }
 
+
+                /* =========================================
+                   ONE SHOTS FINISHED
+                ========================================= */
 
                 if (
                     finished ===
@@ -875,8 +1035,22 @@ export class BossManager {
             true;
 
 
+        this.loadingPromise =
+            null;
+
+
         console.log(
-            "[Boss] ONLINE"
+            "[Boss] GLB ONLINE"
+        );
+
+
+        console.log(
+            `[Boss] Hit meshes: ${this.hitMeshes.length}`
+        );
+
+
+        console.log(
+            `[Boss] Animaciones disponibles: ${[...this.actions.keys()].join(", ")}`
         );
 
 
@@ -886,7 +1060,7 @@ export class BossManager {
 
 
     /* =====================================================
-       ROOT MOTION
+       REMOVE ROOT MOTION
     ====================================================== */
 
     removeRootMotion(
@@ -903,24 +1077,31 @@ export class BossManager {
                     .toLowerCase();
 
 
-            if (
-                !name.endsWith(
+            const isPosition =
+                name.endsWith(
                     ".position"
+                );
+
+
+            const isRoot =
+
+                name.includes(
+                    "hips"
                 )
 
                 ||
 
-                !(
-                    name.includes(
-                        "hips"
-                    )
+                name.includes(
+                    "root"
+                );
 
-                    ||
 
-                    name.includes(
-                        "root"
-                    )
-                )
+            if (
+                !isPosition
+
+                ||
+
+                !isRoot
             ) {
 
                 continue;
@@ -975,12 +1156,19 @@ export class BossManager {
 
 
     /* =====================================================
-       NORMALIZE
+       NORMALIZE MODEL
     ====================================================== */
 
     normalizeModel() {
 
         this.model.position.set(
+            0,
+            0,
+            0
+        );
+
+
+        this.model.rotation.set(
             0,
             0,
             0
@@ -994,10 +1182,9 @@ export class BossManager {
         );
 
 
-        this.model
-            .updateMatrixWorld(
-                true
-            );
+        this.model.updateMatrixWorld(
+            true
+        );
 
 
         let box =
@@ -1016,12 +1203,25 @@ export class BossManager {
         );
 
 
+        console.log(
+
+            "[Boss] Tamaño original:",
+
+            size
+
+        );
+
+
         if (
             size.y <=
             0
         ) {
 
-            return;
+            throw new Error(
+
+                "El Boss tiene altura inválida."
+
+            );
 
         }
 
@@ -1036,10 +1236,9 @@ export class BossManager {
         );
 
 
-        this.model
-            .updateMatrixWorld(
-                true
-            );
+        this.model.updateMatrixWorld(
+            true
+        );
 
 
         box =
@@ -1049,19 +1248,45 @@ export class BossManager {
                 );
 
 
+        /*
+         * Pies sobre Y = 0 del root.
+         */
         this.model.position.y -=
             box.min.y;
 
 
         this.model.rotation.y =
-            BOSS_CONFIG
-                .modelRotationOffset;
+            BOSS_CONFIG.modelRotationOffset;
 
 
-        this.model
-            .updateMatrixWorld(
-                true
-            );
+        this.model.updateMatrixWorld(
+            true
+        );
+
+
+        box =
+            new THREE.Box3()
+                .setFromObject(
+                    this.model
+                );
+
+
+        const finalSize =
+            new THREE.Vector3();
+
+
+        box.getSize(
+            finalSize
+        );
+
+
+        console.log(
+
+            "[Boss] Tamaño normalizado:",
+
+            finalSize
+
+        );
 
     }
 
@@ -1110,6 +1335,13 @@ export class BossManager {
                 }
 
             }
+
+        );
+
+
+        console.log(
+
+            `[Boss] Environment meshes: ${this.environmentMeshes.length}`
 
         );
 
@@ -1272,6 +1504,9 @@ export class BossManager {
                 transformOrigin:
                     "left center",
 
+                transform:
+                    "scaleX(1)",
+
                 transition:
                     "transform .08s linear"
 
@@ -1346,7 +1581,7 @@ export class BossManager {
 
 
     /* =====================================================
-       ANIMATIONS
+       LOOP ANIMATION
     ====================================================== */
 
     playLoop(
@@ -1358,7 +1593,7 @@ export class BossManager {
             this.dead
         ) {
 
-            return;
+            return false;
 
         }
 
@@ -1373,7 +1608,7 @@ export class BossManager {
             !next
         ) {
 
-            return;
+            return false;
 
         }
 
@@ -1388,7 +1623,7 @@ export class BossManager {
             name
         ) {
 
-            return;
+            return true;
 
         }
 
@@ -1431,8 +1666,15 @@ export class BossManager {
         this.currentActionName =
             name;
 
+
+        return true;
+
     }
 
+
+    /* =====================================================
+       ONE SHOT
+    ====================================================== */
 
     playOneShot(
         name,
@@ -1463,6 +1705,13 @@ export class BossManager {
         if (
             !next
         ) {
+
+            console.warn(
+
+                `[Boss] Animación no encontrada: ${name}`
+
+            );
+
 
             return false;
 
@@ -1565,12 +1814,15 @@ export class BossManager {
 
 
         this.cannonCooldown =
-            BOSS_CONFIG
-                .cannonInitialDelay;
+            BOSS_CONFIG.cannonInitialDelay;
 
 
         this.hitAnimationCooldown =
             0;
+
+
+        this.attackEventFired =
+            false;
 
 
         this.root.position.copy(
@@ -1579,14 +1831,23 @@ export class BossManager {
 
 
         this.root.rotation.set(
+
             0,
+
             Math.PI,
+
             0
+
         );
 
 
         this.root.visible =
             true;
+
+
+        this.root.updateMatrixWorld(
+            true
+        );
 
 
         this.updateHealthHUD();
@@ -1598,8 +1859,20 @@ export class BossManager {
 
 
         this.playLoop(
+
             "Idle",
+
             0
+
+        );
+
+
+        console.log(
+
+            "[Boss] SPAWN:",
+
+            position
+
         );
 
 
@@ -1613,9 +1886,13 @@ export class BossManager {
     ====================================================== */
 
     sampleFloorAt(
+
         x,
+
         z,
+
         referenceY
+
     ) {
 
         if (
@@ -1765,12 +2042,15 @@ export class BossManager {
 
 
     /* =====================================================
-       WALL
+       WALL CLEAR
     ====================================================== */
 
     isDirectionClear(
+
         direction,
+
         distance
+
     ) {
 
         this.tempPosition.set(
@@ -1800,7 +2080,9 @@ export class BossManager {
 
         this.wallRaycaster.far =
 
-            distance +
+            distance
+
+            +
 
             BOSS_CONFIG.bodyRadius;
 
@@ -1827,8 +2109,11 @@ export class BossManager {
     ====================================================== */
 
     moveTowardPlayer(
+
         speed,
+
         deltaTime
+
     ) {
 
         this.moveDirection.set(
@@ -1858,7 +2143,8 @@ export class BossManager {
         this.moveDirection.normalize();
 
 
-        const distance =
+        const movementDistance =
+
             speed *
             deltaTime;
 
@@ -1867,12 +2153,16 @@ export class BossManager {
             this.moveDirection;
 
 
+        /* =================================================
+           WALL STEERING
+        ================================================= */
+
         if (
             !this.isDirectionClear(
 
                 chosenDirection,
 
-                distance
+                movementDistance
 
             )
         ) {
@@ -1910,7 +2200,7 @@ export class BossManager {
 
                     left,
 
-                    distance
+                    movementDistance
 
                 )
             ) {
@@ -1925,7 +2215,7 @@ export class BossManager {
 
                     right,
 
-                    distance
+                    movementDistance
 
                 )
             ) {
@@ -1944,6 +2234,10 @@ export class BossManager {
         }
 
 
+        /* =================================================
+           TARGET POSITION
+        ================================================= */
+
         this.tempTarget
             .copy(
                 this.root.position
@@ -1952,7 +2246,7 @@ export class BossManager {
 
                 chosenDirection,
 
-                distance
+                movementDistance
 
             );
 
@@ -2001,12 +2295,15 @@ export class BossManager {
 
 
     /* =====================================================
-       ROTATE
+       ROTATION
     ====================================================== */
 
     rotateToward(
+
         direction,
+
         deltaTime
+
     ) {
 
         const targetAngle =
@@ -2070,7 +2367,7 @@ export class BossManager {
 
 
     /* =====================================================
-       PROGRESS
+       ACTION PROGRESS
     ====================================================== */
 
     getCurrentActionProgress() {
@@ -2114,6 +2411,10 @@ export class BossManager {
     }
 
 
+    /* =====================================================
+       FACE PLAYER
+    ====================================================== */
+
     facePlayer(
         deltaTime
     ) {
@@ -2133,28 +2434,31 @@ export class BossManager {
 
         if (
             this.tempDirection
-                .lengthSq() >
+                .lengthSq() <=
             0.0001
         ) {
 
-            this.tempDirection.normalize();
-
-
-            this.rotateToward(
-
-                this.tempDirection,
-
-                deltaTime
-
-            );
+            return;
 
         }
+
+
+        this.tempDirection.normalize();
+
+
+        this.rotateToward(
+
+            this.tempDirection,
+
+            deltaTime
+
+        );
 
     }
 
 
     /* =====================================================
-       ATTACKS
+       BEGIN MELEE
     ====================================================== */
 
     beginMelee() {
@@ -2179,6 +2483,10 @@ export class BossManager {
     }
 
 
+    /* =====================================================
+       BEGIN CANNON
+    ====================================================== */
+
     beginCannon() {
 
         if (
@@ -2201,6 +2509,10 @@ export class BossManager {
     }
 
 
+    /* =====================================================
+       ATTACK STATE
+    ====================================================== */
+
     updateAttackState(
         deltaTime
     ) {
@@ -2215,7 +2527,7 @@ export class BossManager {
 
 
         /* =================================================
-           MELEE
+           MELEE IMPACT
         ================================================= */
 
         if (
@@ -2270,7 +2582,7 @@ export class BossManager {
 
 
         /* =================================================
-           CANNON
+           CANNON FIRE
         ================================================= */
 
         if (
@@ -2299,7 +2611,7 @@ export class BossManager {
 
 
     /* =====================================================
-       CANNON
+       FIRE CANNON
     ====================================================== */
 
     fireCannon() {
@@ -2392,17 +2704,26 @@ export class BossManager {
 
         });
 
+
+        console.log(
+            "[Boss] CANNON FIRE"
+        );
+
     }
 
 
     /* =====================================================
-       DISTANCE SEGMENT
+       POINT / SEGMENT
     ====================================================== */
 
     distancePointToSegment(
+
         point,
+
         a,
+
         b
+
     ) {
 
         this.tempDirection
@@ -2443,7 +2764,9 @@ export class BossManager {
                     .dot(
                         this.tempDirection
                     )
+
                 /
+
                 lengthSq,
 
                 0,
@@ -2474,7 +2797,7 @@ export class BossManager {
 
 
     /* =====================================================
-       PROJECTILES
+       UPDATE PROJECTILES
     ====================================================== */
 
     updateProjectiles(
@@ -2506,7 +2829,9 @@ export class BossManager {
 
             const travel =
 
-                BOSS_CONFIG.projectileSpeed *
+                BOSS_CONFIG.projectileSpeed
+
+                *
 
                 deltaTime;
 
@@ -2522,6 +2847,10 @@ export class BossManager {
 
                     );
 
+
+            /* =================================================
+               PLAYER COLLISION
+            ================================================= */
 
             this.playerController
                 .getObject()
@@ -2566,6 +2895,10 @@ export class BossManager {
 
             }
 
+
+            /* =================================================
+               ENVIRONMENT COLLISION
+            ================================================= */
 
             this.projectileRaycaster.set(
 
@@ -2625,6 +2958,10 @@ export class BossManager {
             );
 
 
+            /* =================================================
+               LIFE END
+            ================================================= */
+
             if (
                 projectile.life <=
                 0
@@ -2647,10 +2984,18 @@ export class BossManager {
     }
 
 
+    /* =====================================================
+       EXPLODE PROJECTILE
+    ====================================================== */
+
     explodeProjectile(
+
         index,
+
         position,
+
         directHit
+
     ) {
 
         const projectile =
@@ -2684,6 +3029,10 @@ export class BossManager {
         );
 
 
+        /* =================================================
+           DIRECT HIT
+        ================================================= */
+
         if (
             directHit
         ) {
@@ -2704,6 +3053,10 @@ export class BossManager {
 
         }
 
+
+        /* =================================================
+           SPLASH
+        ================================================= */
 
         this.playerController
             .getObject()
@@ -2742,7 +3095,7 @@ export class BossManager {
 
 
     /* =====================================================
-       EXPLOSION
+       EXPLOSION EFFECT
     ====================================================== */
 
     createExplosionEffect(
@@ -2817,6 +3170,10 @@ export class BossManager {
     }
 
 
+    /* =====================================================
+       UPDATE EXPLOSIONS
+    ====================================================== */
+
     updateExplosions(
         deltaTime
     ) {
@@ -2826,8 +3183,7 @@ export class BossManager {
                 this.explosions.length -
                 1;
 
-            i >=
-            0;
+            i >= 0;
 
             i--
         ) {
@@ -2850,21 +3206,19 @@ export class BossManager {
                 effect.maxLife;
 
 
-            effect.mesh.scale
-                .setScalar(
+            effect.mesh.scale.setScalar(
 
-                    1
+                1
 
-                    +
+                +
 
-                    progress *
-                    13
+                progress *
+                13
 
-                );
+            );
 
 
             effect.mesh.material.opacity =
-
                 Math.max(
 
                     0,
@@ -2908,6 +3262,10 @@ export class BossManager {
 
     }
 
+
+    /* =====================================================
+       CLEAR PROJECTILES
+    ====================================================== */
 
     clearProjectiles() {
 
@@ -2990,6 +3348,17 @@ export class BossManager {
         this.updateHealthHUD();
 
 
+        console.log(
+
+            `[Boss] HP ${this.health} / ${BOSS_CONFIG.maxHealth}`
+
+        );
+
+
+        /* =================================================
+           DEATH
+        ================================================= */
+
         if (
             this.health <=
             0
@@ -3002,6 +3371,10 @@ export class BossManager {
 
         }
 
+
+        /* =================================================
+           HIT
+        ================================================= */
 
         if (
             this.hitAnimationCooldown <=
@@ -3041,7 +3414,7 @@ export class BossManager {
 
 
     /* =====================================================
-       DEATH
+       DIE
     ====================================================== */
 
     die() {
@@ -3053,6 +3426,11 @@ export class BossManager {
             return;
 
         }
+
+
+        console.log(
+            "[Boss] DEATH"
+        );
 
 
         this.dead =
@@ -3093,6 +3471,10 @@ export class BossManager {
     }
 
 
+    /* =====================================================
+       FINISH DEATH
+    ====================================================== */
+
     finishDeath() {
 
         if (
@@ -3114,6 +3496,11 @@ export class BossManager {
 
         this.setHUDVisible(
             false
+        );
+
+
+        console.log(
+            "[Boss] Boss derrotado."
         );
 
 
@@ -3150,6 +3537,10 @@ export class BossManager {
         }
 
 
+        /*
+         * Cuando está muerto dejamos que mixer siga
+         * avanzando hasta terminar Death.
+         */
         if (
             !this.enabled
 
@@ -3173,6 +3564,10 @@ export class BossManager {
             );
 
 
+        /* =================================================
+           MIXER
+        ================================================= */
+
         if (
             this.mixer
         ) {
@@ -3183,6 +3578,10 @@ export class BossManager {
 
         }
 
+
+        /* =================================================
+           PROJECTILES
+        ================================================= */
 
         this.updateProjectiles(
             dt
@@ -3206,6 +3605,10 @@ export class BossManager {
 
         }
 
+
+        /* =================================================
+           COOLDOWNS
+        ================================================= */
 
         this.meleeCooldown =
             Math.max(
@@ -3240,12 +3643,20 @@ export class BossManager {
             );
 
 
+        /* =================================================
+           PLAYER
+        ================================================= */
+
         this.playerController
             .getObject()
             .getWorldPosition(
                 this.playerPosition
             );
 
+
+        /* =================================================
+           WAKE
+        ================================================= */
 
         if (
             this.wakeTimer >
@@ -3265,6 +3676,10 @@ export class BossManager {
 
         }
 
+
+        /* =================================================
+           ACTION LOCK
+        ================================================= */
 
         if (
             this.state ===
@@ -3290,6 +3705,10 @@ export class BossManager {
 
         }
 
+
+        /* =================================================
+           DISTANCE
+        ================================================= */
 
         const distance =
             Math.hypot(
@@ -3463,7 +3882,7 @@ export class BossManager {
 
 
     /* =====================================================
-       WEAPON API
+       WEAPON MANAGER COMPATIBILITY
     ====================================================== */
 
     getHitMeshes() {
@@ -3513,6 +3932,10 @@ export class BossManager {
     }
 
 
+    /* =====================================================
+       GETTERS
+    ====================================================== */
+
     getObject() {
 
         return this.root;
@@ -3541,6 +3964,17 @@ export class BossManager {
     }
 
 
+    isLoaded() {
+
+        return this.loaded;
+
+    }
+
+
+    /* =====================================================
+       ENABLE
+    ====================================================== */
+
     setEnabled(
         enabled
     ) {
@@ -3561,6 +3995,10 @@ export class BossManager {
 
     }
 
+
+    /* =====================================================
+       VISIBLE
+    ====================================================== */
 
     setVisible(
         visible
