@@ -2,17 +2,23 @@
    NOVA CATALYST
    Weapon Manager
 
-   Build v0.12.0
+   Build v0.13.1 Performance
 
-   - Pistol / SMG / Shotgun
-   - Mouse wheel weapon switching
-   - TPS / FPS visuals
+   ---------------------------------------------------------
+   - Pistol GLTF
+   - SMG GLTF
+   - Shotgun GLTF
+   - Mouse wheel switching
+   - Weapon unlocking
+   - TPS / FPS
    - ADS
-   - Synchronized reload animation
-   - Semi-auto / automatic / shotgun pellets
-   - Independent magazines and reserves
+   - Synchronized Reload.fbx
+   - Semi / Auto / Shotgun
+   - Independent ammo
    - Enemy damage
-   - Physical objects / explosive barrels
+   - Physical objects
+   - Explosive barrels
+   - Pickup integration
 ========================================================= */
 
 import * as THREE from "three";
@@ -23,7 +29,7 @@ import {
 
 
 /* =========================================================
-   WEAPON DEFINITIONS
+   WEAPON ORDER
 ========================================================= */
 
 const WEAPON_ORDER = [
@@ -36,6 +42,10 @@ const WEAPON_ORDER = [
 
 ];
 
+
+/* =========================================================
+   WEAPON CONFIG
+========================================================= */
 
 const WEAPON_CONFIG = {
 
@@ -51,6 +61,24 @@ const WEAPON_CONFIG = {
 
         displayName:
             "SCI-FI HANDGUN",
+
+        assetPaths: [
+
+            "./assets/models/weapons/pistol/scene.gltf",
+
+            "./assets/models/weapons/pistol/scene.glb",
+
+            "./assets/models/weapons/pistol/pistol.glb",
+
+            "./assets/models/weapons/scene.gltf",
+
+            "./assets/models/weapons/pistol.glb"
+
+        ],
+
+
+        targetLength:
+            0.28,
 
 
         magazineSize:
@@ -91,47 +119,31 @@ const WEAPON_CONFIG = {
             11.5,
 
 
-        targetLength:
-            0.28,
+        muzzleFlash:
+            13,
+
+        recoil:
+            0.012,
 
 
-        assetPaths: [
-
-            "./assets/models/weapons/pistol/scene.gltf",
-
-            "./assets/models/weapons/pistol/scene.glb",
-
-            "./assets/models/weapons/pistol/pistol.glb",
-
-            "./assets/models/weapons/scene.gltf",
-
-            "./assets/models/weapons/pistol.glb"
-
-        ],
+        initiallyUnlocked:
+            true,
 
 
         tps: {
 
             positionOffset:
                 new THREE.Vector3(
-
                     0.00,
-
                     0.005,
-
                     0.015
-
                 ),
 
             rotationOffset:
                 new THREE.Euler(
-
                     0,
-
                     0,
-
                     -0.04
-
                 )
 
         },
@@ -141,24 +153,16 @@ const WEAPON_CONFIG = {
 
             position:
                 new THREE.Vector3(
-
                     0.17,
-
                     -0.16,
-
                     -0.34
-
                 ),
 
             rotation:
                 new THREE.Euler(
-
                     0,
-
                     Math.PI,
-
                     0
-
                 ),
 
             response:
@@ -180,30 +184,15 @@ const WEAPON_CONFIG = {
 
             rotation:
                 new THREE.Euler(
-
                     0,
-
                     Math.PI,
-
                     0
-
                 ),
 
             response:
                 26
 
-        },
-
-
-        muzzleFlash:
-            13,
-
-        recoil:
-            0.012,
-
-
-        initiallyUnlocked:
-            true
+        }
 
     },
 
@@ -219,6 +208,20 @@ const WEAPON_CONFIG = {
 
         displayName:
             "NOVA SMG",
+
+
+        /*
+         * MODELO REAL
+         */
+        assetPaths: [
+
+            "./assets/models/weapons/smg/scene.gltf"
+
+        ],
+
+
+        targetLength:
+            0.60,
 
 
         magazineSize:
@@ -252,41 +255,35 @@ const WEAPON_CONFIG = {
             0.90,
 
 
-        targetLength:
-            0.46,
+        muzzleFlash:
+            10,
+
+        recoil:
+            0.009,
 
 
         /*
-         * Todavía no tenemos modelo externo.
-         *
-         * El sistema utilizará temporalmente
-         * un modelo procedural.
+         * IMPORTANTE:
+         * comienza bloqueada.
          */
-        assetPaths: [],
+        initiallyUnlocked:
+            false,
 
 
         tps: {
 
             positionOffset:
                 new THREE.Vector3(
-
                     0.005,
-
-                    -0.015,
-
+                    -0.012,
                     0.055
-
                 ),
 
             rotationOffset:
                 new THREE.Euler(
-
                     0,
-
-                    0,
-
+                    Math.PI,
                     -0.035
-
                 )
 
         },
@@ -296,24 +293,16 @@ const WEAPON_CONFIG = {
 
             position:
                 new THREE.Vector3(
-
                     0.19,
-
                     -0.19,
-
                     -0.43
-
                 ),
 
             rotation:
                 new THREE.Euler(
-
                     0,
-
-                    Math.PI,
-
+                    0,
                     0
-
                 ),
 
             response:
@@ -335,30 +324,15 @@ const WEAPON_CONFIG = {
 
             rotation:
                 new THREE.Euler(
-
                     0,
-
-                    Math.PI,
-
+                    0,
                     0
-
                 ),
 
             response:
                 28
 
-        },
-
-
-        muzzleFlash:
-            10,
-
-        recoil:
-            0.008,
-
-
-        initiallyUnlocked:
-            true
+        }
 
     },
 
@@ -376,6 +350,20 @@ const WEAPON_CONFIG = {
             "NOVA SHOTGUN",
 
 
+        /*
+         * MODELO REAL
+         */
+        assetPaths: [
+
+            "./assets/models/weapons/shotgun/scene.gltf"
+
+        ],
+
+
+        targetLength:
+            1.02,
+
+
         magazineSize:
             6,
 
@@ -383,6 +371,12 @@ const WEAPON_CONFIG = {
             36,
 
 
+        /*
+         * Daño POR PERDIGÓN.
+         *
+         * 7 perdigones × 16 máximo = 112
+         * si todos impactan.
+         */
         damage:
             16,
 
@@ -407,39 +401,31 @@ const WEAPON_CONFIG = {
             2.7,
 
 
-        targetLength:
-            0.68,
+        muzzleFlash:
+            18,
+
+        recoil:
+            0.022,
 
 
-        /*
-         * También utilizamos provisionalmente
-         * un modelo procedural.
-         */
-        assetPaths: [],
+        initiallyUnlocked:
+            false,
 
 
         tps: {
 
             positionOffset:
                 new THREE.Vector3(
-
                     0.00,
-
-                    -0.025,
-
+                    -0.020,
                     0.095
-
                 ),
 
             rotationOffset:
                 new THREE.Euler(
-
                     0,
-
                     0,
-
                     -0.025
-
                 )
 
         },
@@ -449,24 +435,16 @@ const WEAPON_CONFIG = {
 
             position:
                 new THREE.Vector3(
-
                     0.22,
-
                     -0.21,
-
                     -0.54
-
                 ),
 
             rotation:
                 new THREE.Euler(
-
                     0,
-
                     Math.PI,
-
                     0
-
                 ),
 
             response:
@@ -488,30 +466,15 @@ const WEAPON_CONFIG = {
 
             rotation:
                 new THREE.Euler(
-
                     0,
-
                     Math.PI,
-
                     0
-
                 ),
 
             response:
                 24
 
-        },
-
-
-        muzzleFlash:
-            18,
-
-        recoil:
-            0.020,
-
-
-        initiallyUnlocked:
-            true
+        }
 
     }
 
@@ -523,7 +486,6 @@ const WEAPON_CONFIG = {
 ========================================================= */
 
 export class WeaponManager {
-
 
     constructor({
 
@@ -566,7 +528,7 @@ export class WeaponManager {
 
 
         /* =================================================
-           LOADER
+           GLTF
         ================================================= */
 
         this.loader =
@@ -610,7 +572,7 @@ export class WeaponManager {
 
 
         /* =================================================
-           ENVIRONMENT
+           WORLD TARGETS
         ================================================= */
 
         this.environmentMeshes =
@@ -622,7 +584,7 @@ export class WeaponManager {
 
 
         /* =================================================
-           WEAPON COLLECTION
+           WEAPONS
         ================================================= */
 
         this.weaponEntries =
@@ -638,7 +600,7 @@ export class WeaponManager {
 
 
         /* =================================================
-           INITIAL AMMO
+           INITIAL STATES
         ================================================= */
 
         for (
@@ -729,7 +691,7 @@ export class WeaponManager {
 
 
         /* =================================================
-           PLAYER
+           PLAYER HAND
         ================================================= */
 
         this.rightHandBone =
@@ -745,7 +707,10 @@ export class WeaponManager {
 
 
         this.fireNDC =
-            new THREE.Vector2();
+            new THREE.Vector2(
+                0,
+                0
+            );
 
 
         this.shotDirection =
@@ -753,7 +718,43 @@ export class WeaponManager {
 
 
         /* =================================================
-           TEMP VECTORS
+           PERFORMANCE · RAYCAST CACHE
+
+           Unificamos escenario + físicos + enemigos
+           en una sola lista para reducir el número de
+           intersectObjects() por disparo.
+        ================================================= */
+
+        this.raycastTargets =
+            [];
+
+
+        this.raycastResults =
+            [];
+
+
+        /* =================================================
+           ENEMY TARGET CACHE
+
+           No reconstruimos la lista de enemigos en cada
+           bala de la SMG. Solo comprobamos periódicamente
+           si cambió la cantidad de enemigos disparables.
+        ================================================= */
+
+        this.enemyTargetCheckTimer =
+            0;
+
+
+        this.enemyTargetCheckInterval =
+            0.20;
+
+
+        this.lastShootableEnemyCount =
+            -1;
+
+
+        /* =================================================
+           TEMP
         ================================================= */
 
         this.handPosition =
@@ -784,6 +785,14 @@ export class WeaponManager {
             new THREE.Vector3();
 
 
+        this.tempImpulse =
+            new THREE.Vector3();
+
+
+        this.fpsTargetQuaternion =
+            new THREE.Quaternion();
+
+
         /* =================================================
            EFFECTS
         ================================================= */
@@ -797,7 +806,7 @@ export class WeaponManager {
 
 
         /* =================================================
-           IMPACT MATERIAL
+           MATERIALS
         ================================================= */
 
         this.impactMaterial =
@@ -824,10 +833,6 @@ export class WeaponManager {
             });
 
 
-        /* =================================================
-           WALL IMPACT
-        ================================================= */
-
         this.wallImpactMaterial =
             new THREE.PointsMaterial({
 
@@ -852,10 +857,6 @@ export class WeaponManager {
             });
 
 
-        /* =================================================
-           ENEMY IMPACT
-        ================================================= */
-
         this.enemyImpactMaterial =
             new THREE.PointsMaterial({
 
@@ -879,10 +880,6 @@ export class WeaponManager {
 
             });
 
-
-        /* =================================================
-           EXPLOSION MATERIAL
-        ================================================= */
 
         this.explosionMaterial =
             new THREE.PointsMaterial({
@@ -909,20 +906,34 @@ export class WeaponManager {
 
 
         /* =================================================
-           MUZZLE LIGHT
+           IMPACT EFFECT POOL
+
+           Reutilizamos geometrías para los impactos de
+           Pistol / SMG / Shotgun y evitamos generar basura
+           de memoria en cada disparo.
+        ================================================= */
+
+        this.impactPool =
+            [];
+
+
+        this.impactPoolSize =
+            20;
+
+
+        this.createImpactPool();
+
+
+        /* =================================================
+           MUZZLE
         ================================================= */
 
         this.muzzleLight =
             new THREE.PointLight(
-
                 0xffb75c,
-
                 0,
-
                 3.5,
-
                 2
-
             );
 
 
@@ -959,9 +970,6 @@ export class WeaponManager {
 
         /* =================================================
            REAL RELOAD CALLBACK
-
-           La munición se actualiza cuando termina
-           Reload.fbx.
         ================================================= */
 
         this.playerController
@@ -979,7 +987,7 @@ export class WeaponManager {
 
 
     /* =====================================================
-       CONFIG GETTERS
+       CONFIG
     ====================================================== */
 
     getActiveConfig() {
@@ -1003,6 +1011,24 @@ export class WeaponManager {
     getCurrentWeapon() {
 
         return this.activeWeaponKey;
+
+    }
+
+
+    getWeaponDisplayName(
+        key
+    ) {
+
+        return (
+
+            WEAPON_CONFIG[key]
+                ?.displayName
+
+            ??
+
+            key
+
+        );
 
     }
 
@@ -1070,9 +1096,88 @@ export class WeaponManager {
 
 
     /* =====================================================
-       ADD AMMO
+       ACQUIRE WEAPON
 
-       La usaremos después para pickups.
+       Utilizada por PickupManager.
+    ====================================================== */
+
+    acquireWeapon(
+
+        key,
+
+        equipAfterPickup = true
+
+    ) {
+
+        if (
+            !WEAPON_CONFIG[key]
+
+            ||
+
+            !this.loaded
+        ) {
+
+            return false;
+
+        }
+
+
+        const alreadyUnlocked =
+            this.isWeaponUnlocked(
+                key
+            );
+
+
+        if (
+            alreadyUnlocked
+        ) {
+
+            return false;
+
+        }
+
+
+        this.unlockedWeapons.add(
+            key
+        );
+
+
+        console.log(
+
+            `[Weapon] Arma adquirida: ${WEAPON_CONFIG[key].displayName}`
+
+        );
+
+
+        /*
+         * Si no estamos recargando,
+         * equipamos el arma inmediatamente.
+         */
+        if (
+            equipAfterPickup
+
+            &&
+
+            !this.isReloading
+        ) {
+
+            this.equipWeapon(
+                key
+            );
+
+        }
+
+
+        this.updateHUD();
+
+
+        return true;
+
+    }
+
+
+    /* =====================================================
+       AMMO PICKUP API
     ====================================================== */
 
     addReserveAmmo(
@@ -1125,7 +1230,7 @@ export class WeaponManager {
 
 
     /* =====================================================
-       GLTF
+       GLTF LOADER
     ====================================================== */
 
     loadGLTF(
@@ -1136,9 +1241,7 @@ export class WeaponManager {
 
             (
                 resolve,
-
                 reject
-
             ) => {
 
                 this.loader.load(
@@ -1161,7 +1264,7 @@ export class WeaponManager {
 
 
     /* =====================================================
-       LOAD CONFIGURED ASSET
+       LOAD WEAPON ASSET
     ====================================================== */
 
     async loadConfiguredAsset(
@@ -1187,9 +1290,7 @@ export class WeaponManager {
 
                 console.log(
 
-                    `[Weapon] ${config.displayName} cargada:`,
-
-                    path
+                    `[Weapon] ${config.displayName} cargada desde ${path}`
 
                 );
 
@@ -1210,587 +1311,27 @@ export class WeaponManager {
         }
 
 
-        if (
-            config.assetPaths.length >
-            0
-        ) {
+        throw new Error(
 
-            console.warn(
+            `No se pudo cargar ${config.displayName}. `
 
-                `[Weapon] No se encontró modelo para ${config.displayName}. Usando fallback.`,
+            +
 
-                lastError ??
+            (
+                lastError?.message
+
+                ??
+
                 ""
+            )
 
-            );
-
-        }
-
-
-        return this.createFallbackWeapon(
-            config.key
         );
 
     }
 
 
     /* =====================================================
-       PROCEDURAL WEAPONS
-
-       SMG y Shotgun provisionales.
-    ====================================================== */
-
-    createFallbackWeapon(
-        key
-    ) {
-
-        const group =
-            new THREE.Group();
-
-
-        group.name =
-            `Fallback_${key}`;
-
-
-        const dark =
-            new THREE.MeshStandardMaterial({
-
-                color:
-                    0x232a32,
-
-                roughness:
-                    0.48,
-
-                metalness:
-                    0.68
-
-            });
-
-
-        const accent =
-            new THREE.MeshStandardMaterial({
-
-                color:
-                    0x9ba9b5,
-
-                roughness:
-                    0.38,
-
-                metalness:
-                    0.75
-
-            });
-
-
-        const grip =
-            new THREE.MeshStandardMaterial({
-
-                color:
-                    0x111417,
-
-                roughness:
-                    0.8,
-
-                metalness:
-                    0.12
-
-            });
-
-
-        /* =================================================
-           SMG
-        ================================================= */
-
-        if (
-            key ===
-            "smg"
-        ) {
-
-            const body =
-                new THREE.Mesh(
-
-                    new THREE.BoxGeometry(
-
-                        0.11,
-
-                        0.11,
-
-                        0.32
-
-                    ),
-
-                    dark
-
-                );
-
-
-            body.position.z =
-                0.08;
-
-
-            const barrel =
-                new THREE.Mesh(
-
-                    new THREE.CylinderGeometry(
-
-                        0.018,
-
-                        0.018,
-
-                        0.22,
-
-                        10
-
-                    ),
-
-                    accent
-
-                );
-
-
-            barrel.rotation.x =
-                Math.PI /
-                2;
-
-
-            barrel.position.set(
-
-                0,
-
-                0.015,
-
-                0.33
-
-            );
-
-
-            const handle =
-                new THREE.Mesh(
-
-                    new THREE.BoxGeometry(
-
-                        0.07,
-
-                        0.18,
-
-                        0.075
-
-                    ),
-
-                    grip
-
-                );
-
-
-            handle.rotation.x =
-                -0.20;
-
-
-            handle.position.set(
-
-                0,
-
-                -0.12,
-
-                -0.01
-
-            );
-
-
-            const magazine =
-                new THREE.Mesh(
-
-                    new THREE.BoxGeometry(
-
-                        0.055,
-
-                        0.19,
-
-                        0.065
-
-                    ),
-
-                    dark
-
-                );
-
-
-            magazine.rotation.x =
-                -0.10;
-
-
-            magazine.position.set(
-
-                0,
-
-                -0.13,
-
-                0.12
-
-            );
-
-
-            const stock =
-                new THREE.Mesh(
-
-                    new THREE.BoxGeometry(
-
-                        0.075,
-
-                        0.075,
-
-                        0.18
-
-                    ),
-
-                    dark
-
-                );
-
-
-            stock.position.set(
-
-                0,
-
-                0,
-
-                -0.17
-
-            );
-
-
-            group.add(
-
-                body,
-
-                barrel,
-
-                handle,
-
-                magazine,
-
-                stock
-
-            );
-
-        }
-
-
-        /* =================================================
-           SHOTGUN
-        ================================================= */
-
-        else if (
-            key ===
-            "shotgun"
-        ) {
-
-            const body =
-                new THREE.Mesh(
-
-                    new THREE.BoxGeometry(
-
-                        0.105,
-
-                        0.12,
-
-                        0.30
-
-                    ),
-
-                    dark
-
-                );
-
-
-            body.position.z =
-                -0.02;
-
-
-            const barrel =
-                new THREE.Mesh(
-
-                    new THREE.CylinderGeometry(
-
-                        0.025,
-
-                        0.025,
-
-                        0.44,
-
-                        12
-
-                    ),
-
-                    accent
-
-                );
-
-
-            barrel.rotation.x =
-                Math.PI /
-                2;
-
-
-            barrel.position.set(
-
-                0,
-
-                0.02,
-
-                0.32
-
-            );
-
-
-            const pump =
-                new THREE.Mesh(
-
-                    new THREE.BoxGeometry(
-
-                        0.095,
-
-                        0.095,
-
-                        0.15
-
-                    ),
-
-                    grip
-
-                );
-
-
-            pump.position.set(
-
-                0,
-
-                -0.025,
-
-                0.22
-
-            );
-
-
-            const handle =
-                new THREE.Mesh(
-
-                    new THREE.BoxGeometry(
-
-                        0.07,
-
-                        0.18,
-
-                        0.075
-
-                    ),
-
-                    grip
-
-                );
-
-
-            handle.rotation.x =
-                -0.22;
-
-
-            handle.position.set(
-
-                0,
-
-                -0.13,
-
-                -0.08
-
-            );
-
-
-            const stock =
-                new THREE.Mesh(
-
-                    new THREE.BoxGeometry(
-
-                        0.11,
-
-                        0.13,
-
-                        0.28
-
-                    ),
-
-                    dark
-
-                );
-
-
-            stock.position.set(
-
-                0,
-
-                -0.01,
-
-                -0.29
-
-            );
-
-
-            group.add(
-
-                body,
-
-                barrel,
-
-                pump,
-
-                handle,
-
-                stock
-
-            );
-
-        }
-
-
-        /* =================================================
-           GENERIC FALLBACK
-        ================================================= */
-
-        else {
-
-            const body =
-                new THREE.Mesh(
-
-                    new THREE.BoxGeometry(
-
-                        0.09,
-
-                        0.11,
-
-                        0.24
-
-                    ),
-
-                    dark
-
-                );
-
-
-            const barrel =
-                new THREE.Mesh(
-
-                    new THREE.CylinderGeometry(
-
-                        0.016,
-
-                        0.016,
-
-                        0.14,
-
-                        10
-
-                    ),
-
-                    accent
-
-                );
-
-
-            barrel.rotation.x =
-                Math.PI /
-                2;
-
-
-            barrel.position.z =
-                0.18;
-
-
-            const handle =
-                new THREE.Mesh(
-
-                    new THREE.BoxGeometry(
-
-                        0.065,
-
-                        0.18,
-
-                        0.07
-
-                    ),
-
-                    grip
-
-                );
-
-
-            handle.rotation.x =
-                -0.18;
-
-
-            handle.position.set(
-
-                0,
-
-                -0.13,
-
-                -0.06
-
-            );
-
-
-            group.add(
-
-                body,
-
-                barrel,
-
-                handle
-
-            );
-
-        }
-
-
-        group.traverse(
-
-            object => {
-
-                if (
-                    !object.isMesh
-                ) {
-
-                    return;
-
-                }
-
-
-                object.castShadow =
-                    true;
-
-
-                object.receiveShadow =
-                    true;
-
-
-                object.frustumCulled =
-                    false;
-
-
-                object.userData
-                    .ignoreWeaponRaycast =
-                    true;
-
-            }
-
-        );
-
-
-        return group;
-
-    }
-
-
-    /* =====================================================
-       LOAD
+       LOAD ALL
     ====================================================== */
 
     async load() {
@@ -1806,7 +1347,7 @@ export class WeaponManager {
 
         console.log(
 
-            "[Weapon] Cargando sistema multi-arma..."
+            "[Weapon] Cargando Pistol + SMG + Shotgun..."
 
         );
 
@@ -1829,10 +1370,6 @@ export class WeaponManager {
         }
 
 
-        /* =================================================
-           LOAD EACH WEAPON
-        ================================================= */
-
         for (
             const key
             of WEAPON_ORDER
@@ -1843,15 +1380,18 @@ export class WeaponManager {
 
 
             const template =
-                await this
-                    .loadConfiguredAsset(
-                        config
-                    );
+                await this.loadConfiguredAsset(
+                    config
+                );
 
 
             template.name =
                 `${config.displayName}_Template`;
 
+
+            /* =================================================
+               MODEL SETTINGS
+            ================================================= */
 
             template.traverse(
 
@@ -1884,6 +1424,7 @@ export class WeaponManager {
 
 
                     const materials =
+
                         Array.isArray(
                             object.material
                         )
@@ -1952,13 +1493,13 @@ export class WeaponManager {
         }
 
 
-        /* =================================================
-           READY
-        ================================================= */
-
         this.loaded =
             true;
 
+
+        /* =================================================
+           START ONLY WITH PISTOL
+        ================================================= */
 
         this.equipWeapon(
 
@@ -1982,16 +1523,14 @@ export class WeaponManager {
 
 
         console.log(
-
-            "[Weapon] PISTOL + SMG + SHOTGUN ONLINE"
-
+            "[Weapon] MULTI-WEAPON GLTF ONLINE"
         );
 
     }
 
 
     /* =====================================================
-       NORMALIZE WEAPON
+       MODEL NORMALIZATION
     ====================================================== */
 
     normalizeWeaponModel(
@@ -2097,23 +1636,23 @@ export class WeaponManager {
                 );
 
 
-        const orientedSize =
+        const size =
             new THREE.Vector3();
 
 
         box.getSize(
-            orientedSize
+            size
         );
 
 
         const length =
             Math.max(
 
-                orientedSize.x,
+                size.x,
 
-                orientedSize.y,
+                size.y,
 
-                orientedSize.z
+                size.z
 
             );
 
@@ -2124,9 +1663,7 @@ export class WeaponManager {
         ) {
 
             throw new Error(
-
                 "Modelo de arma inválido."
-
             );
 
         }
@@ -2146,7 +1683,7 @@ export class WeaponManager {
 
 
         /* =================================================
-           GRIP ORIGIN
+           DETECT BARREL / HANDLE DIRECTION
         ================================================= */
 
         box =
@@ -2156,7 +1693,39 @@ export class WeaponManager {
                 );
 
 
-        const size =
+        if (
+            !this.isRearAtNegativeZ(
+
+                model,
+
+                box
+
+            )
+        ) {
+
+            model.rotation.y +=
+                Math.PI;
+
+
+            model.updateMatrixWorld(
+                true
+            );
+
+
+            box =
+                new THREE.Box3()
+                    .setFromObject(
+                        model
+                    );
+
+        }
+
+
+        /* =================================================
+           MOVE GRIP TO ORIGIN
+        ================================================= */
+
+        const finalSize =
             new THREE.Vector3();
 
 
@@ -2165,7 +1734,7 @@ export class WeaponManager {
 
 
         box.getSize(
-            size
+            finalSize
         );
 
 
@@ -2180,11 +1749,11 @@ export class WeaponManager {
                 center.x,
 
                 box.min.y +
-                size.y *
+                finalSize.y *
                 0.53,
 
                 box.min.z +
-                size.z *
+                finalSize.z *
                 0.23
 
             );
@@ -2203,7 +1772,192 @@ export class WeaponManager {
 
 
     /* =====================================================
-       CREATE WEAPON ENTRY
+       DETECT REAR OF WEAPON
+    ====================================================== */
+
+    isRearAtNegativeZ(
+
+        model,
+
+        box
+
+    ) {
+
+        const depth =
+            box.max.z -
+            box.min.z;
+
+
+        if (
+            depth <
+            0.0001
+        ) {
+
+            return true;
+
+        }
+
+
+        const minLimit =
+            box.min.z +
+            depth *
+            0.30;
+
+
+        const maxLimit =
+            box.max.z -
+            depth *
+            0.30;
+
+
+        let negativeLowest =
+            Infinity;
+
+
+        let positiveLowest =
+            Infinity;
+
+
+        const point =
+            new THREE.Vector3();
+
+
+        model.updateMatrixWorld(
+            true
+        );
+
+
+        model.traverse(
+
+            object => {
+
+                if (
+                    !object.isMesh
+
+                    ||
+
+                    !object.geometry
+                ) {
+
+                    return;
+
+                }
+
+
+                const attribute =
+                    object.geometry
+                        .attributes
+                        .position;
+
+
+                if (
+                    !attribute
+                ) {
+
+                    return;
+
+                }
+
+
+                const step =
+                    Math.max(
+
+                        1,
+
+                        Math.floor(
+
+                            attribute.count /
+                            1500
+
+                        )
+
+                    );
+
+
+                for (
+                    let i = 0;
+                    i < attribute.count;
+                    i += step
+                ) {
+
+                    point
+                        .fromBufferAttribute(
+
+                            attribute,
+
+                            i
+
+                        )
+                        .applyMatrix4(
+                            object.matrixWorld
+                        );
+
+
+                    if (
+                        point.z <=
+                        minLimit
+                    ) {
+
+                        negativeLowest =
+                            Math.min(
+
+                                negativeLowest,
+
+                                point.y
+
+                            );
+
+                    }
+
+
+                    if (
+                        point.z >=
+                        maxLimit
+                    ) {
+
+                        positiveLowest =
+                            Math.min(
+
+                                positiveLowest,
+
+                                point.y
+
+                            );
+
+                    }
+
+                }
+
+            }
+
+        );
+
+
+        if (
+            !Number.isFinite(
+                negativeLowest
+            )
+
+            ||
+
+            !Number.isFinite(
+                positiveLowest
+            )
+        ) {
+
+            return true;
+
+        }
+
+
+        return negativeLowest <
+            positiveLowest;
+
+    }
+
+
+    /* =====================================================
+       CREATE TPS/FPS ENTRY
     ====================================================== */
 
     createWeaponEntry(
@@ -2215,10 +1969,6 @@ export class WeaponManager {
         config
 
     ) {
-
-        /* =================================================
-           ROOTS
-        ================================================= */
 
         const tpsRoot =
             new THREE.Group();
@@ -2246,10 +1996,6 @@ export class WeaponManager {
         );
 
 
-        /* =================================================
-           VISUAL COPIES
-        ================================================= */
-
         const tpsVisual =
             template.clone(
                 true
@@ -2260,14 +2006,6 @@ export class WeaponManager {
             template.clone(
                 true
             );
-
-
-        tpsVisual.name =
-            `TPS_${key}_Visual`;
-
-
-        fpsVisual.name =
-            `FPS_${key}_Visual`;
 
 
         tpsRoot.add(
@@ -2281,7 +2019,7 @@ export class WeaponManager {
 
 
         /* =================================================
-           ANCHORS
+           SIGHTS / MUZZLE
         ================================================= */
 
         const anchors =
@@ -2366,10 +2104,6 @@ export class WeaponManager {
         );
 
 
-        /* =================================================
-           FPS START TRANSFORM
-        ================================================= */
-
         fpsRoot.position.copy(
             config.fpsHip.position
         );
@@ -2381,18 +2115,10 @@ export class WeaponManager {
             );
 
 
-        /* =================================================
-           TPS ROTATION OFFSET
-        ================================================= */
-
         const tpsRotationOffset =
             new THREE.Quaternion()
                 .setFromEuler(
-
-                    config
-                        .tps
-                        .rotationOffset
-
+                    config.tps.rotationOffset
                 );
 
 
@@ -2440,7 +2166,7 @@ export class WeaponManager {
 
 
     /* =====================================================
-       CALCULATE ANCHORS
+       CALCULATE SIGHTS
     ====================================================== */
 
     calculateLocalAnchors(
@@ -2489,7 +2215,7 @@ export class WeaponManager {
                     0.25,
 
                     box.max.z +
-                    0.006
+                    0.008
 
                 ),
 
@@ -2505,7 +2231,7 @@ export class WeaponManager {
 
                     box.min.z +
                     size.z *
-                    0.18
+                    0.20
 
                 ),
 
@@ -2521,7 +2247,7 @@ export class WeaponManager {
 
                     box.max.z -
                     size.z *
-                    0.11
+                    0.10
 
                 )
 
@@ -2531,7 +2257,82 @@ export class WeaponManager {
 
 
     /* =====================================================
-       EQUIP WEAPON
+       PICKUP VISUAL API
+
+       PickupManager reutiliza exactamente el mismo
+       modelo GLTF normalizado.
+    ====================================================== */
+
+    getPickupVisual(
+        key
+    ) {
+
+        const entry =
+            this.weaponEntries.get(
+                key
+            );
+
+
+        if (
+            !entry
+        ) {
+
+            return null;
+
+        }
+
+
+        const visual =
+            entry.template.clone(
+                true
+            );
+
+
+        visual.name =
+            `Pickup_${key}`;
+
+
+        visual.traverse(
+
+            object => {
+
+                if (
+                    !object.isMesh
+                ) {
+
+                    return;
+
+                }
+
+
+                object.castShadow =
+                    false;
+
+
+                object.receiveShadow =
+                    true;
+
+
+                object.frustumCulled =
+                    true;
+
+
+                object.userData
+                    .ignoreWeaponRaycast =
+                    true;
+
+            }
+
+        );
+
+
+        return visual;
+
+    }
+
+
+    /* =====================================================
+       EQUIP
     ====================================================== */
 
     equipWeapon(
@@ -2576,7 +2377,7 @@ export class WeaponManager {
 
 
         /*
-         * No permitimos cancelar Reload
+         * No podemos cancelar Reload
          * cambiando de arma.
          */
         if (
@@ -2591,28 +2392,6 @@ export class WeaponManager {
 
         }
 
-
-        if (
-            this.activeWeaponKey ===
-            key
-
-            &&
-
-            this.activeEntry
-
-            &&
-
-            !force
-        ) {
-
-            return true;
-
-        }
-
-
-        /* =================================================
-           HIDE ALL
-        ================================================= */
 
         for (
             const entry
@@ -2682,7 +2461,7 @@ export class WeaponManager {
 
 
     /* =====================================================
-       MOUSE WHEEL SWITCH
+       MOUSE WHEEL
     ====================================================== */
 
     cycleWeapon(
@@ -2775,9 +2554,7 @@ export class WeaponManager {
 
         const changed =
             this.equipWeapon(
-
                 available[index]
-
             );
 
 
@@ -2785,10 +2562,6 @@ export class WeaponManager {
             changed
         ) {
 
-            /*
-             * Evita saltarse varias armas con
-             * una sola rueda sensible.
-             */
             this.wheelCooldown =
                 0.12;
 
@@ -2801,7 +2574,7 @@ export class WeaponManager {
 
 
     /* =====================================================
-       TPS WEAPON
+       TPS UPDATE
     ====================================================== */
 
     updateTPSWeapon() {
@@ -2833,11 +2606,8 @@ export class WeaponManager {
 
         this.rightHandBone
             .updateWorldMatrix(
-
                 true,
-
                 false
-
             );
 
 
@@ -2883,13 +2653,6 @@ export class WeaponManager {
             );
 
 
-        entry.tpsRoot.scale.set(
-            1,
-            1,
-            1
-        );
-
-
         entry.tpsRoot.updateMatrixWorld(
             true
         );
@@ -2922,37 +2685,30 @@ export class WeaponManager {
             this.activeEntry;
 
 
-        const targetPosition =
-            config
-                .fpsHip
-                .position
-                .clone();
-
-
         /* =================================================
-           SMALL RECOIL
+           REUSE VECTOR / QUATERNION
         ================================================= */
+
+        this.fpsTargetPosition.copy(
+            config.fpsHip.position
+        );
+
 
         if (
             this.recoilTimer >
             0
         ) {
 
-            targetPosition.z +=
+            this.fpsTargetPosition.z +=
                 config.recoil;
 
         }
 
 
-        const targetQuaternion =
-            new THREE.Quaternion()
-                .setFromEuler(
-
-                    config
-                        .fpsHip
-                        .rotation
-
-                );
+        this.fpsTargetQuaternion
+            .setFromEuler(
+                config.fpsHip.rotation
+            );
 
 
         const alpha =
@@ -2962,43 +2718,33 @@ export class WeaponManager {
 
             Math.exp(
 
-                -config
-                    .fpsHip
-                    .response
-
-                *
-
+                -config.fpsHip.response *
                 deltaTime
 
             );
 
 
-        entry.fpsRoot
-            .position
-            .lerp(
+        entry.fpsRoot.position.lerp(
 
-                targetPosition,
+            this.fpsTargetPosition,
 
-                alpha
+            alpha
 
-            );
+        );
 
 
-        entry.fpsRoot
-            .quaternion
-            .slerp(
+        entry.fpsRoot.quaternion.slerp(
 
-                targetQuaternion,
+            this.fpsTargetQuaternion,
 
-                alpha
+            alpha
 
-            );
+        );
 
 
-        entry.fpsRoot
-            .updateMatrixWorld(
-                true
-            );
+        entry.fpsRoot.updateMatrixWorld(
+            true
+        );
 
     }
 
@@ -3028,42 +2774,29 @@ export class WeaponManager {
             this.activeEntry;
 
 
-        const targetQuaternion =
-            new THREE.Quaternion()
-                .setFromEuler(
-
-                    config
-                        .fpsADS
-                        .rotation
-
-                );
+        this.fpsTargetQuaternion
+            .setFromEuler(
+                config.fpsADS.rotation
+            );
 
 
         this.desiredRearSight.set(
 
-            config
-                .fpsADS
-                .sightSide,
+            config.fpsADS.sightSide,
 
-            config
-                .fpsADS
-                .sightHeight,
+            config.fpsADS.sightHeight,
 
-            -config
-                .fpsADS
-                .sightDistance
+            -config.fpsADS.sightDistance
 
         );
 
 
         this.rotatedRearSight
             .copy(
-                entry
-                    .anchors
-                    .rearSight
+                entry.anchors.rearSight
             )
             .applyQuaternion(
-                targetQuaternion
+                this.fpsTargetQuaternion
             );
 
 
@@ -3094,43 +2827,33 @@ export class WeaponManager {
 
             Math.exp(
 
-                -config
-                    .fpsADS
-                    .response
-
-                *
-
+                -config.fpsADS.response *
                 deltaTime
 
             );
 
 
-        entry.fpsRoot
-            .position
-            .lerp(
+        entry.fpsRoot.position.lerp(
 
-                this.fpsTargetPosition,
+            this.fpsTargetPosition,
 
-                alpha
+            alpha
 
-            );
+        );
 
 
-        entry.fpsRoot
-            .quaternion
-            .slerp(
+        entry.fpsRoot.quaternion.slerp(
 
-                targetQuaternion,
+            this.fpsTargetQuaternion,
 
-                alpha
+            alpha
 
-            );
+        );
 
 
-        entry.fpsRoot
-            .updateMatrixWorld(
-                true
-            );
+        entry.fpsRoot.updateMatrixWorld(
+            true
+        );
 
     }
 
@@ -3251,46 +2974,34 @@ export class WeaponManager {
             !this.isReloading;
 
 
-        if (
-            this.crosshair
-        ) {
+        this.crosshair.style.display =
 
-            this.crosshair.style.display =
+            gameVisible
 
-                gameVisible
+            &&
 
-                &&
+            !ads
 
-                !ads
+                ?
 
-                    ?
+                "block"
 
-                    "block"
+                :
 
-                    :
-
-                    "none";
-
-        }
+                "none";
 
 
-        if (
-            this.adsReticle
-        ) {
+        this.adsReticle.style.display =
 
-            this.adsReticle.style.display =
+            ads
 
-                ads
+                ?
 
-                    ?
+                "block"
 
-                    "block"
+                :
 
-                    :
-
-                    "none";
-
-        }
+                "none";
 
     }
 
@@ -3376,7 +3087,7 @@ export class WeaponManager {
 
 
     /* =====================================================
-       AIMING
+       AIM
     ====================================================== */
 
     setAiming(
@@ -3496,6 +3207,96 @@ export class WeaponManager {
 
 
     /* =====================================================
+       REBUILD RAYCAST TARGETS
+
+       Escenario + objetos físicos + enemigos en una sola
+       lista ya aplanada. Así cada pellet usa un único
+       intersectObjects().
+    ====================================================== */
+
+    rebuildRaycastTargets() {
+
+        this.raycastTargets.length =
+            0;
+
+
+        const added =
+            new Set();
+
+
+        const addMesh =
+            mesh => {
+
+                if (
+                    !mesh
+
+                    ||
+
+                    !mesh.isMesh
+
+                    ||
+
+                    added.has(
+                        mesh
+                    )
+                ) {
+
+                    return;
+
+                }
+
+
+                added.add(
+                    mesh
+                );
+
+
+                this.raycastTargets.push(
+                    mesh
+                );
+
+            };
+
+
+        for (
+            const mesh
+            of this.environmentMeshes
+        ) {
+
+            addMesh(
+                mesh
+            );
+
+        }
+
+
+        for (
+            const mesh
+            of this.dynamicTargets
+        ) {
+
+            addMesh(
+                mesh
+            );
+
+        }
+
+
+        for (
+            const mesh
+            of this.enemyTargets
+        ) {
+
+            addMesh(
+                mesh
+            );
+
+        }
+
+    }
+
+
+    /* =====================================================
        ENVIRONMENT
     ====================================================== */
 
@@ -3503,8 +3304,8 @@ export class WeaponManager {
         environment
     ) {
 
-        this.environmentMeshes =
-            [];
+        this.environmentMeshes.length =
+            0;
 
 
         environment.traverse(
@@ -3526,6 +3327,16 @@ export class WeaponManager {
                 }
 
             }
+
+        );
+
+
+        this.rebuildRaycastTargets();
+
+
+        console.log(
+
+            `[Weapon] Raycast environment: ${this.environmentMeshes.length} meshes`
 
         );
 
@@ -3556,13 +3367,19 @@ export class WeaponManager {
 
             ||
 
-            typeof this.enemyManager
-                .getHitMeshes !==
+            typeof this.enemyManager.getHitMeshes !==
             "function"
         ) {
 
-            this.enemyTargets =
-                [];
+            this.enemyTargets.length =
+                0;
+
+
+            this.lastShootableEnemyCount =
+                0;
+
+
+            this.rebuildRaycastTargets();
 
 
             return;
@@ -3574,24 +3391,100 @@ export class WeaponManager {
             this.enemyManager
                 .getHitMeshes();
 
+
+        const enemies =
+
+            typeof this.enemyManager.getAliveEnemies ===
+            "function"
+
+                ?
+
+                this.enemyManager
+                    .getAliveEnemies()
+
+                :
+
+                [];
+
+
+        this.lastShootableEnemyCount =
+
+            enemies.filter(
+
+                enemy =>
+                    !enemy.isDead?.()
+
+                    &&
+
+                    !enemy.isSpawning?.()
+
+            ).length;
+
+
+        this.rebuildRaycastTargets();
+
     }
 
 
     /* =====================================================
-       DYNAMIC TARGETS
+       DYNAMIC OBJECTS
     ====================================================== */
 
     refreshDynamicTargets() {
 
-        this.dynamicTargets =
+        this.dynamicTargets.length =
+            0;
+
+
+        const objects =
             this.objectManager
-                .getDynamicObjects()
-                .map(
+                .getDynamicObjects();
 
-                    object =>
-                        object.mesh
 
-                );
+        for (
+            const object
+            of objects
+        ) {
+
+            const root =
+                object.mesh;
+
+
+            if (
+                !root
+            ) {
+
+                continue;
+
+            }
+
+
+            root.traverse(
+
+                child => {
+
+                    if (
+                        child.isMesh
+
+                        &&
+
+                        child.visible
+                    ) {
+
+                        this.dynamicTargets.push(
+                            child
+                        );
+
+                    }
+
+                }
+
+            );
+
+        }
+
+
+        this.rebuildRaycastTargets();
 
     }
 
@@ -3620,9 +3513,7 @@ export class WeaponManager {
                 current.userData.enemy
             ) {
 
-                return current
-                    .userData
-                    .enemy;
+                return current.userData.enemy;
 
             }
 
@@ -3639,7 +3530,7 @@ export class WeaponManager {
 
 
     /* =====================================================
-       FIND PHYSICAL OBJECT
+       FIND PHYSICAL
     ====================================================== */
 
     findPhysicalObject(
@@ -3668,12 +3559,10 @@ export class WeaponManager {
                         current,
 
                     rigidBody:
-                        current.userData
-                            .rigidBody,
+                        current.userData.rigidBody,
 
                     type:
-                        current.userData
-                            .objectType
+                        current.userData.objectType
 
                 };
 
@@ -3806,7 +3695,7 @@ export class WeaponManager {
 
 
         /* =================================================
-           ADS DOT
+           ADS RETICLE
         ================================================= */
 
         this.adsReticle =
@@ -3941,7 +3830,7 @@ export class WeaponManager {
 
 
     /* =====================================================
-       UPDATE HUD
+       HUD CONTENT
     ====================================================== */
 
     updateHUD() {
@@ -3991,8 +3880,7 @@ export class WeaponManager {
                 "∞";
 
 
-        const availableNames =
-
+        const unlocked =
             WEAPON_ORDER
 
                 .filter(
@@ -4008,21 +3896,17 @@ export class WeaponManager {
 
                     key => {
 
-                        const active =
+                        if (
                             key ===
-                            this.activeWeaponKey;
+                            this.activeWeaponKey
+                        ) {
+
+                            return `[${WEAPON_CONFIG[key].displayName}]`;
+
+                        }
 
 
-                        return active
-
-                            ?
-
-                            `[${WEAPON_CONFIG[key].displayName}]`
-
-                            :
-
-                            WEAPON_CONFIG[key]
-                                .displayName;
+                        return WEAPON_CONFIG[key].displayName;
 
                     }
 
@@ -4084,13 +3968,13 @@ export class WeaponManager {
 
 
             <div style="
-                opacity:.36;
+                opacity:.38;
                 font-size:6px;
                 margin-top:6px;
-                letter-spacing:.8px;
+                letter-spacing:.7px;
                 white-space:nowrap;
             ">
-                RUEDA · ${availableNames}
+                RUEDA · ${unlocked}
             </div>
 
         `;
@@ -4105,7 +3989,7 @@ export class WeaponManager {
     setupInput() {
 
         /* =================================================
-           LEFT CLICK
+           FIRE
         ================================================= */
 
         window.addEventListener(
@@ -4149,7 +4033,7 @@ export class WeaponManager {
 
 
         /* =================================================
-           RELEASE LEFT CLICK
+           RELEASE FIRE
         ================================================= */
 
         window.addEventListener(
@@ -4174,7 +4058,7 @@ export class WeaponManager {
 
 
         /* =================================================
-           R = RELOAD
+           RELOAD
         ================================================= */
 
         window.addEventListener(
@@ -4221,9 +4105,6 @@ export class WeaponManager {
 
         /* =================================================
            MOUSE WHEEL
-
-           Down = next
-           Up   = previous
         ================================================= */
 
         window.addEventListener(
@@ -4350,10 +4231,6 @@ export class WeaponManager {
             1000;
 
 
-        /* =================================================
-           FIRE RATE
-        ================================================= */
-
         if (
             now -
             this.lastShotTime <
@@ -4364,10 +4241,6 @@ export class WeaponManager {
 
         }
 
-
-        /* =================================================
-           EMPTY MAGAZINE
-        ================================================= */
 
         if (
             state.magazine <=
@@ -4386,27 +4259,15 @@ export class WeaponManager {
             now;
 
 
-        /* =================================================
-           CONSUME ROUND
-        ================================================= */
-
         state.magazine--;
 
 
         this.updateHUD();
 
 
-        /* =================================================
-           PLAYER SHOOT ANIMATION
-        ================================================= */
-
         this.playerController
             .shoot();
 
-
-        /* =================================================
-           EFFECTS
-        ================================================= */
 
         this.muzzleFlashTimer =
             0.045;
@@ -4414,13 +4275,6 @@ export class WeaponManager {
 
         this.recoilTimer =
             0.075;
-
-
-        /* =================================================
-           TARGET CACHE
-        ================================================= */
-
-        this.refreshEnemyTargets();
 
 
         /* =================================================
@@ -4438,11 +4292,6 @@ export class WeaponManager {
 
         }
 
-
-        /* =================================================
-           PISTOL / SMG
-        ================================================= */
-
         else {
 
             this.fireSingleProjectile(
@@ -4451,10 +4300,6 @@ export class WeaponManager {
 
         }
 
-
-        /* =================================================
-           EMPTY -> AUTO RELOAD
-        ================================================= */
 
         if (
             state.magazine ===
@@ -4473,57 +4318,62 @@ export class WeaponManager {
 
 
     /* =====================================================
-       SINGLE PROJECTILE
+       PISTOL / SMG
     ====================================================== */
 
     fireSingleProjectile(
         config
     ) {
 
-        const spread =
-            config.spread;
+        let x =
+            0;
 
 
-        const x =
+        let y =
+            0;
 
-            spread >
+
+        if (
+            config.spread >
             0
+        ) {
 
-                ?
+            const angle =
+                Math.random() *
+                Math.PI *
+                2;
 
-                (
-                    Math.random() -
-                    0.5
+
+            const radius =
+                Math.sqrt(
+                    Math.random()
                 )
 
                 *
 
-                spread
-
-                :
-
-                0;
+                config.spread;
 
 
-        const y =
-
-            spread >
-            0
-
-                ?
-
-                (
-                    Math.random() -
-                    0.5
+            x =
+                Math.cos(
+                    angle
                 )
 
                 *
 
-                spread
+                radius;
 
-                :
 
-                0;
+            y =
+                Math.sin(
+                    angle
+                )
+
+                *
+
+                radius;
+
+        }
 
 
         const hit =
@@ -4559,13 +4409,27 @@ export class WeaponManager {
 
     /* =====================================================
        SHOTGUN
-
-       7 raycasts con dispersión.
     ====================================================== */
 
     fireShotgun(
         config
     ) {
+
+        const enemyHits =
+            new Map();
+
+
+        const physicalHits =
+            new Map();
+
+
+        let firstWorldHit =
+            null;
+
+
+        /* =================================================
+           RAYCAST PELLETS
+        ================================================= */
 
         for (
             let i = 0;
@@ -4573,9 +4437,6 @@ export class WeaponManager {
             i++
         ) {
 
-            /*
-             * Distribución circular.
-             */
             const angle =
                 Math.random() *
                 Math.PI *
@@ -4633,14 +4494,275 @@ export class WeaponManager {
             }
 
 
-            this.processHit(
+            /* =============================================
+               ENEMY
+            ============================================= */
 
-                hit,
+            const enemy =
+                this.findEnemy(
+                    hit.object
+                );
 
-                config.damage,
 
-                config.objectImpulse /
-                config.pellets
+            if (
+                enemy
+            ) {
+
+                let data =
+                    enemyHits.get(
+                        enemy
+                    );
+
+
+                if (
+                    !data
+                ) {
+
+                    data = {
+
+                        pelletCount:
+                            0,
+
+                        point:
+                            hit.point.clone()
+
+                    };
+
+
+                    enemyHits.set(
+
+                        enemy,
+
+                        data
+
+                    );
+
+                }
+
+
+                data.pelletCount++;
+
+
+                continue;
+
+            }
+
+
+            /* =============================================
+               PHYSICAL OBJECT
+            ============================================= */
+
+            const physical =
+                this.findPhysicalObject(
+                    hit.object
+                );
+
+
+            if (
+                physical
+            ) {
+
+                let data =
+                    physicalHits.get(
+                        physical.rigidBody
+                    );
+
+
+                if (
+                    !data
+                ) {
+
+                    data = {
+
+                        physical,
+
+                        pelletCount:
+                            0,
+
+                        point:
+                            hit.point.clone()
+
+                    };
+
+
+                    physicalHits.set(
+
+                        physical.rigidBody,
+
+                        data
+
+                    );
+
+                }
+
+
+                data.pelletCount++;
+
+
+                continue;
+
+            }
+
+
+            /* =============================================
+               ENVIRONMENT
+
+               Solo necesitamos un efecto visual de pared
+               por disparo de escopeta.
+            ============================================= */
+
+            if (
+                !firstWorldHit
+            ) {
+
+                firstWorldHit =
+                    hit.point.clone();
+
+            }
+
+        }
+
+
+        /* =================================================
+           APPLY ENEMY DAMAGE
+        ================================================= */
+
+        let enemyKilled =
+            false;
+
+
+        for (
+            const [
+                enemy,
+                data
+            ]
+            of enemyHits
+        ) {
+
+            this.createImpactEffect(
+
+                data.point,
+
+                false,
+
+                true
+
+            );
+
+
+            const totalDamage =
+
+                config.damage
+
+                *
+
+                data.pelletCount;
+
+
+            const killed =
+                enemy.takeDamage(
+                    totalDamage
+                );
+
+
+            if (
+                killed
+            ) {
+
+                enemyKilled =
+                    true;
+
+            }
+
+        }
+
+
+        if (
+            enemyKilled
+        ) {
+
+            this.refreshEnemyTargets();
+
+        }
+
+
+        /* =================================================
+           APPLY PHYSICAL IMPACTS
+        ================================================= */
+
+        for (
+            const data
+            of physicalHits.values()
+        ) {
+
+            const physical =
+                data.physical;
+
+
+            this.createImpactEffect(
+
+                data.point,
+
+                true,
+
+                false
+
+            );
+
+
+            if (
+                physical.type ===
+                "industrial-barrel"
+            ) {
+
+                this.explodeBarrel(
+                    physical
+                );
+
+
+                continue;
+
+            }
+
+
+            const impulseStrength =
+
+                (
+                    config.objectImpulse /
+                    config.pellets
+                )
+
+                *
+
+                data.pelletCount;
+
+
+            this.applyPhysicalImpulse(
+
+                physical,
+
+                impulseStrength
+
+            );
+
+        }
+
+
+        /* =================================================
+           WALL FX
+        ================================================= */
+
+        if (
+            firstWorldHit
+        ) {
+
+            this.createImpactEffect(
+
+                firstWorldHit,
+
+                false,
+
+                false
 
             );
 
@@ -4650,7 +4772,7 @@ export class WeaponManager {
 
 
     /* =====================================================
-       FIND NEAREST HIT
+       HITSCAN
     ====================================================== */
 
     findNearestHit(
@@ -4687,128 +4809,92 @@ export class WeaponManager {
 
 
         /* =================================================
-           ENVIRONMENT
+           ONE INTERSECTION PASS
+
+           Reutilizamos el mismo array para evitar crear
+           tres resultados distintos por pellet.
         ================================================= */
 
-        const environmentHits =
-            this.raycaster
-                .intersectObjects(
-
-                    this.environmentMeshes,
-
-                    false
-
-                );
+        this.raycastResults.length =
+            0;
 
 
-        /* =================================================
-           PHYSICAL OBJECTS
-        ================================================= */
+        this.raycaster
+            .intersectObjects(
 
-        const dynamicHits =
-            this.raycaster
-                .intersectObjects(
+                this.raycastTargets,
 
-                    this.dynamicTargets,
+                false,
 
-                    true
+                this.raycastResults
 
-                );
+            );
 
 
-        /* =================================================
-           ENEMIES
-        ================================================= */
+        return (
 
-        const enemyHits =
+            this.raycastResults[0]
 
-            this.enemyTargets.length >
-            0
+            ??
 
-                ?
+            null
 
-                this.raycaster
-                    .intersectObjects(
-
-                        this.enemyTargets,
-
-                        false
-
-                    )
-
-                :
-
-                [];
-
-
-        let hit =
-            null;
-
-
-        if (
-            environmentHits.length >
-            0
-        ) {
-
-            hit =
-                environmentHits[0];
-
-        }
-
-
-        if (
-            dynamicHits.length >
-            0
-
-            &&
-
-            (
-                !hit
-
-                ||
-
-                dynamicHits[0]
-                    .distance <
-                hit.distance
-            )
-        ) {
-
-            hit =
-                dynamicHits[0];
-
-        }
-
-
-        if (
-            enemyHits.length >
-            0
-
-            &&
-
-            (
-                !hit
-
-                ||
-
-                enemyHits[0]
-                    .distance <
-                hit.distance
-            )
-        ) {
-
-            hit =
-                enemyHits[0];
-
-        }
-
-
-        return hit;
+        );
 
     }
 
 
     /* =====================================================
-       PROCESS HIT
+       APPLY PHYSICAL IMPULSE
+
+       Reutiliza un Vector3 temporal en lugar de clonar uno
+       nuevo en cada impacto.
+    ====================================================== */
+
+    applyPhysicalImpulse(
+
+        physical,
+
+        strength
+
+    ) {
+
+        this.camera
+            .getWorldDirection(
+                this.shotDirection
+            );
+
+
+        this.shotDirection.normalize();
+
+
+        this.tempImpulse
+            .copy(
+                this.shotDirection
+            )
+            .multiplyScalar(
+                strength
+            );
+
+
+        this.tempImpulse.y +=
+            0.08;
+
+
+        this.physicsManager
+            .applyImpulse(
+
+                physical.rigidBody,
+
+                this.tempImpulse
+
+            );
+
+    }
+
+
+    /* =====================================================
+       HIT PROCESSING
     ====================================================== */
 
     processHit(
@@ -4867,7 +4953,7 @@ export class WeaponManager {
 
 
         /* =================================================
-           PHYSICAL OBJECT
+           PHYSICAL
         ================================================= */
 
         const physical =
@@ -4918,48 +5004,22 @@ export class WeaponManager {
 
 
         /* =================================================
-           NORMAL PHYSICAL IMPULSE
+           IMPULSE
         ================================================= */
 
-        this.camera
-            .getWorldDirection(
-                this.shotDirection
-            );
+        this.applyPhysicalImpulse(
 
+            physical,
 
-        this.shotDirection
-            .normalize();
+            objectImpulse
 
-
-        const impulse =
-            this.shotDirection
-                .clone()
-                .multiplyScalar(
-                    objectImpulse
-                );
-
-
-        impulse.y +=
-            0.08;
-
-
-        this.physicsManager
-            .applyImpulse(
-
-                physical.rigidBody,
-
-                impulse
-
-            );
+        );
 
     }
 
 
     /* =====================================================
-       BARREL EXPLOSION
-
-       barrelCombatBridge.js sigue envolviendo esta función
-       para aplicar daño a los enemigos.
+       BARREL
     ====================================================== */
 
     explodeBarrel(
@@ -5005,13 +5065,6 @@ export class WeaponManager {
         );
 
 
-        /*
-         * La fuerza de explosión del barril continúa
-         * utilizando la configuración de la pistola.
-         *
-         * Es una propiedad del barril, no del arma
-         * equipada.
-         */
         const explosionConfig =
             WEAPON_CONFIG.pistol;
 
@@ -5070,8 +5123,7 @@ export class WeaponManager {
                 ||
 
                 distance >
-                explosionConfig
-                    .explosionRadius
+                explosionConfig.explosionRadius
             ) {
 
                 continue;
@@ -5090,14 +5142,12 @@ export class WeaponManager {
                     -
 
                     distance /
-                    explosionConfig
-                        .explosionRadius
+                    explosionConfig.explosionRadius
                 )
 
                 *
 
-                explosionConfig
-                    .explosionForce;
+                explosionConfig.explosionForce;
 
 
             direction.multiplyScalar(
@@ -5125,9 +5175,7 @@ export class WeaponManager {
 
         this.objectManager
             .removeDynamicObjectByBody(
-
                 barrel.rigidBody
-
             );
 
 
@@ -5137,7 +5185,7 @@ export class WeaponManager {
 
 
     /* =====================================================
-       CAN RELOAD
+       RELOAD CHECK
     ====================================================== */
 
     canReload() {
@@ -5163,10 +5211,6 @@ export class WeaponManager {
         }
 
 
-        /* =================================================
-           ALREADY FULL
-        ================================================= */
-
         if (
             state.magazine >=
             config.magazineSize
@@ -5176,10 +5220,6 @@ export class WeaponManager {
 
         }
 
-
-        /* =================================================
-           NO RESERVE
-        ================================================= */
 
         if (
             Number.isFinite(
@@ -5221,20 +5261,9 @@ export class WeaponManager {
         }
 
 
-        /* =================================================
-           CANCEL ADS
-        ================================================= */
-
         this.cameraManager
             .cancelAim();
 
-
-        /* =================================================
-           PLAYER Reload.fbx
-
-           Reload puede interrumpir Shoot gracias al
-           PlayerController actual.
-        ================================================= */
 
         const animationStarted =
             this.playerController
@@ -5250,10 +5279,6 @@ export class WeaponManager {
 
         }
 
-
-        /* =================================================
-           LOCK WEAPON
-        ================================================= */
 
         this.isReloading =
             true;
@@ -5283,7 +5308,7 @@ export class WeaponManager {
 
         console.log(
 
-            `[Weapon] Reload ${this.getActiveConfig().displayName}`
+            `[Weapon] Reload: ${this.getActiveConfig().displayName}`
 
         );
 
@@ -5294,9 +5319,7 @@ export class WeaponManager {
 
 
     /* =====================================================
-       FINISH RELOAD
-
-       SOLO se ejecuta cuando termina Reload.fbx.
+       REAL RELOAD FINISH
     ====================================================== */
 
     finishReload() {
@@ -5349,7 +5372,7 @@ export class WeaponManager {
         }
 
 
-        const needed =
+        const required =
 
             config.magazineSize
 
@@ -5358,51 +5381,43 @@ export class WeaponManager {
             state.magazine;
 
 
+        /* =================================================
+           INFINITE RESERVE
+        ================================================= */
+
         if (
-            needed >
-            0
+            !Number.isFinite(
+                state.reserve
+            )
         ) {
 
-            /* =================================================
-               FINITE RESERVE
-            ================================================= */
+            state.magazine =
+                config.magazineSize;
 
-            if (
-                Number.isFinite(
+        }
+
+        /* =================================================
+           FINITE RESERVE
+        ================================================= */
+
+        else {
+
+            const transferred =
+                Math.min(
+
+                    required,
+
                     state.reserve
-                )
-            ) {
 
-                const transferred =
-                    Math.min(
-
-                        needed,
-
-                        state.reserve
-
-                    );
+                );
 
 
-                state.magazine +=
-                    transferred;
+            state.magazine +=
+                transferred;
 
 
-                state.reserve -=
-                    transferred;
-
-            }
-
-
-            /* =================================================
-               INFINITE RESERVE
-            ================================================= */
-
-            else {
-
-                state.magazine =
-                    config.magazineSize;
-
-            }
+            state.reserve -=
+                transferred;
 
         }
 
@@ -5427,7 +5442,7 @@ export class WeaponManager {
 
         console.log(
 
-            `[Weapon] Reload terminado · ${config.displayName}`
+            `[Weapon] Reload terminado: ${config.displayName}`
 
         );
 
@@ -5435,7 +5450,116 @@ export class WeaponManager {
 
 
     /* =====================================================
-       IMPACT EFFECT
+       IMPACT POOL
+
+       Creamos las partículas una sola vez. Esto evita
+       new BufferGeometry / Float32Array / Vector3 en cada
+       bala, especialmente importante para la SMG.
+    ====================================================== */
+
+    createImpactPool() {
+
+        const particleCount =
+            6;
+
+
+        for (
+            let i = 0;
+            i < this.impactPoolSize;
+            i++
+        ) {
+
+            const positions =
+                new Float32Array(
+
+                    particleCount *
+                    3
+
+                );
+
+
+            const velocities =
+                new Float32Array(
+
+                    particleCount *
+                    3
+
+                );
+
+
+            const geometry =
+                new THREE.BufferGeometry();
+
+
+            geometry.setAttribute(
+
+                "position",
+
+                new THREE.BufferAttribute(
+
+                    positions,
+
+                    3
+
+                )
+
+            );
+
+
+            const particles =
+                new THREE.Points(
+
+                    geometry,
+
+                    this.wallImpactMaterial
+
+                );
+
+
+            particles.visible =
+                false;
+
+
+            particles.frustumCulled =
+                false;
+
+
+            this.scene.add(
+                particles
+            );
+
+
+            this.impactPool.push({
+
+                object:
+                    particles,
+
+                velocities,
+
+                life:
+                    0,
+
+                maxLife:
+                    0.14,
+
+                flash:
+                    null,
+
+                pooled:
+                    true,
+
+                busy:
+                    false
+
+            });
+
+        }
+
+    }
+
+
+    /* =====================================================
+       IMPACT FX
     ====================================================== */
 
     createImpactEffect(
@@ -5448,87 +5572,103 @@ export class WeaponManager {
 
     ) {
 
-        const count =
-            6;
+        let effect =
+            null;
 
 
-        const positions =
-            new Float32Array(
-
-                count *
-                3
-
-            );
-
-
-        const velocities =
-            [];
-
+        /* =================================================
+           FREE SLOT
+        ================================================= */
 
         for (
-            let i = 0;
-            i < count;
-            i++
+            const candidate
+            of this.impactPool
         ) {
 
-            velocities.push(
+            if (
+                !candidate.busy
+            ) {
 
-                new THREE.Vector3(
-
-                    (
-                        Math.random() -
-                        0.5
-                    )
-
-                    *
-
-                    2,
+                effect =
+                    candidate;
 
 
-                    0.35
+                break;
 
-                    +
-
-                    Math.random() *
-                    1.25,
-
-
-                    (
-                        Math.random() -
-                        0.5
-                    )
-
-                    *
-
-                    2
-
-                )
-
-            );
+            }
 
         }
 
 
-        const geometry =
-            new THREE.BufferGeometry();
+        /* =================================================
+           POOL EXHAUSTED
+
+           Reutilizamos el efecto al que menos vida le queda.
+        ================================================= */
+
+        if (
+            !effect
+        ) {
+
+            effect =
+                this.impactPool[0];
 
 
-        geometry.setAttribute(
+            for (
+                const candidate
+                of this.impactPool
+            ) {
 
-            "position",
+                if (
+                    candidate.life <
+                    effect.life
+                ) {
 
-            new THREE.BufferAttribute(
+                    effect =
+                        candidate;
 
-                positions,
+                }
 
-                3
-
-            )
-
-        );
+            }
 
 
-        const material =
+            const activeIndex =
+                this.effects.indexOf(
+                    effect
+                );
+
+
+            if (
+                activeIndex !==
+                -1
+            ) {
+
+                this.effects.splice(
+
+                    activeIndex,
+
+                    1
+
+                );
+
+            }
+
+        }
+
+
+        effect.busy =
+            true;
+
+
+        effect.life =
+            0.14;
+
+
+        effect.maxLife =
+            0.14;
+
+
+        effect.object.material =
 
             enemy
 
@@ -5551,49 +5691,96 @@ export class WeaponManager {
                 );
 
 
-        const particles =
-            new THREE.Points(
-
-                geometry,
-
-                material
-
-            );
+        const attribute =
+            effect.object
+                .geometry
+                .attributes
+                .position;
 
 
-        particles.position.copy(
+        const positions =
+            attribute.array;
+
+
+        positions.fill(
+            0
+        );
+
+
+        const velocities =
+            effect.velocities;
+
+
+        for (
+            let i = 0;
+            i < velocities.length;
+            i += 3
+        ) {
+
+            velocities[i] =
+
+                (
+                    Math.random() -
+                    0.5
+                )
+
+                *
+
+                2;
+
+
+            velocities[
+                i +
+                1
+            ] =
+
+                0.35
+
+                +
+
+                Math.random() *
+                1.25;
+
+
+            velocities[
+                i +
+                2
+            ] =
+
+                (
+                    Math.random() -
+                    0.5
+                )
+
+                *
+
+                2;
+
+        }
+
+
+        attribute.needsUpdate =
+            true;
+
+
+        effect.object.position.copy(
             position
         );
 
 
-        this.scene.add(
-            particles
+        effect.object.visible =
+            true;
+
+
+        this.effects.push(
+            effect
         );
-
-
-        this.effects.push({
-
-            object:
-                particles,
-
-            velocities,
-
-            life:
-                0.14,
-
-            maxLife:
-                0.14,
-
-            flash:
-                null
-
-        });
 
     }
 
 
     /* =====================================================
-       EXPLOSION EFFECT
+       EXPLOSION FX
     ====================================================== */
 
     createExplosionEffect(
@@ -5606,10 +5793,8 @@ export class WeaponManager {
 
         const positions =
             new Float32Array(
-
                 count *
                 3
-
             );
 
 
@@ -5738,7 +5923,7 @@ export class WeaponManager {
 
 
     /* =====================================================
-       UPDATE PARTICLE EFFECT
+       EFFECT UPDATE
     ====================================================== */
 
     updateEffect(
@@ -5750,16 +5935,93 @@ export class WeaponManager {
     ) {
 
         const attribute =
-            effect
-                .object
+            effect.object
                 .geometry
                 .attributes
                 .position;
 
 
-        const array =
+        const positions =
             attribute.array;
 
+
+        /* =================================================
+           POOLED IMPACT
+        ================================================= */
+
+        if (
+            effect.pooled
+        ) {
+
+            const velocities =
+                effect.velocities;
+
+
+            for (
+                let i = 0;
+                i < velocities.length;
+                i += 3
+            ) {
+
+                velocities[
+                    i +
+                    1
+                ] -=
+
+                    4.5 *
+                    deltaTime;
+
+
+                positions[i] +=
+
+                    velocities[i] *
+                    deltaTime;
+
+
+                positions[
+                    i +
+                    1
+                ] +=
+
+                    velocities[
+                        i +
+                        1
+                    ]
+
+                    *
+
+                    deltaTime;
+
+
+                positions[
+                    i +
+                    2
+                ] +=
+
+                    velocities[
+                        i +
+                        2
+                    ]
+
+                    *
+
+                    deltaTime;
+
+            }
+
+
+            attribute.needsUpdate =
+                true;
+
+
+            return;
+
+        }
+
+
+        /* =================================================
+           EXPLOSION EFFECT
+        ================================================= */
 
         for (
             let i = 0;
@@ -5772,7 +6034,6 @@ export class WeaponManager {
 
 
             velocity.y -=
-
                 4.5 *
                 deltaTime;
 
@@ -5782,20 +6043,17 @@ export class WeaponManager {
                 3;
 
 
-            array[index] +=
-
+            positions[index] +=
                 velocity.x *
                 deltaTime;
 
 
-            array[index + 1] +=
-
+            positions[index + 1] +=
                 velocity.y *
                 deltaTime;
 
 
-            array[index + 2] +=
-
+            positions[index + 2] +=
                 velocity.z *
                 deltaTime;
 
@@ -5870,13 +6128,11 @@ export class WeaponManager {
 
                 ?
 
-                this.activeEntry
-                    .fpsMuzzle
+                this.activeEntry.fpsMuzzle
 
                 :
 
-                this.activeEntry
-                    .tpsMuzzle;
+                this.activeEntry.tpsMuzzle;
 
 
         activeMuzzle
@@ -5958,10 +6214,6 @@ export class WeaponManager {
         }
 
 
-        /* =================================================
-           WHEEL COOLDOWN
-        ================================================= */
-
         this.wheelCooldown =
             Math.max(
 
@@ -5972,10 +6224,6 @@ export class WeaponManager {
 
             );
 
-
-        /* =================================================
-           RECOIL
-        ================================================= */
 
         this.recoilTimer =
             Math.max(
@@ -5993,9 +6241,67 @@ export class WeaponManager {
 
 
         /* =================================================
-           AUTOMATIC FIRE
+           ENEMY TARGET CACHE
 
-           Solo SMG tiene automatic = true.
+           Revisa cada 200 ms si cambió la cantidad de
+           enemigos ya disponibles para recibir disparos.
+        ================================================= */
+
+        this.enemyTargetCheckTimer -=
+            deltaTime;
+
+
+        if (
+            this.enemyTargetCheckTimer <=
+            0
+        ) {
+
+            this.enemyTargetCheckTimer =
+                this.enemyTargetCheckInterval;
+
+
+            if (
+                this.enemyManager
+
+                &&
+
+                typeof this.enemyManager.getAliveEnemies ===
+                "function"
+            ) {
+
+                const shootableCount =
+
+                    this.enemyManager
+                        .getAliveEnemies()
+                        .filter(
+
+                            enemy =>
+                                !enemy.isDead?.()
+
+                                &&
+
+                                !enemy.isSpawning?.()
+
+                        )
+                        .length;
+
+
+                if (
+                    shootableCount !==
+                    this.lastShootableEnemyCount
+                ) {
+
+                    this.refreshEnemyTargets();
+
+                }
+
+            }
+
+        }
+
+
+        /* =================================================
+           AUTOMATIC SMG
         ================================================= */
 
         if (
@@ -6111,10 +6417,6 @@ export class WeaponManager {
         }
 
 
-        /* =================================================
-           MUZZLE
-        ================================================= */
-
         this.updateMuzzle(
             deltaTime
         );
@@ -6156,6 +6458,40 @@ export class WeaponManager {
                 effect.life <=
                 0
             ) {
+
+                /* =========================================
+                   POOLED IMPACT
+                ========================================= */
+
+                if (
+                    effect.pooled
+                ) {
+
+                    effect.object.visible =
+                        false;
+
+
+                    effect.busy =
+                        false;
+
+
+                    this.effects.splice(
+
+                        i,
+
+                        1
+
+                    );
+
+
+                    continue;
+
+                }
+
+
+                /* =========================================
+                   EXPLOSION
+                ========================================= */
 
                 this.scene.remove(
                     effect.object
