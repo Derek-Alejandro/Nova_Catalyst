@@ -1,14 +1,15 @@
 /* =========================================================
    NOVA CATALYST
    Player Controller
-   Build v0.10.1
+
+   Build v0.11.3
 
    - Full body locomotion
    - RightHand detection
    - Stable combat pose
-   - Shoot / Reload while moving
-   - Hit reaction
-   - Death animation
+   - Shoot while moving
+   - Reload priority
+   - Hit / Death
    - TPS / FPS
 ========================================================= */
 
@@ -18,10 +19,6 @@ import {
     FBXLoader
 } from "three/addons/loaders/FBXLoader.js";
 
-
-/* =========================================================
-   CONFIG
-========================================================= */
 
 const PLAYER_CONFIG = {
 
@@ -39,10 +36,6 @@ const PLAYER_CONFIG = {
 
 };
 
-
-/* =========================================================
-   PATHS
-========================================================= */
 
 const PLAYER_PATHS = {
 
@@ -77,10 +70,6 @@ const PLAYER_PATHS = {
 };
 
 
-/* =========================================================
-   PLAYER CONTROLLER
-========================================================= */
-
 export class PlayerController {
 
     constructor(scene) {
@@ -92,10 +81,6 @@ export class PlayerController {
         this.loader =
             new FBXLoader();
 
-
-        /* =================================================
-           ROOT
-        ================================================= */
 
         this.root =
             new THREE.Group();
@@ -114,10 +99,6 @@ export class PlayerController {
             null;
 
 
-        /* =================================================
-           BONES
-        ================================================= */
-
         this.rightHandBone =
             null;
 
@@ -125,10 +106,6 @@ export class PlayerController {
         this.headBone =
             null;
 
-
-        /* =================================================
-           ANIMATION
-        ================================================= */
 
         this.mixer =
             null;
@@ -182,9 +159,9 @@ export class PlayerController {
             null;
 
 
-        /* =================================================
-           COMBAT POSE
-        ================================================= */
+        this.reloadFinishedHandler =
+            null;
+
 
         this.combatPoseAction =
             null;
@@ -193,10 +170,6 @@ export class PlayerController {
         this.combatPoseActive =
             false;
 
-
-        /* =================================================
-           STATE
-        ================================================= */
 
         this.enabled =
             false;
@@ -230,10 +203,6 @@ export class PlayerController {
             );
 
 
-        /* =================================================
-           INPUT
-        ================================================= */
-
         this.keys = {
 
             forward: false,
@@ -248,10 +217,6 @@ export class PlayerController {
 
         };
 
-
-        /* =================================================
-           MOVEMENT
-        ================================================= */
 
         this.moveDirection =
             new THREE.Vector3();
@@ -342,9 +307,7 @@ export class PlayerController {
 
         this.model =
             await this.loadFBX(
-
                 PLAYER_PATHS.model
-
             );
 
 
@@ -377,34 +340,40 @@ export class PlayerController {
                     false;
 
 
-                const materials =
-
-                    Array.isArray(
-                        object.material
-                    )
-
-                        ?
-
-                        object.material
-
-                        :
-
-                        [
-                            object.material
-                        ];
-
-
-                for (
-                    const material
-                    of materials
+                if (
+                    object.material
                 ) {
 
-                    if (
-                        material
+                    const materials =
+
+                        Array.isArray(
+                            object.material
+                        )
+
+                            ?
+
+                            object.material
+
+                            :
+
+                            [
+                                object.material
+                            ];
+
+
+                    for (
+                        const material
+                        of materials
                     ) {
 
-                        material.needsUpdate =
-                            true;
+                        if (
+                            material
+                        ) {
+
+                            material.needsUpdate =
+                                true;
+
+                        }
 
                     }
 
@@ -419,7 +388,6 @@ export class PlayerController {
 
 
         this.model.rotation.y =
-
             PLAYER_CONFIG
                 .modelRotationOffset;
 
@@ -492,7 +460,6 @@ export class PlayerController {
 
 
         let box =
-
             new THREE.Box3()
                 .setFromObject(
                     this.model
@@ -509,7 +476,8 @@ export class PlayerController {
 
 
         if (
-            size.y <= 0
+            size.y <=
+            0
         ) {
 
             return;
@@ -517,11 +485,13 @@ export class PlayerController {
         }
 
 
-        this.model.scale.setScalar(
-
+        const scaleFactor =
             PLAYER_CONFIG.targetHeight /
-            size.y
+            size.y;
 
+
+        this.model.scale.setScalar(
+            scaleFactor
         );
 
 
@@ -531,7 +501,6 @@ export class PlayerController {
 
 
         box =
-
             new THREE.Box3()
                 .setFromObject(
                     this.model
@@ -550,7 +519,7 @@ export class PlayerController {
 
 
     /* =====================================================
-       BONE NAME NORMALIZATION
+       BONE NAME
     ====================================================== */
 
     normalizeBoneName(
@@ -568,7 +537,7 @@ export class PlayerController {
 
 
     /* =====================================================
-       FIND IMPORTANT BONES
+       FIND BONES
     ====================================================== */
 
     findImportantBones() {
@@ -595,30 +564,31 @@ export class PlayerController {
 
 
                 const name =
-
                     this.normalizeBoneName(
                         object.name
                     );
 
 
-                /* =========================================
-                   RIGHT HAND
-                ========================================= */
-
                 if (
                     !name.includes(
                         "left"
                     )
+
                     &&
+
                     (
                         name.endsWith(
                             "righthand"
                         )
+
                         ||
+
                         name.includes(
                             "righthand"
                         )
+
                         ||
+
                         name.endsWith(
                             "handr"
                         )
@@ -632,15 +602,13 @@ export class PlayerController {
                 }
 
 
-                /* =========================================
-                   HEAD
-                ========================================= */
-
                 if (
                     name.endsWith(
                         "head"
                     )
+
                     ||
+
                     name.includes(
                         "head"
                     )
@@ -658,13 +626,11 @@ export class PlayerController {
 
 
         this.rightHandBone =
-
             rightHandCandidates.find(
 
                 bone => {
 
                     const name =
-
                         this.normalizeBoneName(
                             bone.name
                         );
@@ -697,13 +663,11 @@ export class PlayerController {
 
 
         this.headBone =
-
             headCandidates.find(
 
                 bone => {
 
                     const name =
-
                         this.normalizeBoneName(
                             bone.name
                         );
@@ -779,14 +743,12 @@ export class PlayerController {
 
 
                 const isPosition =
-
                     name.endsWith(
                         ".position"
                     );
 
 
                 const isRoot =
-
                     name.includes(
                         "hips"
                     )
@@ -990,13 +952,11 @@ export class PlayerController {
     ) {
 
         const tracks =
-
             sourceClip.tracks
 
                 .filter(
 
                     track =>
-
                         filterFunction.call(
 
                             this,
@@ -1060,7 +1020,6 @@ export class PlayerController {
     ) {
 
         const sampleTime =
-
             THREE.MathUtils.clamp(
 
                 sourceClip.duration *
@@ -1101,20 +1060,17 @@ export class PlayerController {
 
 
             const valueSize =
-
                 sourceTrack
                     .getValueSize();
 
 
             const result =
-
                 new Float32Array(
                     valueSize
                 );
 
 
             const interpolant =
-
                 sourceTrack
                     .createInterpolant(
                         result
@@ -1127,10 +1083,11 @@ export class PlayerController {
 
 
             const values =
-
                 new Float32Array(
+
                     valueSize *
                     2
+
                 );
 
 
@@ -1159,7 +1116,6 @@ export class PlayerController {
 
 
             const staticTrack =
-
                 new TrackClass(
 
                     sourceTrack.name,
@@ -1235,18 +1191,12 @@ export class PlayerController {
                     0
                 ) {
 
-                    console.warn(
-                        `[Player] ${name}: sin animación.`
-                    );
-
-
                     continue;
 
                 }
 
 
                 let clip =
-
                     fbx.animations[0]
                         .clone();
 
@@ -1262,11 +1212,18 @@ export class PlayerController {
                 ========================================= */
 
                 if (
-                    name === "Idle"
+                    name ===
+                    "Idle"
+
                     ||
-                    name === "Walk"
+
+                    name ===
+                    "Walk"
+
                     ||
-                    name === "Run"
+
+                    name ===
+                    "Run"
                 ) {
 
                     const fullClip =
@@ -1278,7 +1235,6 @@ export class PlayerController {
 
 
                     const fullAction =
-
                         this.mixer
                             .clipAction(
                                 fullClip
@@ -1304,7 +1260,6 @@ export class PlayerController {
 
 
                     const lowerClip =
-
                         this.createFilteredClip(
 
                             clip,
@@ -1321,7 +1276,6 @@ export class PlayerController {
                     ) {
 
                         const lowerAction =
-
                             this.mixer
                                 .clipAction(
                                     lowerClip
@@ -1351,19 +1305,25 @@ export class PlayerController {
 
 
                 /* =========================================
-                   UPPER BODY
+                   UPPER
                 ========================================= */
 
                 else if (
-                    name === "Shoot"
+                    name ===
+                    "Shoot"
+
                     ||
-                    name === "Reload"
+
+                    name ===
+                    "Reload"
+
                     ||
-                    name === "Hit"
+
+                    name ===
+                    "Hit"
                 ) {
 
                     const upperClip =
-
                         this.createFilteredClip(
 
                             clip,
@@ -1380,7 +1340,6 @@ export class PlayerController {
                     ) {
 
                         const action =
-
                             this.mixer
                                 .clipAction(
                                     upperClip
@@ -1411,17 +1370,12 @@ export class PlayerController {
                     }
 
 
-                    /* =====================================
-                       STATIC AIM POSE
-                    ===================================== */
-
                     if (
                         name ===
                         "Shoot"
                     ) {
 
                         const staticPose =
-
                             this.createStaticPoseClip(
 
                                 clip,
@@ -1439,21 +1393,19 @@ export class PlayerController {
                         ) {
 
                             this.combatPoseAction =
-
                                 this.mixer
                                     .clipAction(
                                         staticPose
                                     );
 
 
-                            this.combatPoseAction
-                                .setLoop(
+                            this.combatPoseAction.setLoop(
 
-                                    THREE.LoopRepeat,
+                                THREE.LoopRepeat,
 
-                                    Infinity
+                                Infinity
 
-                                );
+                            );
 
                         }
 
@@ -1476,7 +1428,6 @@ export class PlayerController {
 
 
                     this.deathAction =
-
                         this.mixer
                             .clipAction(
                                 clip
@@ -1518,7 +1469,7 @@ export class PlayerController {
 
 
         /* =================================================
-           MIXER FINISHED EVENTS
+           MIXER FINISHED
         ================================================= */
 
         this.mixer.addEventListener(
@@ -1527,13 +1478,11 @@ export class PlayerController {
 
             event => {
 
-                /* =========================================
-                   DEATH FINISHED
-                ========================================= */
-
                 if (
                     this.deathAction
+
                     &&
+
                     event.action ===
                     this.deathAction
                 ) {
@@ -1558,13 +1507,11 @@ export class PlayerController {
                 }
 
 
-                /* =========================================
-                   UPPER ACTION FINISHED
-                ========================================= */
-
                 if (
                     this.upperBusy
+
                     &&
+
                     event.action ===
                     this.currentUpperAction
                 ) {
@@ -1603,11 +1550,17 @@ export class PlayerController {
 
         if (
             !this.combatPoseAction
+
             ||
+
             this.combatPoseActive
+
             ||
+
             this.upperBusy
+
             ||
+
             this.dead
         ) {
 
@@ -1648,7 +1601,9 @@ export class PlayerController {
 
         if (
             !this.combatPoseAction
+
             ||
+
             !this.combatPoseActive
         ) {
 
@@ -1691,7 +1646,6 @@ export class PlayerController {
 
 
         const nextAction =
-
             this.fullLocomotionActions
                 .get(
                     name
@@ -1710,10 +1664,14 @@ export class PlayerController {
         if (
             this.locomotionMode ===
             "full"
+
             &&
+
             this.currentLocomotion ===
             name
+
             &&
+
             this.currentFullAction ===
             nextAction
         ) {
@@ -1760,7 +1718,9 @@ export class PlayerController {
 
         if (
             this.currentFullAction
+
             &&
+
             this.currentFullAction !==
             nextAction
         ) {
@@ -1777,7 +1737,6 @@ export class PlayerController {
 
 
         const duration =
-
             nextAction
                 .getClip()
                 .duration;
@@ -1789,7 +1748,6 @@ export class PlayerController {
         ) {
 
             nextAction.time =
-
                 previousTime %
                 duration;
 
@@ -1855,7 +1813,6 @@ export class PlayerController {
 
 
         const nextAction =
-
             this.lowerLocomotionActions
                 .get(
                     name
@@ -1874,10 +1831,14 @@ export class PlayerController {
         if (
             this.locomotionMode ===
             "lower"
+
             &&
+
             this.currentLocomotion ===
             name
+
             &&
+
             this.currentLowerAction ===
             nextAction
         ) {
@@ -1924,7 +1885,9 @@ export class PlayerController {
 
         if (
             this.currentLowerAction
+
             &&
+
             this.currentLowerAction !==
             nextAction
         ) {
@@ -1941,7 +1904,6 @@ export class PlayerController {
 
 
         const duration =
-
             nextAction
                 .getClip()
                 .duration;
@@ -1953,7 +1915,6 @@ export class PlayerController {
         ) {
 
             nextAction.time =
-
                 previousTime %
                 duration;
 
@@ -1998,7 +1959,7 @@ export class PlayerController {
 
 
     /* =====================================================
-       LOCOMOTION
+       LOCOMOTION STATE
     ====================================================== */
 
     getLocomotionState() {
@@ -2029,7 +1990,9 @@ export class PlayerController {
 
         if (
             this.movementLocked
+
             ||
+
             this.dead
         ) {
 
@@ -2044,7 +2007,9 @@ export class PlayerController {
 
         if (
             this.upperBusy
+
             ||
+
             this.isCombatPose()
         ) {
 
@@ -2079,6 +2044,8 @@ export class PlayerController {
 
     /* =====================================================
        UPPER BODY ACTION
+       PRIORITY:
+       Death > Reload > Hit > Shoot
     ====================================================== */
 
     playUpperOneShot(
@@ -2087,21 +2054,26 @@ export class PlayerController {
 
         if (
             !this.enabled
+
             ||
+
             !this.isLoaded
+
             ||
+
             this.movementLocked
+
             ||
+
             this.dead
         ) {
 
-            return;
+            return false;
 
         }
 
 
         const action =
-
             this.upperActions
                 .get(
                     name
@@ -2117,74 +2089,131 @@ export class PlayerController {
             );
 
 
-            return;
+            return false;
 
         }
 
 
         /* =================================================
-           HIT PRIORITY
-
-           Hit interrumpe Shoot o Reload.
+           BUSY
         ================================================= */
 
         if (
-            name ===
-            "Hit"
-            &&
             this.upperBusy
         ) {
 
+            /*
+             * Una recarga activa nunca puede ser
+             * interrumpida por Shoot o Hit.
+             */
             if (
-                this.currentUpperAction
+                this.currentUpperAnimation ===
+                "Reload"
             ) {
 
-                this.currentUpperAction
-                    .fadeOut(
-                        0.04
-                    );
+                return false;
 
             }
 
 
-            this.currentUpperAction =
-                null;
-
-
-            this.currentUpperAnimation =
-                null;
-
-
-            this.upperBusy =
-                false;
-
-        }
-
-
-        /* =================================================
-           NORMAL BUSY BEHAVIOUR
-        ================================================= */
-
-        if (
-            this.upperBusy
-        ) {
-
+            /*
+             * Una nueva recarga tiene prioridad sobre
+             * Shoot y Hit.
+             */
             if (
                 name ===
+                "Reload"
+            ) {
+
+                if (
+                    this.currentUpperAction
+                ) {
+
+                    this.currentUpperAction
+                        .fadeOut(
+                            0.025
+                        );
+
+                }
+
+
+                this.currentUpperAction =
+                    null;
+
+
+                this.currentUpperAnimation =
+                    null;
+
+
+                this.upperBusy =
+                    false;
+
+            }
+
+
+            /*
+             * Hit puede interrumpir Shoot.
+             */
+            else if (
+                name ===
+                "Hit"
+            ) {
+
+                if (
+                    this.currentUpperAction
+                ) {
+
+                    this.currentUpperAction
+                        .fadeOut(
+                            0.04
+                        );
+
+                }
+
+
+                this.currentUpperAction =
+                    null;
+
+
+                this.currentUpperAnimation =
+                    null;
+
+
+                this.upperBusy =
+                    false;
+
+            }
+
+
+            /*
+             * Shoot puede reiniciar Shoot.
+             */
+            else if (
+                name ===
                 "Shoot"
+
                 &&
+
                 this.currentUpperAnimation ===
                 "Shoot"
             ) {
 
                 action.reset();
 
+
                 action.play();
+
+
+                return true;
 
             }
 
 
-            return;
+            else {
+
+                return false;
+
+            }
 
         }
 
@@ -2201,15 +2230,26 @@ export class PlayerController {
             this.getLocomotionState(),
 
             name ===
-            "Hit"
+            "Reload"
 
                 ?
 
-                0.035
+                0.025
 
                 :
 
-                0.06
+                (
+                    name ===
+                    "Hit"
+
+                        ?
+
+                        0.035
+
+                        :
+
+                        0.06
+                )
 
         );
 
@@ -2229,15 +2269,26 @@ export class PlayerController {
         action.fadeIn(
 
             name ===
-            "Hit"
+            "Reload"
 
                 ?
 
-                0.035
+                0.025
 
                 :
 
-                0.06
+                (
+                    name ===
+                    "Hit"
+
+                        ?
+
+                        0.035
+
+                        :
+
+                        0.06
+                )
 
         );
 
@@ -2253,29 +2304,24 @@ export class PlayerController {
             name;
 
 
-        if (
-            name ===
-            "Hit"
-        ) {
+        console.log(
+            `[Player] ${name}`
+        );
 
-            console.log(
-                "[Player] HIT animation."
-            );
 
-        }
+        return true;
 
     }
 
 
+    /* =====================================================
+       FINISH UPPER ACTION
+    ====================================================== */
+
     finishUpperAction() {
 
-        if (
-            this.dead
-        ) {
-
-            return;
-
-        }
+        const finishedAnimation =
+            this.currentUpperAnimation;
 
 
         if (
@@ -2300,6 +2346,34 @@ export class PlayerController {
 
         this.currentUpperAnimation =
             null;
+
+
+        /* =================================================
+           RELOAD FINISHED
+        ================================================= */
+
+        if (
+            finishedAnimation ===
+            "Reload"
+
+            &&
+
+            typeof this.reloadFinishedHandler ===
+            "function"
+        ) {
+
+            this.reloadFinishedHandler();
+
+        }
+
+
+        if (
+            this.dead
+        ) {
+
+            return;
+
+        }
 
 
         if (
@@ -2335,43 +2409,52 @@ export class PlayerController {
 
 
     /* =====================================================
-       ACTIONS
+       SHOOT
     ====================================================== */
 
     shoot() {
 
-        this.playUpperOneShot(
+        return this.playUpperOneShot(
             "Shoot"
         );
 
     }
 
 
+    /* =====================================================
+       RELOAD
+    ====================================================== */
+
     reload() {
 
-        this.playUpperOneShot(
+        return this.playUpperOneShot(
             "Reload"
         );
 
     }
 
 
+    /* =====================================================
+       HIT
+    ====================================================== */
+
     hit() {
 
+        /*
+         * Perdemos HP normalmente, pero Hit no debe
+         * cancelar una recarga en curso.
+         */
         if (
-            this.dead
-            ||
-            this.movementLocked
-            ||
-            !this.isLoaded
+            this.currentUpperAnimation ===
+            "Reload"
         ) {
 
-            return;
+            return false;
 
         }
 
 
-        this.playUpperOneShot(
+        return this.playUpperOneShot(
             "Hit"
         );
 
@@ -2400,7 +2483,6 @@ export class PlayerController {
 
 
         const changed =
-
             aiming !==
             this.aiming;
 
@@ -2428,8 +2510,7 @@ export class PlayerController {
                 0.0001
             ) {
 
-                this.aimDirection
-                    .normalize();
+                this.aimDirection.normalize();
 
             }
 
@@ -2455,10 +2536,6 @@ export class PlayerController {
         enabled
     ) {
 
-        /*
-         * Si está muerto el modelo debe ser visible
-         * para reproducir Death.
-         */
         if (
             this.dead
         ) {
@@ -2490,9 +2567,6 @@ export class PlayerController {
             this.model
         ) {
 
-            /*
-             * En FPS ocultamos el cuerpo.
-             */
             this.model.visible =
                 !enabled;
 
@@ -2504,13 +2578,21 @@ export class PlayerController {
     }
 
 
+    /* =====================================================
+       REFRESH COMBAT
+    ====================================================== */
+
     refreshCombatState() {
 
         if (
             !this.isLoaded
+
             ||
+
             this.upperBusy
+
             ||
+
             this.dead
         ) {
 
@@ -2572,7 +2654,9 @@ export class PlayerController {
 
         if (
             !direction
+
             ||
+
             direction.lengthSq() <
             0.0001
         ) {
@@ -2583,7 +2667,6 @@ export class PlayerController {
 
 
         const angle =
-
             Math.atan2(
 
                 direction.x,
@@ -2611,8 +2694,9 @@ export class PlayerController {
 
 
         const alpha =
+            1
 
-            1 -
+            -
 
             Math.exp(
 
@@ -2770,6 +2854,10 @@ export class PlayerController {
     }
 
 
+    /* =====================================================
+       RESET KEYS
+    ====================================================== */
+
     resetKeys() {
 
         this.keys.forward =
@@ -2794,12 +2882,15 @@ export class PlayerController {
     }
 
 
+    /* =====================================================
+       ENABLE
+    ====================================================== */
+
     setEnabled(
         enabled
     ) {
 
         this.enabled =
-
             enabled
 
             &&
@@ -2817,6 +2908,10 @@ export class PlayerController {
 
     }
 
+
+    /* =====================================================
+       IS MOVING
+    ====================================================== */
 
     isMoving() {
 
@@ -2856,19 +2951,29 @@ export class PlayerController {
     ) {
 
         this.desiredMovement.set(
+
             0,
+
             0,
+
             0
+
         );
 
 
         if (
             !this.enabled
+
             ||
+
             !this.isLoaded
+
             ||
+
             this.movementLocked
+
             ||
+
             this.dead
         ) {
 
@@ -2926,7 +3031,6 @@ export class PlayerController {
 
 
         const hasMovement =
-
             forwardInput !==
             0
 
@@ -2958,18 +3062,20 @@ export class PlayerController {
                 0;
 
 
-            this.forwardVector
-                .normalize();
+            this.forwardVector.normalize();
 
 
-            this.rightVector
-                .normalize();
+            this.rightVector.normalize();
 
 
             this.moveDirection.set(
+
                 0,
+
                 0,
+
                 0
+
             );
 
 
@@ -2993,12 +3099,10 @@ export class PlayerController {
                 );
 
 
-            this.moveDirection
-                .normalize();
+            this.moveDirection.normalize();
 
 
             const speed =
-
                 this.keys.run
 
                     ?
@@ -3023,10 +3127,6 @@ export class PlayerController {
 
         }
 
-
-        /* =================================================
-           ROTATION
-        ================================================= */
 
         if (
             this.isCombatPose()
@@ -3109,25 +3209,29 @@ export class PlayerController {
 
 
         this.desiredMovement.set(
+
             0,
+
             0,
+
             0
+
         );
 
 
         this.moveDirection.set(
+
             0,
+
             0,
+
             0
+
         );
 
 
         this.resetKeys();
 
-
-        /* =================================================
-           SI MUERE EN FPS, MOSTRAR CUERPO
-        ================================================= */
 
         this.firstPersonMode =
             false;
@@ -3198,10 +3302,6 @@ export class PlayerController {
             null;
 
 
-        /* =================================================
-           PLAY DEATH
-        ================================================= */
-
         this.deathAction.reset();
 
 
@@ -3238,10 +3338,46 @@ export class PlayerController {
     ) {
 
         this.deathFinishedHandler =
-            handler;
+            typeof handler ===
+            "function"
+
+                ?
+
+                handler
+
+                :
+
+                null;
 
     }
 
+
+    /* =====================================================
+       RELOAD CALLBACK
+    ====================================================== */
+
+    setReloadFinishedHandler(
+        handler
+    ) {
+
+        this.reloadFinishedHandler =
+            typeof handler ===
+            "function"
+
+                ?
+
+                handler
+
+                :
+
+                null;
+
+    }
+
+
+    /* =====================================================
+       DEATH DURATION
+    ====================================================== */
 
     getDeathDuration() {
 
@@ -3263,8 +3399,6 @@ export class PlayerController {
 
     /* =====================================================
        ANIMATION ONLY
-
-       Se usa mientras el estado es DYING.
     ====================================================== */
 
     updateAnimationOnly(
@@ -3273,7 +3407,9 @@ export class PlayerController {
 
         if (
             !this.isLoaded
+
             ||
+
             !this.mixer
         ) {
 
@@ -3340,13 +3476,6 @@ export class PlayerController {
        GETTERS
     ====================================================== */
 
-    isDead() {
-
-        return this.dead;
-
-    }
-
-
     getDesiredMovement() {
 
         return this.desiredMovement;
@@ -3392,6 +3521,13 @@ export class PlayerController {
     getHeadBone() {
 
         return this.headBone;
+
+    }
+
+
+    isDead() {
+
+        return this.dead;
 
     }
 
