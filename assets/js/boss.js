@@ -2,24 +2,17 @@
    NOVA CATALYST
    Boss Manager
 
-   Build v0.17.0 · GLB BOSS
+   Build v0.18.0 · FINAL BOSS BALANCE
 
    ---------------------------------------------------------
-   - GLTFLoader
-   - boss.glb
-   - Animation GLB
-   - Idle
-   - Walk
-   - Run
-   - MeleeAttack
-   - CannonCharge
-   - Hit
-   - Death
-   - 1600 HP
-   - Boss HUD
-   - Cannon projectile
-   - Direct damage: 50 HP
-   - Splash damage: 25 HP
+   - GLTF / GLB Boss
+   - 2500 HP
+   - Faster melee
+   - Faster cannon
+   - Attack animation lock
+   - Cannon cannot be interrupted by Hit
+   - Melee cannot be interrupted by Hit
+   - Death can interrupt everything
 ========================================================= */
 
 import * as THREE from "three";
@@ -35,30 +28,43 @@ import {
 
 const BOSS_CONFIG = {
 
+    /* =====================================================
+       GENERAL
+    ====================================================== */
+
     targetHeight:
         3.25,
 
+    /*
+     * Antes:
+     * 1600
+     *
+     * Ahora:
+     * 2500
+     */
     maxHealth:
-        1600,
+        2500,
+
+
+    /* =====================================================
+       MOVEMENT
+    ====================================================== */
 
     walkSpeed:
-        1.45,
+        1.55,
 
     runSpeed:
-        3.05,
+        3.20,
 
     runDistance:
         8.5,
 
     rotationSpeed:
-        6.5,
+        7.0,
 
-    /*
-     * Si después vemos que camina de espaldas,
-     * únicamente cambiamos esto a Math.PI.
-     */
     modelRotationOffset:
         0,
+
 
     /* =====================================================
        MELEE
@@ -73,11 +79,27 @@ const BOSS_CONFIG = {
     meleeDamage:
         20,
 
+    /*
+     * Antes:
+     * 1.65
+     */
     meleeCooldown:
-        1.65,
+        1.15,
 
+    /*
+     * Punto dentro de la animación
+     * donde se aplica daño.
+     */
     meleeImpactRatio:
         0.54,
+
+    /*
+     * 1.0 = velocidad normal.
+     *
+     * 1.15 = 15% más rápida.
+     */
+    meleeAnimationSpeed:
+        1.15,
 
 
     /* =====================================================
@@ -88,19 +110,39 @@ const BOSS_CONFIG = {
         7.0,
 
     cannonMaxDistance:
-        28.0,
+        32.0,
 
+    /*
+     * Antes:
+     * 5.6
+     *
+     * Ahora puede disparar más seguido.
+     */
     cannonCooldown:
-        5.6,
+        3.8,
 
+    /*
+     * Tiempo antes de poder usar
+     * el primer cañonazo.
+     */
     cannonInitialDelay:
-        2.5,
+        1.6,
 
+    /*
+     * Momento de la animación donde
+     * sale el proyectil.
+     */
     cannonFireRatio:
         0.72,
 
+    /*
+     * 20% más rápida.
+     */
+    cannonAnimationSpeed:
+        1.20,
+
     projectileSpeed:
-        13.5,
+        14.5,
 
     projectileLife:
         5.0,
@@ -108,6 +150,9 @@ const BOSS_CONFIG = {
     projectileRadius:
         0.22,
 
+    /*
+     * Mantenemos los daños que ya habíamos definido.
+     */
     directDamage:
         50,
 
@@ -139,14 +184,14 @@ const BOSS_CONFIG = {
 
 
     /* =====================================================
-       ANIMATION
+       HIT
     ====================================================== */
 
     hitAnimationCooldown:
-        0.40,
+        0.50,
 
     wakeDelay:
-        0.85
+        0.70
 
 };
 
@@ -257,7 +302,7 @@ export class BossManager {
 
 
         /* =================================================
-           GLTF LOADER
+           LOADER
         ================================================= */
 
         this.loader =
@@ -290,7 +335,7 @@ export class BossManager {
 
 
         /* =================================================
-           MIXER
+           ANIMATION
         ================================================= */
 
         this.mixer =
@@ -322,7 +367,7 @@ export class BossManager {
 
 
         /* =================================================
-           HIT TARGETS
+           WEAPON TARGETS
         ================================================= */
 
         this.hitMeshes =
@@ -508,6 +553,30 @@ export class BossManager {
 
 
     /* =====================================================
+       IS ATTACK LOCKED
+
+       Mientras el Boss ejecuta estas animaciones,
+       recibir un disparo NO puede activar Hit.
+    ====================================================== */
+
+    isAttackLocked() {
+
+        return (
+
+            this.state ===
+            BOSS_STATE.MELEE
+
+            ||
+
+            this.state ===
+            BOSS_STATE.CANNON
+
+        );
+
+    }
+
+
+    /* =====================================================
        LOAD GLB
     ====================================================== */
 
@@ -574,7 +643,7 @@ export class BossManager {
 
 
     /* =====================================================
-       PROTECTED LOAD
+       LOAD
     ====================================================== */
 
     async load() {
@@ -611,10 +680,6 @@ export class BossManager {
             error
         ) {
 
-            /*
-             * Si algo falla permitimos volver
-             * a intentar la carga.
-             */
             this.loadingPromise =
                 null;
 
@@ -638,7 +703,7 @@ export class BossManager {
 
 
         /* =================================================
-           MAIN MODEL
+           MODEL
         ================================================= */
 
         const bossGLTF =
@@ -709,10 +774,6 @@ export class BossManager {
                     true;
 
 
-                /*
-                 * WeaponManager encuentra enemigos
-                 * mediante userData.enemy.
-                 */
                 object.userData.enemy =
                     this;
 
@@ -749,7 +810,7 @@ export class BossManager {
 
 
         /* =================================================
-           LOAD ANIMATION GLBs
+           LOAD ANIMATIONS
         ================================================= */
 
         for (
@@ -822,7 +883,7 @@ export class BossManager {
 
 
                 /* =========================================
-                   LOOP ANIMATIONS
+                   LOOP ACTIONS
                 ========================================= */
 
                 if (
@@ -854,11 +915,6 @@ export class BossManager {
 
                 }
 
-
-                /* =========================================
-                   ONE SHOT
-                ========================================= */
-
                 else {
 
                     action.setLoop(
@@ -872,6 +928,39 @@ export class BossManager {
 
                     action.clampWhenFinished =
                         true;
+
+                }
+
+
+                /*
+                 * Attack speed.
+                 */
+                if (
+                    name ===
+                    "MeleeAttack"
+                ) {
+
+                    action.setEffectiveTimeScale(
+
+                        BOSS_CONFIG
+                            .meleeAnimationSpeed
+
+                    );
+
+                }
+
+
+                if (
+                    name ===
+                    "CannonCharge"
+                ) {
+
+                    action.setEffectiveTimeScale(
+
+                        BOSS_CONFIG
+                            .cannonAnimationSpeed
+
+                    );
 
                 }
 
@@ -906,36 +995,6 @@ export class BossManager {
                 );
 
             }
-
-        }
-
-
-        /* =================================================
-           VALIDATE CRITICAL ANIMATIONS
-        ================================================= */
-
-        if (
-            !this.actions.has(
-                "Idle"
-            )
-        ) {
-
-            console.warn(
-                "[Boss] Idle no está disponible."
-            );
-
-        }
-
-
-        if (
-            !this.actions.has(
-                "Death"
-            )
-        ) {
-
-            console.warn(
-                "[Boss] Death no está disponible."
-            );
 
         }
 
@@ -982,7 +1041,7 @@ export class BossManager {
 
 
                 /* =========================================
-                   ONE SHOTS FINISHED
+                   ATTACK / HIT FINISHED
                 ========================================= */
 
                 if (
@@ -1020,7 +1079,7 @@ export class BossManager {
 
                         "Idle",
 
-                        0.08
+                        0.06
 
                     );
 
@@ -1045,12 +1104,23 @@ export class BossManager {
 
 
         console.log(
-            `[Boss] Hit meshes: ${this.hitMeshes.length}`
+
+            `[Boss] HP: ${BOSS_CONFIG.maxHealth}`
+
         );
 
 
         console.log(
-            `[Boss] Animaciones disponibles: ${[...this.actions.keys()].join(", ")}`
+
+            `[Boss] Cannon CD: ${BOSS_CONFIG.cannonCooldown}s`
+
+        );
+
+
+        console.log(
+
+            `[Boss] Melee CD: ${BOSS_CONFIG.meleeCooldown}s`
+
         );
 
 
@@ -1203,15 +1273,6 @@ export class BossManager {
         );
 
 
-        console.log(
-
-            "[Boss] Tamaño original:",
-
-            size
-
-        );
-
-
         if (
             size.y <=
             0
@@ -1227,7 +1288,11 @@ export class BossManager {
 
 
         const scale =
-            BOSS_CONFIG.targetHeight /
+
+            BOSS_CONFIG.targetHeight
+
+            /
+
             size.y;
 
 
@@ -1248,9 +1313,6 @@ export class BossManager {
                 );
 
 
-        /*
-         * Pies sobre Y = 0 del root.
-         */
         this.model.position.y -=
             box.min.y;
 
@@ -1261,31 +1323,6 @@ export class BossManager {
 
         this.model.updateMatrixWorld(
             true
-        );
-
-
-        box =
-            new THREE.Box3()
-                .setFromObject(
-                    this.model
-                );
-
-
-        const finalSize =
-            new THREE.Vector3();
-
-
-        box.getSize(
-            finalSize
-        );
-
-
-        console.log(
-
-            "[Boss] Tamaño normalizado:",
-
-            finalSize
-
         );
 
     }
@@ -1338,18 +1375,11 @@ export class BossManager {
 
         );
 
-
-        console.log(
-
-            `[Boss] Environment meshes: ${this.environmentMeshes.length}`
-
-        );
-
     }
 
 
     /* =====================================================
-       HEALTH HUD
+       HUD
     ====================================================== */
 
     createHealthHUD() {
@@ -1598,6 +1628,19 @@ export class BossManager {
         }
 
 
+        /*
+         * Una animación de ataque no puede ser sustituida
+         * accidentalmente por Walk/Run/Idle.
+         */
+        if (
+            this.isAttackLocked()
+        ) {
+
+            return false;
+
+        }
+
+
         const next =
             this.actions.get(
                 name
@@ -1651,6 +1694,15 @@ export class BossManager {
         );
 
 
+        /*
+         * Restauramos velocidad normal
+         * para locomoción.
+         */
+        next.setEffectiveTimeScale(
+            1
+        );
+
+
         next.fadeIn(
             fade
         );
@@ -1684,6 +1736,27 @@ export class BossManager {
 
         if (
             this.dead
+
+            &&
+
+            name !==
+            "Death"
+        ) {
+
+            return false;
+
+        }
+
+
+        /*
+         * Si estamos atacando:
+         *
+         * - Hit NO puede interrumpir.
+         * - Otro ataque tampoco.
+         * - Death SÍ puede interrumpir.
+         */
+        if (
+            this.isAttackLocked()
 
             &&
 
@@ -1739,6 +1812,47 @@ export class BossManager {
         next.setEffectiveWeight(
             1
         );
+
+
+        /* =================================================
+           ATTACK SPEED
+        ================================================= */
+
+        if (
+            name ===
+            "MeleeAttack"
+        ) {
+
+            next.setEffectiveTimeScale(
+
+                BOSS_CONFIG
+                    .meleeAnimationSpeed
+
+            );
+
+        }
+
+        else if (
+            name ===
+            "CannonCharge"
+        ) {
+
+            next.setEffectiveTimeScale(
+
+                BOSS_CONFIG
+                    .cannonAnimationSpeed
+
+            );
+
+        }
+
+        else {
+
+            next.setEffectiveTimeScale(
+                1
+            );
+
+        }
 
 
         next.fadeIn(
@@ -1869,9 +1983,7 @@ export class BossManager {
 
         console.log(
 
-            "[Boss] SPAWN:",
-
-            position
+            `[Boss] SPAWN · ${BOSS_CONFIG.maxHealth} HP`
 
         );
 
@@ -2042,7 +2154,7 @@ export class BossManager {
 
 
     /* =====================================================
-       WALL CLEAR
+       WALL CHECK
     ====================================================== */
 
     isDirectionClear(
@@ -2153,10 +2265,6 @@ export class BossManager {
             this.moveDirection;
 
 
-        /* =================================================
-           WALL STEERING
-        ================================================= */
-
         if (
             !this.isDirectionClear(
 
@@ -2234,10 +2342,6 @@ export class BossManager {
         }
 
 
-        /* =================================================
-           TARGET POSITION
-        ================================================= */
-
         this.tempTarget
             .copy(
                 this.root.position
@@ -2295,7 +2399,7 @@ export class BossManager {
 
 
     /* =====================================================
-       ROTATION
+       ROTATE
     ====================================================== */
 
     rotateToward(
@@ -2397,6 +2501,13 @@ export class BossManager {
         }
 
 
+        /*
+         * Importante:
+         *
+         * AnimationAction.time continúa expresándose
+         * contra la duración original del clip,
+         * incluso usando timeScale.
+         */
         return THREE.MathUtils.clamp(
 
             this.currentAction.time /
@@ -2464,13 +2575,22 @@ export class BossManager {
     beginMelee() {
 
         if (
+            this.isAttackLocked()
+        ) {
+
+            return;
+
+        }
+
+
+        if (
             this.playOneShot(
 
                 "MeleeAttack",
 
                 BOSS_STATE.MELEE,
 
-                0.05
+                0.045
 
             )
         ) {
@@ -2490,13 +2610,22 @@ export class BossManager {
     beginCannon() {
 
         if (
+            this.isAttackLocked()
+        ) {
+
+            return;
+
+        }
+
+
+        if (
             this.playOneShot(
 
                 "CannonCharge",
 
                 BOSS_STATE.CANNON,
 
-                0.07
+                0.055
 
             )
         ) {
@@ -2504,19 +2633,28 @@ export class BossManager {
             this.cannonCooldown =
                 BOSS_CONFIG.cannonCooldown;
 
+
+            console.log(
+                "[Boss] CANNON CHARGE"
+            );
+
         }
 
     }
 
 
     /* =====================================================
-       ATTACK STATE
+       UPDATE ATTACK
     ====================================================== */
 
     updateAttackState(
         deltaTime
     ) {
 
+        /*
+         * Puede rotar hacia nosotros durante
+         * el ataque, pero NO cambiar de animación.
+         */
         this.facePlayer(
             deltaTime
         );
@@ -2527,7 +2665,7 @@ export class BossManager {
 
 
         /* =================================================
-           MELEE IMPACT
+           MELEE DAMAGE
         ================================================= */
 
         if (
@@ -2582,7 +2720,7 @@ export class BossManager {
 
 
         /* =================================================
-           CANNON FIRE
+           CANNON PROJECTILE
         ================================================= */
 
         if (
@@ -2713,7 +2851,7 @@ export class BossManager {
 
 
     /* =====================================================
-       POINT / SEGMENT
+       DISTANCE POINT TO SEGMENT
     ====================================================== */
 
     distancePointToSegment(
@@ -2849,7 +2987,7 @@ export class BossManager {
 
 
             /* =================================================
-               PLAYER COLLISION
+               PLAYER
             ================================================= */
 
             this.playerController
@@ -2897,7 +3035,7 @@ export class BossManager {
 
 
             /* =================================================
-               ENVIRONMENT COLLISION
+               ENVIRONMENT
             ================================================= */
 
             this.projectileRaycaster.set(
@@ -2957,10 +3095,6 @@ export class BossManager {
                 next
             );
 
-
-            /* =================================================
-               LIFE END
-            ================================================= */
 
             if (
                 projectile.life <=
@@ -3030,7 +3164,7 @@ export class BossManager {
 
 
         /* =================================================
-           DIRECT HIT
+           DIRECT HIT = 50 HP
         ================================================= */
 
         if (
@@ -3055,7 +3189,7 @@ export class BossManager {
 
 
         /* =================================================
-           SPLASH
+           SPLASH = 25 HP
         ================================================= */
 
         this.playerController
@@ -3095,7 +3229,7 @@ export class BossManager {
 
 
     /* =====================================================
-       EXPLOSION EFFECT
+       EXPLOSION FX
     ====================================================== */
 
     createExplosionEffect(
@@ -3288,7 +3422,10 @@ export class BossManager {
 
 
     /* =====================================================
-       DAMAGE
+       TAKE DAMAGE
+
+       IMPORTANTE:
+       Los ataques NO se cancelan al recibir daño.
     ====================================================== */
 
     takeDamage(
@@ -3356,7 +3493,7 @@ export class BossManager {
 
 
         /* =================================================
-           DEATH
+           DEATH ALWAYS WINS
         ================================================= */
 
         if (
@@ -3373,22 +3510,34 @@ export class BossManager {
 
 
         /* =================================================
-           HIT
+           ATTACK LOCK
+
+           Recibe el daño normalmente...
+
+           PERO:
+
+           CannonCharge continúa.
+           MeleeAttack continúa.
+
+           No se reproduce Hit.
+        ================================================= */
+
+        if (
+            this.isAttackLocked()
+        ) {
+
+            return false;
+
+        }
+
+
+        /* =================================================
+           NORMAL HIT REACTION
         ================================================= */
 
         if (
             this.hitAnimationCooldown <=
             0
-
-            &&
-
-            this.state !==
-            BOSS_STATE.MELEE
-
-            &&
-
-            this.state !==
-            BOSS_STATE.CANNON
         ) {
 
             this.hitAnimationCooldown =
@@ -3433,6 +3582,9 @@ export class BossManager {
         );
 
 
+        /*
+         * Death sí puede cancelar Cannon/Melee.
+         */
         this.dead =
             true;
 
@@ -3538,8 +3690,8 @@ export class BossManager {
 
 
         /*
-         * Cuando está muerto dejamos que mixer siga
-         * avanzando hasta terminar Death.
+         * Permitimos que Death continúe reproduciéndose
+         * aunque enabled sea false.
          */
         if (
             !this.enabled
@@ -3644,7 +3796,7 @@ export class BossManager {
 
 
         /* =================================================
-           PLAYER
+           PLAYER POSITION
         ================================================= */
 
         this.playerController
@@ -3655,7 +3807,7 @@ export class BossManager {
 
 
         /* =================================================
-           WAKE
+           INITIAL WAKE
         ================================================= */
 
         if (
@@ -3678,7 +3830,11 @@ export class BossManager {
 
 
         /* =================================================
-           ACTION LOCK
+           ATTACK LOCK
+
+           Importantísimo:
+           mientras Melee o Cannon estén activos,
+           aquí no puede entrar Walk/Run/Hit/Idle.
         ================================================= */
 
         if (
@@ -3689,14 +3845,28 @@ export class BossManager {
 
             this.state ===
             BOSS_STATE.CANNON
+        ) {
 
-            ||
+            this.updateAttackState(
+                dt
+            );
 
+
+            return;
+
+        }
+
+
+        /* =================================================
+           HIT
+        ================================================= */
+
+        if (
             this.state ===
             BOSS_STATE.HIT
         ) {
 
-            this.updateAttackState(
+            this.facePlayer(
                 dt
             );
 
