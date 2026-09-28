@@ -1,50 +1,66 @@
 /* =========================================================
    NOVA CATALYST
    Project Nova
-   Pre-Alpha v.01
+   Survival Build v0.10.2
 
-   PERFORMANCE + LIGHTING BUILD v0.8.5
-
-   - High performance renderer
-   - FPS Counter
-   - Adaptive resolution
-   - Lightweight real shadows
-   - Lightweight ambient lighting
-   - Static environment optimization
-   - Enemy system
-   - Camera hard room limits
+   ---------------------------------------------------------
+   - Performance mode
+   - FPS counter
+   - Lightweight lighting / shadows
+   - TPS / FPS camera
+   - Rapier player + enemy physics
+   - Handgun combat
+   - Player Hit / Death animations
+   - Player health
+   - Enemy damage
+   - Game Over
+   - Retry
+   - Flee to menu
 ========================================================= */
 
 import * as THREE from "three";
+
 
 import {
     EnvironmentManager,
     ENVIRONMENTS
 } from "./environment.js";
 
+
 import {
     CameraManager
 } from "./camera.js";
+
 
 import {
     PlayerController
 } from "./player.js";
 
+
 import {
     PhysicsManager
 } from "./physics.js";
+
 
 import {
     ObjectManager
 } from "./objects.js";
 
+
 import {
     WeaponManager
 } from "./weapons.js";
 
+
 import {
     EnemyManager
 } from "./enemy.js";
+
+
+import {
+    PlayerHealthManager
+} from "./playerHealth.js";
+
 
 import {
     PauseMenu
@@ -52,7 +68,7 @@ import {
 
 
 /* =========================================================
-   PERFORMANCE CONFIG
+   PERFORMANCE
 ========================================================= */
 
 const PERFORMANCE = {
@@ -88,7 +104,8 @@ let currentPixelRatio =
 
     Math.min(
 
-        window.devicePixelRatio || 1,
+        window.devicePixelRatio ||
+        1,
 
         PERFORMANCE.maxPixelRatio
 
@@ -98,17 +115,22 @@ let currentPixelRatio =
 let qualityTimer =
     0;
 
+
 let qualityFrames =
     0;
+
 
 let fpsTimer =
     0;
 
+
 let fpsFrames =
     0;
 
+
 let displayedFPS =
     60;
+
 
 let debugTimer =
     0;
@@ -136,7 +158,13 @@ const GAME_STATE = {
         "playing",
 
     PAUSED:
-        "paused"
+        "paused",
+
+    DYING:
+        "dying",
+
+    GAME_OVER:
+        "game_over"
 
 };
 
@@ -172,75 +200,90 @@ const gameContainer =
         "game-container"
     );
 
+
 const backgroundEffects =
     document.getElementById(
         "background-effects"
     );
+
 
 const mainMenu =
     document.getElementById(
         "main-menu"
     );
 
+
 const briefingScreen =
     document.getElementById(
         "briefing-screen"
     );
+
 
 const aboutScreen =
     document.getElementById(
         "about-screen"
     );
 
+
 const loadingScreen =
     document.getElementById(
         "loading-screen"
     );
+
 
 const loadingProgress =
     document.getElementById(
         "loading-progress"
     );
 
+
 const loadingText =
     document.getElementById(
         "loading-text"
     );
+
 
 const inspectionUI =
     document.getElementById(
         "inspection-ui"
     );
 
+
 const spawnDebug =
     document.getElementById(
         "spawn-debug"
     );
+
 
 const notification =
     document.getElementById(
         "notification"
     );
 
+
 const btnEnter =
     document.getElementById(
         "btn-enter"
     );
+
 
 const btnAbout =
     document.getElementById(
         "btn-about"
     );
 
+
 const btnBackBriefing =
     document.getElementById(
         "btn-back-from-briefing"
     );
 
+
 const btnBackAbout =
     document.getElementById(
         "btn-back-from-about"
     );
+
 
 const btnSurvive =
     document.getElementById(
@@ -425,18 +468,6 @@ renderer.toneMappingExposure =
     1.34;
 
 
-/* =========================================================
-   LIGHTWEIGHT SHADOWS
-
-   Solo una luz genera sombras.
-
-   PCFShadowMap:
-   buena relación calidad/rendimiento.
-
-   768x768:
-   mucho más ligero que 2048x2048.
-========================================================= */
-
 renderer.shadowMap.enabled =
     true;
 
@@ -483,7 +514,8 @@ function createStarField(
     const positions =
 
         new Float32Array(
-            count * 3
+            count *
+            3
         );
 
 
@@ -494,7 +526,8 @@ function createStarField(
     ) {
 
         const index =
-            i * 3;
+            i *
+            3;
 
 
         positions[index] =
@@ -505,6 +538,7 @@ function createStarField(
             )
 
             *
+
             radius;
 
 
@@ -516,6 +550,7 @@ function createStarField(
             )
 
             *
+
             radius;
 
 
@@ -527,6 +562,7 @@ function createStarField(
             )
 
             *
+
             radius;
 
     }
@@ -570,7 +606,7 @@ function createStarField(
         });
 
 
-    const starField =
+    const field =
 
         new THREE.Points(
 
@@ -581,16 +617,16 @@ function createStarField(
         );
 
 
-    starField.frustumCulled =
+    field.frustumCulled =
         false;
 
 
     scene.add(
-        starField
+        field
     );
 
 
-    return starField;
+    return field;
 
 }
 
@@ -623,7 +659,6 @@ const environmentManager =
 
 
 const cameraManager =
-
     new CameraManager(
 
         camera,
@@ -673,6 +708,84 @@ const weaponManager =
     });
 
 
+/* =========================================================
+   PLAYER HEALTH
+========================================================= */
+
+const playerHealth =
+
+    new PlayerHealthManager({
+
+        maxHealth:
+            100,
+
+        invulnerabilityTime:
+            0.30,
+
+
+        /* =============================================
+           NORMAL DAMAGE
+        ============================================= */
+
+        onDamage:
+
+            () => {
+
+                playerController.hit();
+
+            },
+
+
+        /* =============================================
+           DEATH
+        ============================================= */
+
+        onDeath:
+
+            () => {
+
+                beginPlayerDeath();
+
+            },
+
+
+        /* =============================================
+           RETRY
+
+           Reinicia TODO y vuelve directamente
+           a Zona A.
+        ============================================= */
+
+        onRetry:
+
+            () => {
+
+                retryGame();
+
+            },
+
+
+        /* =============================================
+           FLEE
+
+           Regresa al menú principal.
+        ============================================= */
+
+        onFlee:
+
+            () => {
+
+                fleeToMenu();
+
+            }
+
+    });
+
+
+/* =========================================================
+   ENEMY MANAGER
+========================================================= */
+
 const enemyManager =
 
     new EnemyManager({
@@ -685,17 +798,77 @@ const enemyManager =
 
         physicsManager,
 
-        objectManager
+        objectManager,
+
+        playerHealth
 
     });
 
 
+/* =========================================================
+   WEAPON -> ENEMY
+========================================================= */
+
+weaponManager.setEnemyManager(
+    enemyManager
+);
+
+
+/* =========================================================
+   FPS ENEMY CAMERA COLLISION
+========================================================= */
+
+cameraManager.setDynamicBlockersProvider(
+
+    () =>
+
+        enemyManager
+            .getAliveEnemies()
+            .filter(
+
+                enemy =>
+
+                    !enemy.isSpawning()
+
+            )
+            .map(
+
+                enemy =>
+
+                    enemy.getObject()
+
+            )
+
+);
+
+
+/* =========================================================
+   ADS
+========================================================= */
+
 cameraManager.setADSAnchorProvider(
+
+    () =>
+
+        weaponManager
+            .getADSAnchor()
+
+);
+
+
+/* =========================================================
+   DEATH CALLBACK
+========================================================= */
+
+let deathFallbackTimer =
+    null;
+
+
+playerController.setDeathFinishedHandler(
 
     () => {
 
-        return weaponManager
-            .getADSAnchor();
+        finishPlayerDeath();
 
     }
 
@@ -703,7 +876,7 @@ cameraManager.setADSAnchorProvider(
 
 
 /* =========================================================
-   PAUSE MENU
+   PAUSE
 ========================================================= */
 
 const pauseMenu =
@@ -722,7 +895,11 @@ const pauseMenu =
 
             () => {
 
-                window.location.reload();
+                /*
+                 * Salir desde pausa también
+                 * debe llevar al menú.
+                 */
+                fleeToMenu();
 
             }
 
@@ -730,7 +907,7 @@ const pauseMenu =
 
 
 /* =========================================================
-   TEMP VECTORS
+   TEMP
 ========================================================= */
 
 const cameraForward =
@@ -744,10 +921,6 @@ const cameraRight =
 const cameraAimDirection =
     new THREE.Vector3();
 
-
-/* =========================================================
-   CACHED STATES
-========================================================= */
 
 let cachedCameraMode =
     null;
@@ -763,18 +936,6 @@ let cachedFirstPerson =
 
 /* =========================================================
    LIGHTING
-
-   Combinación ligera:
-   - Ambient
-   - Hemisphere
-   - 1 Directional con sombra
-   - 1 Point rojo sin sombra
-   - 1 pequeña luz del jugador
-========================================================= */
-
-
-/* =========================================================
-   AMBIENT
 ========================================================= */
 
 const ambientLight =
@@ -792,10 +953,6 @@ scene.add(
     ambientLight
 );
 
-
-/* =========================================================
-   HEMISPHERE
-========================================================= */
 
 const hemisphereLight =
 
@@ -816,7 +973,7 @@ scene.add(
 
 
 /* =========================================================
-   MAIN DIRECTIONAL + SHADOW
+   MAIN DIRECTIONAL LIGHT
 ========================================================= */
 
 const mainLight =
@@ -845,9 +1002,6 @@ mainLight.castShadow =
     true;
 
 
-/*
- * Única sombra de la escena.
- */
 mainLight.shadow.mapSize.set(
 
     768,
@@ -895,9 +1049,7 @@ scene.add(
 
 
 /* =========================================================
-   EMERGENCY RED LIGHT
-
-   No genera sombra.
+   EMERGENCY LIGHT
 ========================================================= */
 
 const emergencyLight =
@@ -916,13 +1068,9 @@ const emergencyLight =
 
 
 emergencyLight.position.set(
-
     0,
-
     8,
-
     0
-
 );
 
 
@@ -936,7 +1084,7 @@ scene.add(
 
 
 /* =========================================================
-   PLAYER FILL
+   PLAYER LIGHT
 ========================================================= */
 
 const playerLight =
@@ -964,15 +1112,19 @@ scene.add(
 
 
 /* =========================================================
-   SHADOW HELPERS
+   SHADOW HELPER
 ========================================================= */
 
 function configureDynamicShadowCaster(
     root
 ) {
 
-    if (!root) {
+    if (
+        !root
+    ) {
+
         return;
+
     }
 
 
@@ -983,7 +1135,9 @@ function configureDynamicShadowCaster(
             if (
                 !object.isMesh
             ) {
+
                 return;
+
             }
 
 
@@ -991,10 +1145,6 @@ function configureDynamicShadowCaster(
                 true;
 
 
-            /*
-             * El propio personaje no necesita
-             * recibir su sombra.
-             */
             object.receiveShadow =
                 false;
 
@@ -1006,21 +1156,26 @@ function configureDynamicShadowCaster(
 
 
 /* =========================================================
-   DYNAMIC OBJECT SHADOWS
+   DYNAMIC OBJECT LIGHTING
 ========================================================= */
 
-function configureDynamicObjectShadows() {
+function configureDynamicObjectLighting() {
 
     if (
-        !objectManager.getDynamicObjects
+        typeof objectManager
+            .getDynamicObjects !==
+        "function"
     ) {
+
         return;
+
     }
 
 
     const objects =
 
-        objectManager.getDynamicObjects();
+        objectManager
+            .getDynamicObjects();
 
 
     for (
@@ -1028,28 +1183,30 @@ function configureDynamicObjectShadows() {
         of objects
     ) {
 
-        const mesh =
-            object.mesh;
+        if (
+            !object.mesh
+        ) {
 
-
-        if (!mesh) {
             continue;
+
         }
 
 
-        mesh.traverse(
+        object.mesh.traverse(
 
             child => {
 
                 if (
                     !child.isMesh
                 ) {
+
                     return;
+
                 }
 
 
                 child.castShadow =
-                    true;
+                    false;
 
 
                 child.receiveShadow =
@@ -1085,9 +1242,6 @@ function optimizeStaticEnvironment(
 
         object => {
 
-            /*
-             * El escenario es estático.
-             */
             object.matrixAutoUpdate =
                 false;
 
@@ -1095,26 +1249,19 @@ function optimizeStaticEnvironment(
             if (
                 !object.isMesh
             ) {
+
                 return;
+
             }
 
 
             count++;
 
 
-            /*
-             * El escenario NO genera shadow map.
-             *
-             * Esto ahorra muchísimo.
-             */
             object.castShadow =
                 false;
 
 
-            /*
-             * Pero sí recibe sombras del personaje,
-             * enemigos y props.
-             */
             object.receiveShadow =
                 true;
 
@@ -1125,26 +1272,24 @@ function optimizeStaticEnvironment(
 
             if (
                 object.geometry
-
                 &&
-
                 !object.geometry.boundingBox
             ) {
 
-                object.geometry.computeBoundingBox();
+                object.geometry
+                    .computeBoundingBox();
 
             }
 
 
             if (
                 object.geometry
-
                 &&
-
                 !object.geometry.boundingSphere
             ) {
 
-                object.geometry.computeBoundingSphere();
+                object.geometry
+                    .computeBoundingSphere();
 
             }
 
@@ -1168,7 +1313,7 @@ function optimizeStaticEnvironment(
 
 
 /* =========================================================
-   SCREEN HELPERS
+   SCREENS
 ========================================================= */
 
 function hideMainScreens() {
@@ -1185,8 +1330,12 @@ function hideMainScreens() {
 
         screen => {
 
-            if (!screen) {
+            if (
+                !screen
+            ) {
+
                 return;
+
             }
 
 
@@ -1206,6 +1355,10 @@ function hideMainScreens() {
 }
 
 
+/* =========================================================
+   SHOW SCREEN
+========================================================= */
+
 function showScreen(
     target
 ) {
@@ -1213,18 +1366,26 @@ function showScreen(
     hideMainScreens();
 
 
-    loadingScreen?.classList.add(
-        "hidden-screen"
-    );
+    loadingScreen
+        ?.classList
+        .add(
+            "hidden-screen"
+        );
 
 
-    inspectionUI?.classList.add(
-        "hidden-interface"
-    );
+    inspectionUI
+        ?.classList
+        .add(
+            "hidden-interface"
+        );
 
 
-    if (!target) {
+    if (
+        !target
+    ) {
+
         return;
+
     }
 
 
@@ -1241,7 +1402,7 @@ function showScreen(
 
 
 /* =========================================================
-   MENU
+   MENU EVENTS
 ========================================================= */
 
 btnEnter?.addEventListener(
@@ -1337,38 +1498,57 @@ btnSurvive?.addEventListener(
    POINTER LOCK
 ========================================================= */
 
-cameraManager.setPointerLockChangeHandler(
+cameraManager
+    .setPointerLockChangeHandler(
 
-    locked => {
+        locked => {
 
-        pauseMenu.setCaptureHintVisible(
+            /*
+             * Durante Death y Game Over
+             * liberar el mouse NO pausa.
+             */
+            if (
+                currentState ===
+                GAME_STATE.DYING
 
-            currentState ===
-            GAME_STATE.PLAYING
+                ||
 
-            &&
+                currentState ===
+                GAME_STATE.GAME_OVER
+            ) {
 
-            !locked
+                return;
 
-        );
+            }
 
 
-        if (
-            !locked
+            pauseMenu
+                .setCaptureHintVisible(
 
-            &&
+                    currentState ===
+                    GAME_STATE.PLAYING
 
-            currentState ===
-            GAME_STATE.PLAYING
-        ) {
+                    &&
 
-            pauseGame();
+                    !locked
+
+                );
+
+
+            if (
+                !locked
+                &&
+                currentState ===
+                GAME_STATE.PLAYING
+            ) {
+
+                pauseGame();
+
+            }
 
         }
 
-    }
-
-);
+    );
 
 
 /* =========================================================
@@ -1385,7 +1565,24 @@ window.addEventListener(
             event.code !==
             "Escape"
         ) {
+
             return;
+
+        }
+
+
+        if (
+            currentState ===
+            GAME_STATE.DYING
+
+            ||
+
+            currentState ===
+            GAME_STATE.GAME_OVER
+        ) {
+
+            return;
+
         }
 
 
@@ -1395,7 +1592,8 @@ window.addEventListener(
 
             &&
 
-            !cameraManager.isInputCaptured()
+            !cameraManager
+                .isInputCaptured()
         ) {
 
             pauseGame();
@@ -1417,7 +1615,9 @@ function pauseGame() {
         currentState !==
         GAME_STATE.PLAYING
     ) {
+
         return;
+
     }
 
 
@@ -1440,9 +1640,15 @@ function pauseGame() {
     );
 
 
-    pauseMenu.setCaptureHintVisible(
+    enemyManager.setEnabled(
         false
     );
+
+
+    pauseMenu
+        .setCaptureHintVisible(
+            false
+        );
 
 
     pauseMenu.setVisible(
@@ -1462,7 +1668,9 @@ function resumeGame() {
         currentState !==
         GAME_STATE.PAUSED
     ) {
+
         return;
+
     }
 
 
@@ -1490,7 +1698,307 @@ function resumeGame() {
     );
 
 
-    cameraManager.requestPointerLock();
+    enemyManager.setEnabled(
+        true
+    );
+
+
+    cameraManager
+        .requestPointerLock();
+
+}
+
+
+/* =========================================================
+   BEGIN PLAYER DEATH
+========================================================= */
+
+function beginPlayerDeath() {
+
+    if (
+        currentState ===
+        GAME_STATE.DYING
+
+        ||
+
+        currentState ===
+        GAME_STATE.GAME_OVER
+    ) {
+
+        return;
+
+    }
+
+
+    currentState =
+        GAME_STATE.DYING;
+
+
+    console.log(
+        "[Nova] PLAYER DYING..."
+    );
+
+
+    /* =====================================================
+       WEAPON OFF
+    ====================================================== */
+
+    weaponManager.setPaused(
+        true
+    );
+
+
+    /* =====================================================
+       ENEMY AI OFF
+    ====================================================== */
+
+    enemyManager.setEnabled(
+        false
+    );
+
+
+    /* =====================================================
+       CANCEL AIM
+    ====================================================== */
+
+    cameraManager.cancelAim();
+
+
+    /* =====================================================
+       FPS -> TPS
+
+       Permite ver Death.
+    ====================================================== */
+
+    if (
+        cameraManager.getMode() ===
+        "FPS"
+    ) {
+
+        cameraManager.toggleMode();
+
+    }
+
+
+    /* =====================================================
+       FREE CURSOR
+    ====================================================== */
+
+    cameraManager.releasePointerLock();
+
+
+    pauseMenu.setVisible(
+        false
+    );
+
+
+    pauseMenu
+        .setCaptureHintVisible(
+            false
+        );
+
+
+    /* =====================================================
+       PLAY DEATH
+    ====================================================== */
+
+    const started =
+
+        playerController.die();
+
+
+    if (
+        !started
+    ) {
+
+        finishPlayerDeath();
+
+
+        return;
+
+    }
+
+
+    /* =====================================================
+       FALLBACK
+
+       Normalmente AnimationMixer ejecutará
+       finishPlayerDeath().
+    ====================================================== */
+
+    const duration =
+
+        playerController
+            .getDeathDuration();
+
+
+    if (
+        deathFallbackTimer
+    ) {
+
+        clearTimeout(
+            deathFallbackTimer
+        );
+
+    }
+
+
+    deathFallbackTimer =
+
+        setTimeout(
+
+            () => {
+
+                finishPlayerDeath();
+
+            },
+
+            Math.max(
+
+                800,
+
+                duration *
+                1000
+
+                +
+
+                250
+
+            )
+
+        );
+
+}
+
+
+/* =========================================================
+   FINISH PLAYER DEATH
+========================================================= */
+
+function finishPlayerDeath() {
+
+    if (
+        currentState ===
+        GAME_STATE.GAME_OVER
+    ) {
+
+        return;
+
+    }
+
+
+    if (
+        deathFallbackTimer
+    ) {
+
+        clearTimeout(
+            deathFallbackTimer
+        );
+
+
+        deathFallbackTimer =
+            null;
+
+    }
+
+
+    currentState =
+        GAME_STATE.GAME_OVER;
+
+
+    cameraManager.setPaused(
+        true
+    );
+
+
+    weaponManager.setPaused(
+        true
+    );
+
+
+    enemyManager.setEnabled(
+        false
+    );
+
+
+    /* =====================================================
+       SHOW GAME OVER
+    ====================================================== */
+
+    playerHealth.showGameOver();
+
+
+    console.log(
+        "[Nova] GAME OVER"
+    );
+
+}
+
+
+/* =========================================================
+   RETRY GAME
+
+   REINTENTAR hace un reload limpio, pero guardamos
+   una bandera para volver directamente a Zona A.
+
+   Esto reinicia automáticamente:
+   - Rapier
+   - Player
+   - HP
+   - Animations
+   - Weapon / Ammo
+   - Enemies
+   - Props
+   - Explosive barrels
+========================================================= */
+
+function retryGame() {
+
+    console.log(
+        "[Nova] REINTENTANDO MISIÓN..."
+    );
+
+
+    /*
+     * sessionStorage solo se conserva en esta pestaña.
+     */
+    sessionStorage.setItem(
+
+        "nova_retry_zone_a",
+
+        "true"
+
+    );
+
+
+    window.location.reload();
+
+}
+
+
+/* =========================================================
+   FLEE TO MENU
+
+   HUIR limpia cualquier bandera de Retry y
+   recarga normalmente.
+
+   Resultado:
+   menú principal.
+========================================================= */
+
+function fleeToMenu() {
+
+    console.log(
+        "[Nova] ABANDONANDO MISIÓN..."
+    );
+
+
+    sessionStorage.removeItem(
+        "nova_retry_zone_a"
+    );
+
+
+    window.location.reload();
 
 }
 
@@ -1500,8 +2008,11 @@ function resumeGame() {
 ========================================================= */
 
 function setLoading(
+
     percentage,
+
     text
+
 ) {
 
     if (
@@ -1527,10 +2038,23 @@ function setLoading(
 
 
 /* =========================================================
-   ZONE A
+   ENTER ZONE A
 ========================================================= */
 
 async function enterZoneA() {
+
+    /*
+     * Protección contra doble clic o doble llamada.
+     */
+    if (
+        currentState ===
+        GAME_STATE.LOADING
+    ) {
+
+        return;
+
+    }
+
 
     currentState =
         GAME_STATE.LOADING;
@@ -1540,15 +2064,13 @@ async function enterZoneA() {
         backgroundEffects
     ) {
 
-        backgroundEffects.classList.add(
-            "gameplay-mode"
-        );
+        backgroundEffects
+            .classList
+            .add(
+                "gameplay-mode"
+            );
 
 
-        /*
-         * El fondo HTML ya no necesita seguir
-         * renderizando durante gameplay.
-         */
         backgroundEffects.style.display =
             "none";
 
@@ -1558,9 +2080,14 @@ async function enterZoneA() {
     hideMainScreens();
 
 
-    loadingScreen?.classList.remove(
-        "hidden-screen"
-    );
+    loadingScreen
+        ?.classList
+        .remove(
+            "hidden-screen"
+        );
+
+
+    playerHealth.hideGameOver();
 
 
     setLoading(
@@ -1611,7 +2138,7 @@ async function enterZoneA() {
 
 
         /* =================================================
-           STATIC OPTIMIZATION
+           OPTIMIZATION
         ================================================= */
 
         optimizeStaticEnvironment(
@@ -1620,7 +2147,7 @@ async function enterZoneA() {
 
 
         /* =================================================
-           CAMERA COLLISION
+           CAMERA ENVIRONMENT
         ================================================= */
 
         cameraManager.setEnvironment(
@@ -1644,6 +2171,10 @@ async function enterZoneA() {
         await physicsManager.init();
 
 
+        /* =================================================
+           ENVIRONMENT COLLIDERS
+        ================================================= */
+
         setLoading(
 
             56,
@@ -1653,13 +2184,14 @@ async function enterZoneA() {
         );
 
 
-        physicsManager.createEnvironmentColliders(
-            zoneA
-        );
+        physicsManager
+            .createEnvironmentColliders(
+                zoneA
+            );
 
 
         /* =================================================
-           SPAWN
+           PLAYER SPAWN
         ================================================= */
 
         setLoading(
@@ -1676,6 +2208,15 @@ async function enterZoneA() {
             calculateZoneASpawn(
                 zoneA
             );
+
+
+        console.log(
+
+            "[Nova] Player Spawn:",
+
+            playerSpawn
+
+        );
 
 
         /* =================================================
@@ -1700,18 +2241,34 @@ async function enterZoneA() {
 
             playerSpawn,
 
-            playerController.getHeight()
+            playerController
+                .getHeight()
 
         );
 
 
-        /*
-         * El jugador sí proyecta sombra.
-         */
         configureDynamicShadowCaster(
 
-            playerController.getObject()
+            playerController
+                .getObject()
 
+        );
+
+
+        /* =================================================
+           PLAYER HEALTH
+        ================================================= */
+
+        playerHealth.reset();
+
+
+        playerHealth.setVisible(
+            true
+        );
+
+
+        playerHealth.setEnabled(
+            true
         );
 
 
@@ -1723,7 +2280,7 @@ async function enterZoneA() {
 
             77,
 
-            "Equipando arma..."
+            "Equipando Sci-fi Handgun..."
 
         );
 
@@ -1739,22 +2296,27 @@ async function enterZoneA() {
 
             84,
 
-            "Desplegando objetos..."
+            "Desplegando objetos físicos..."
 
         );
 
 
-        objectManager.createZoneAObjects(
+        objectManager
+            .createZoneAObjects(
 
-            zoneA,
+                zoneA,
 
-            playerSpawn
+                playerSpawn
 
-        );
+            );
 
 
-        configureDynamicObjectShadows();
+        configureDynamicObjectLighting();
 
+
+        /* =================================================
+           WEAPON ENVIRONMENT
+        ================================================= */
 
         weaponManager.setEnvironment(
             zoneA
@@ -1782,6 +2344,15 @@ async function enterZoneA() {
         );
 
 
+        enemyManager.setEnabled(
+            true
+        );
+
+
+        /* =================================================
+           TEST ENEMY
+        ================================================= */
+
         setLoading(
 
             95,
@@ -1793,22 +2364,18 @@ async function enterZoneA() {
 
         const testEnemy =
 
-            enemyManager.spawnTestEnemy(
+            enemyManager
+                .spawnTestEnemy(
+                    playerSpawn.y
+                );
 
-                playerSpawn.y
 
-            );
-
-
-        /*
-         * El enemigo también proyecta sombra.
-         */
         if (
             testEnemy
-
             &&
-
-            testEnemy.getModel
+            typeof testEnemy
+                .getModel ===
+            "function"
         ) {
 
             configureDynamicShadowCaster(
@@ -1821,7 +2388,23 @@ async function enterZoneA() {
 
 
         /* =================================================
-           ENABLE
+           REFRESH WEAPON ENEMY TARGETS
+        ================================================= */
+
+        if (
+            typeof weaponManager
+                .refreshEnemyTargets ===
+            "function"
+        ) {
+
+            weaponManager
+                .refreshEnemyTargets();
+
+        }
+
+
+        /* =================================================
+           PLAYER ENABLE
         ================================================= */
 
         playerController.setEnabled(
@@ -1829,9 +2412,14 @@ async function enterZoneA() {
         );
 
 
+        /* =================================================
+           CAMERA
+        ================================================= */
+
         cameraManager.setTarget(
 
-            playerController.getObject(),
+            playerController
+                .getObject(),
 
             true
 
@@ -1841,8 +2429,17 @@ async function enterZoneA() {
         cameraManager.enable();
 
 
+        /* =================================================
+           WEAPON ENABLE
+        ================================================= */
+
         weaponManager.setEnabled(
             true
+        );
+
+
+        weaponManager.setPaused(
+            false
         );
 
 
@@ -1850,6 +2447,10 @@ async function enterZoneA() {
             "TPS"
         );
 
+
+        /* =================================================
+           CACHE
+        ================================================= */
 
         cachedCameraMode =
             "TPS";
@@ -1862,6 +2463,10 @@ async function enterZoneA() {
         cachedFirstPerson =
             false;
 
+
+        /* =================================================
+           COMPLETE
+        ================================================= */
 
         setLoading(
 
@@ -1876,23 +2481,28 @@ async function enterZoneA() {
 
             () => {
 
-                loadingScreen?.classList.add(
-                    "hidden-screen"
-                );
+                loadingScreen
+                    ?.classList
+                    .add(
+                        "hidden-screen"
+                    );
 
 
-                inspectionUI?.classList.remove(
-                    "hidden-interface"
-                );
+                inspectionUI
+                    ?.classList
+                    .remove(
+                        "hidden-interface"
+                    );
 
 
                 currentState =
                     GAME_STATE.PLAYING;
 
 
-                pauseMenu.setCaptureHintVisible(
-                    true
-                );
+                pauseMenu
+                    .setCaptureHintVisible(
+                        true
+                    );
 
 
                 showNotification(
@@ -1909,14 +2519,15 @@ async function enterZoneA() {
 
 
         /* =================================================
-           BOSS PRELOAD
+           PRELOAD BOSS
         ================================================= */
 
-        environmentManager.preloadEnvironment(
+        environmentManager
+            .preloadEnvironment(
 
-            ENVIRONMENTS.BOSS_ARENA
+                ENVIRONMENTS.BOSS_ARENA
 
-        );
+            );
 
     }
 
@@ -1952,7 +2563,7 @@ async function enterZoneA() {
 
 
 /* =========================================================
-   SPAWN
+   CALCULATE ZONE A SPAWN
 ========================================================= */
 
 function calculateZoneASpawn(
@@ -2000,9 +2611,13 @@ function calculateZoneASpawn(
             ),
 
             new THREE.Vector3(
+
                 0,
+
                 -1,
+
                 0
+
             )
 
         );
@@ -2018,9 +2633,7 @@ function calculateZoneASpawn(
 
             if (
                 object.isMesh
-
                 &&
-
                 object.visible
             ) {
 
@@ -2035,9 +2648,6 @@ function calculateZoneASpawn(
     );
 
 
-    /*
-     * Solo se ejecuta una vez.
-     */
     const intersections =
 
         raycaster.intersectObjects(
@@ -2058,7 +2668,9 @@ function calculateZoneASpawn(
 
             spawnX,
 
-            intersections[0].point.y
+            intersections[0]
+                .point
+                .y
 
             +
 
@@ -2066,7 +2678,8 @@ function calculateZoneASpawn(
 
             +
 
-            PLAYER_SPAWN_ZONE_A.heightOffset,
+            PLAYER_SPAWN_ZONE_A
+                .heightOffset,
 
             spawnZ
 
@@ -2075,11 +2688,19 @@ function calculateZoneASpawn(
     }
 
 
+    console.warn(
+        "[Nova] Spawn fallback activo."
+    );
+
+
     return new THREE.Vector3(
 
         spawnX,
 
-        box.min.y +
+        box.min.y
+
+        +
+
         size.y *
         0.55,
 
@@ -2102,8 +2723,12 @@ function showNotification(
     text
 ) {
 
-    if (!notification) {
+    if (
+        !notification
+    ) {
+
         return;
+
     }
 
 
@@ -2133,9 +2758,11 @@ function showNotification(
 
             () => {
 
-                notification.classList.remove(
-                    "visible"
-                );
+                notification
+                    .classList
+                    .remove(
+                        "visible"
+                    );
 
             },
 
@@ -2156,15 +2783,19 @@ function updateFPSCounter(
 
     fpsFrames++;
 
+
     fpsTimer +=
         deltaTime;
 
 
     if (
         fpsTimer <
-        PERFORMANCE.fpsCounterInterval
+        PERFORMANCE
+            .fpsCounterInterval
     ) {
+
         return;
+
     }
 
 
@@ -2193,7 +2824,6 @@ function updateFPSCounter(
 
 
     fpsCounter.textContent =
-
         `FPS ${fps}`;
 
 
@@ -2244,14 +2874,17 @@ function updateAdaptiveQuality(
 ) {
 
     if (
-        !PERFORMANCE.adaptiveResolution
+        !PERFORMANCE
+            .adaptiveResolution
 
         ||
 
         currentState !==
         GAME_STATE.PLAYING
     ) {
+
         return;
+
     }
 
 
@@ -2264,9 +2897,12 @@ function updateAdaptiveQuality(
 
     if (
         qualityTimer <
-        PERFORMANCE.qualityCheckInterval
+        PERFORMANCE
+            .qualityCheckInterval
     ) {
+
         return;
+
     }
 
 
@@ -2282,14 +2918,16 @@ function updateAdaptiveQuality(
 
     if (
         fps <
-        PERFORMANCE.lowFPSThreshold
+        PERFORMANCE
+            .lowFPSThreshold
     ) {
 
         newRatio =
 
             Math.max(
 
-                PERFORMANCE.minPixelRatio,
+                PERFORMANCE
+                    .minPixelRatio,
 
                 currentPixelRatio -
                 0.06
@@ -2300,14 +2938,16 @@ function updateAdaptiveQuality(
 
     else if (
         fps >
-        PERFORMANCE.highFPSThreshold
+        PERFORMANCE
+            .highFPSThreshold
     ) {
 
         newRatio =
 
             Math.min(
 
-                PERFORMANCE.maxPixelRatio,
+                PERFORMANCE
+                    .maxPixelRatio,
 
                 currentPixelRatio +
                 0.03
@@ -2411,6 +3051,10 @@ function update(
 
 ) {
 
+    /* =====================================================
+       PERFORMANCE
+    ====================================================== */
+
     updateFPSCounter(
         deltaTime
     );
@@ -2421,6 +3065,19 @@ function update(
     );
 
 
+    /* =====================================================
+       PLAYER HEALTH
+    ====================================================== */
+
+    playerHealth.update(
+        deltaTime
+    );
+
+
+    /* =====================================================
+       PLAYING
+    ====================================================== */
+
     if (
         currentState ===
         GAME_STATE.PLAYING
@@ -2430,19 +3087,22 @@ function update(
            CAMERA DIRECTIONS
         ================================================= */
 
-        cameraManager.getForwardDirection(
-            cameraForward
-        );
+        cameraManager
+            .getForwardDirection(
+                cameraForward
+            );
 
 
-        cameraManager.getRightDirection(
-            cameraRight
-        );
+        cameraManager
+            .getRightDirection(
+                cameraRight
+            );
 
 
-        cameraManager.getAimDirection(
-            cameraAimDirection
-        );
+        cameraManager
+            .getAimDirection(
+                cameraAimDirection
+            );
 
 
         const cameraMode =
@@ -2460,7 +3120,7 @@ function update(
 
 
         /* =================================================
-           VIEW MODE
+           PLAYER VIEW MODE
         ================================================= */
 
         if (
@@ -2468,9 +3128,10 @@ function update(
             cachedFirstPerson
         ) {
 
-            playerController.setFirstPersonMode(
-                firstPerson
-            );
+            playerController
+                .setFirstPersonMode(
+                    firstPerson
+                );
 
 
             cachedFirstPerson =
@@ -2479,14 +3140,19 @@ function update(
         }
 
 
+        /* =================================================
+           WEAPON VIEW MODE
+        ================================================= */
+
         if (
             cameraMode !==
             cachedCameraMode
         ) {
 
-            weaponManager.setViewMode(
-                cameraMode
-            );
+            weaponManager
+                .setViewMode(
+                    cameraMode
+                );
 
 
             cachedCameraMode =
@@ -2495,14 +3161,19 @@ function update(
         }
 
 
+        /* =================================================
+           AIM
+        ================================================= */
+
         if (
             aiming !==
             cachedAiming
         ) {
 
-            weaponManager.setAiming(
-                aiming
-            );
+            weaponManager
+                .setAiming(
+                    aiming
+                );
 
 
             cachedAiming =
@@ -2512,18 +3183,26 @@ function update(
 
 
         /* =================================================
-           PLAYER
+           PLAYER AIM
         ================================================= */
 
-        playerController.setAimState(
+        playerController
+            .setAimState(
 
-            firstPerson ||
-            aiming,
+                firstPerson
 
-            cameraAimDirection
+                ||
 
-        );
+                aiming,
 
+                cameraAimDirection
+
+            );
+
+
+        /* =================================================
+           PLAYER UPDATE
+        ================================================= */
 
         playerController.update(
 
@@ -2537,31 +3216,60 @@ function update(
 
 
         /* =================================================
-           RAPIER
+           PLAYER PHYSICS REQUEST
         ================================================= */
 
-        physicsManager.moveCharacter(
+        physicsManager
+            .moveCharacter(
 
-            playerController.getDesiredMovement(),
+                playerController
+                    .getDesiredMovement(),
 
-            deltaTime
+                deltaTime
 
-        );
+            );
 
 
-        /*
-         * Un solo step de Rapier por frame.
-         */
+        /* =================================================
+           ENEMY PHYSICS REQUEST
+        ================================================= */
+
+        enemyManager
+            .prePhysicsUpdate(
+                deltaTime
+            );
+
+
+        /* =================================================
+           SINGLE RAPIER STEP
+        ================================================= */
+
         physicsManager.step(
             deltaTime
         );
 
 
-        physicsManager.syncCharacter(
+        /* =================================================
+           PLAYER SYNC
+        ================================================= */
 
-            playerController.getObject()
+        physicsManager
+            .syncCharacter(
 
-        );
+                playerController
+                    .getObject()
+
+            );
+
+
+        /* =================================================
+           ENEMY SYNC
+        ================================================= */
+
+        enemyManager
+            .postPhysicsUpdate(
+                deltaTime
+            );
 
 
         /* =================================================
@@ -2592,12 +3300,11 @@ function update(
 
 
         /* =================================================
-           ENEMY
+           ENEMY VISUALS
         ================================================= */
 
-        enemyManager.update(
-            deltaTime
-        );
+        enemyManager
+            .updateVisuals();
 
 
         /* =================================================
@@ -2615,7 +3322,8 @@ function update(
 
         const playerPosition =
 
-            playerController.getPosition();
+            playerController
+                .getPosition();
 
 
         playerLight.position.set(
@@ -2645,7 +3353,8 @@ function update(
             &&
 
             debugTimer >=
-            PERFORMANCE.debugInterval
+            PERFORMANCE
+                .debugInterval
         ) {
 
             debugTimer =
@@ -2660,21 +3369,42 @@ function update(
 
                 (
                     aiming
-                        ? " · ADS"
-                        : ""
+
+                        ?
+
+                        " · ADS"
+
+                        :
+
+                        ""
                 )
 
                 +
 
                 (
-                    physicsManager.isGrounded()
-                        ? " · GROUNDED"
-                        : " · AIRBORNE"
+                    physicsManager
+                        .isGrounded()
+
+                        ?
+
+                        " · GROUNDED"
+
+                        :
+
+                        " · AIRBORNE"
                 )
 
                 +
 
-                ` · HOSTILES ${enemyManager.getAliveCount()}`;
+                ` · HP ${Math.ceil(
+                    playerHealth
+                        .getHealth()
+                )}`
+
+                +
+
+                ` · HOSTILES ${enemyManager
+                    .getAliveCount()}`;
 
         }
 
@@ -2682,7 +3412,62 @@ function update(
 
 
     /* =====================================================
-       BACKGROUND
+       DYING
+
+       El gameplay queda bloqueado, pero Death.fbx
+       continúa reproduciéndose.
+    ====================================================== */
+
+    else if (
+        currentState ===
+        GAME_STATE.DYING
+    ) {
+
+        /* =================================================
+           PLAYER DEATH ANIMATION
+        ================================================= */
+
+        playerController
+            .updateAnimationOnly(
+                deltaTime
+            );
+
+
+        playerController
+            .getObject()
+            .updateMatrixWorld(
+                true
+            );
+
+
+        /* =================================================
+           CAMERA FOLLOWS PLAYER
+        ================================================= */
+
+        cameraManager.update(
+            deltaTime
+        );
+
+
+        /* =================================================
+           ENEMY VISUALS
+        ================================================= */
+
+        enemyManager
+            .updateVisuals();
+
+
+        /* =================================================
+           OBJECT VISUALS
+        ================================================= */
+
+        objectManager.update();
+
+    }
+
+
+    /* =====================================================
+       STARS
     ====================================================== */
 
     stars.rotation.y +=
@@ -2690,6 +3475,10 @@ function update(
         deltaTime *
         0.00030;
 
+
+    /* =====================================================
+       EMERGENCY LIGHT
+    ====================================================== */
 
     emergencyLight.intensity =
 
@@ -2705,6 +3494,7 @@ function update(
         )
 
         *
+
         4;
 
 }
@@ -2752,6 +3542,80 @@ function animate() {
 }
 
 
+/* =========================================================
+   AUTO RETRY SYSTEM
+
+   Si la página fue recargada mediante REINTENTAR,
+   sessionStorage contiene esta bandera.
+
+   Se elimina ANTES de iniciar Zona A para evitar
+   un loop de reinicios.
+========================================================= */
+
+const autoRetryZoneA =
+
+    sessionStorage.getItem(
+        "nova_retry_zone_a"
+    )
+
+    ===
+
+    "true";
+
+
+if (
+    autoRetryZoneA
+) {
+
+    console.log(
+        "[Nova] Retry detectado."
+    );
+
+
+    /* =====================================================
+       CONSUME FLAG
+    ====================================================== */
+
+    sessionStorage.removeItem(
+        "nova_retry_zone_a"
+    );
+
+
+    /* =====================================================
+       HIDE MENU IMMEDIATELY
+
+       Evita que el menú parpadee antes de cargar.
+    ====================================================== */
+
+    hideMainScreens();
+
+
+    /* =====================================================
+       START NEW GAME NEXT FRAME
+    ====================================================== */
+
+    requestAnimationFrame(
+
+        async () => {
+
+            console.log(
+                "[Nova] Reiniciando Zona A..."
+            );
+
+
+            await enterZoneA();
+
+        }
+
+    );
+
+}
+
+
+/* =========================================================
+   START LOOP
+========================================================= */
+
 animate();
 
 
@@ -2770,8 +3634,35 @@ console.log(
 
 console.log(
 
-    "%cPerformance + Lighting Build v0.8.5",
+    "%cSurvival Build v0.10.2",
 
     "color:#8effa8;"
+
+);
+
+
+console.log(
+
+    "%cPLAYER HIT / DEATH · ONLINE",
+
+    "color:#55ff99;"
+
+);
+
+
+console.log(
+
+    "%cFPS ENEMY SEPARATION · ONLINE",
+
+    "color:#55ff99;"
+
+);
+
+
+console.log(
+
+    "%cRETRY SYSTEM · ONLINE",
+
+    "color:#55ff99;"
 
 );

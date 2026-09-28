@@ -1,21 +1,13 @@
 /* =========================================================
    NOVA CATALYST
    Camera Manager
+   Build v0.8.6
 
-   Build v0.8.5
-
-   PERFORMANCE + HARD ROOM LIMITS
-
-   - TPS
-   - FPS
+   - TPS / FPS
    - ADS
-   - TPS pitch limits
-   - FPS pitch limits
-   - Fast Box3 wall collision
-   - Nearby wall cache
-   - Hard floor protection
-   - Hard ceiling protection
-   - Horizontal environment protection
+   - Fast Box3 environment collision
+   - Hard floor / ceiling limits
+   - Dynamic enemy separation in FPS
 ========================================================= */
 
 import * as THREE from "three";
@@ -84,16 +76,10 @@ export class CameraManager {
             new THREE.Box3();
 
 
-        /*
-         * Todas las cajas sólidas del escenario.
-         */
         this.wallBoxes =
             [];
 
 
-        /*
-         * Solo las cajas cercanas al jugador.
-         */
         this.nearbyWallBoxes =
             [];
 
@@ -106,10 +92,6 @@ export class CameraManager {
             0.12;
 
 
-        /*
-         * Radio suficiente para cubrir la distancia
-         * máxima de cámara.
-         */
         this.wallCacheRadius =
             8.0;
 
@@ -123,32 +105,37 @@ export class CameraManager {
 
 
         /* =================================================
-           HARD PLAYABLE LIMITS
+           ENEMY FPS BLOCKERS
         ================================================= */
 
-        /*
-         * La cámara nunca podrá bajar más de
-         * esta altura respecto a los pies del jugador.
-         */
+        this.dynamicBlockersProvider =
+            null;
+
+
+        this.dynamicBlockerRadius =
+            0.62;
+
+
+        this.blockerPosition =
+            new THREE.Vector3();
+
+
+        this.blockerSeparation =
+            new THREE.Vector3();
+
+
+        /* =================================================
+           HARD LIMITS
+        ================================================= */
+
         this.minHeightAbovePlayer =
             0.48;
 
 
-        /*
-         * La cámara nunca podrá superar esta altura
-         * respecto al jugador.
-
-         * Esto evita salir por el techo aunque el
-         * bounding box global del GLTF sea enorme.
-         */
         this.maxHeightAbovePlayer =
             2.70;
 
 
-        /*
-         * Último margen de seguridad respecto al
-         * bounding box del escenario.
-         */
         this.environmentPadding =
             0.30;
 
@@ -172,13 +159,6 @@ export class CameraManager {
             0.00175;
 
 
-        /*
-         * TPS:
-         *
-         * Más limitado porque mover demasiado el pitch
-         * hace que una cámara orbital quiera ir debajo
-         * del piso o sobre el techo.
-         */
         this.tpsMinPitch =
 
             THREE.MathUtils.degToRad(
@@ -193,12 +173,6 @@ export class CameraManager {
             );
 
 
-        /*
-         * FPS:
-         *
-         * Se puede mirar más arriba/abajo porque la
-         * posición de la cámara permanece en la cabeza.
-         */
         this.fpsMinPitch =
 
             THREE.MathUtils.degToRad(
@@ -255,6 +229,11 @@ export class CameraManager {
 
         /* =================================================
            FPS
+
+           Antes el offset era 0.58.
+
+           Ahora la cámara queda prácticamente dentro de la
+           cápsula física del jugador.
         ================================================= */
 
         this.fpsHeight =
@@ -262,11 +241,11 @@ export class CameraManager {
 
 
         this.fpsForwardOffset =
-            0.58;
+            0.06;
 
 
         this.fpsRightOffset =
-            0.02;
+            0;
 
 
         this.fpsAimHeight =
@@ -274,7 +253,7 @@ export class CameraManager {
 
 
         this.fpsAimForwardOffset =
-            0.58;
+            0.06;
 
 
         this.fpsAimRightOffset =
@@ -322,15 +301,11 @@ export class CameraManager {
 
 
         /* =================================================
-           WALL COLLISION
+           COLLISION
         ================================================= */
 
         this.wallPadding =
             0.22;
-
-
-        this.lastAllowedDistance =
-            Infinity;
 
 
         /* =================================================
@@ -435,32 +410,35 @@ export class CameraManager {
 
                 if (
                     !object.isMesh
-
                     ||
-
                     !object.geometry
-
                     ||
-
                     !object.visible
                 ) {
+
                     return;
-                }
-
-
-                if (
-                    !object.geometry.boundingBox
-                ) {
-
-                    object.geometry.computeBoundingBox();
 
                 }
 
 
                 if (
-                    !object.geometry.boundingBox
+                    !object.geometry
+                        .boundingBox
                 ) {
+
+                    object.geometry
+                        .computeBoundingBox();
+
+                }
+
+
+                if (
+                    !object.geometry
+                        .boundingBox
+                ) {
+
                     return;
+
                 }
 
 
@@ -482,17 +460,16 @@ export class CameraManager {
 
 
                 /*
-                 * Para paredes solo nos interesan
-                 * volúmenes con cierta altura.
-                 *
-                 * Piso y techo se controlan con el
-                 * HARD LIMIT relativo al jugador.
+                 * Pisos planos no se usan para el
+                 * ray/box horizontal.
                  */
                 if (
                     this.boxSize.y <
                     0.45
                 ) {
+
                     return;
+
                 }
 
 
@@ -514,9 +491,57 @@ export class CameraManager {
 
         console.log(
 
-            "[Camera] Hard floor/ceiling limits ONLINE"
+            "[Camera] FPS enemy separation ONLINE"
 
         );
+
+    }
+
+
+    /* =====================================================
+       DYNAMIC ENEMY PROVIDER
+    ====================================================== */
+
+    setDynamicBlockersProvider(
+        provider
+    ) {
+
+        this.dynamicBlockersProvider =
+
+            typeof provider ===
+            "function"
+
+                ?
+
+                provider
+
+                :
+
+                null;
+
+    }
+
+
+    /* =====================================================
+       ADS
+    ====================================================== */
+
+    setADSAnchorProvider(
+        provider
+    ) {
+
+        this.adsAnchorProvider =
+            provider;
+
+    }
+
+
+    setPointerLockChangeHandler(
+        handler
+    ) {
+
+        this.pointerLockChangeHandler =
+            handler;
 
     }
 
@@ -548,12 +573,12 @@ export class CameraManager {
 
                 if (
                     !this.enabled
-
                     ||
-
                     this.paused
                 ) {
+
                     return;
+
                 }
 
 
@@ -565,6 +590,7 @@ export class CameraManager {
 
 
                     this.requestPointerLock();
+
 
                     return;
 
@@ -615,16 +641,14 @@ export class CameraManager {
 
                 if (
                     !this.enabled
-
                     ||
-
                     this.paused
-
                     ||
-
                     !this.pointerLocked
                 ) {
+
                     return;
+
                 }
 
 
@@ -640,9 +664,6 @@ export class CameraManager {
                     this.mouseSensitivity;
 
 
-                /*
-                 * Límite diferente según cámara.
-                 */
                 if (
                     this.mode ===
                     "FPS"
@@ -691,21 +712,17 @@ export class CameraManager {
 
                 if (
                     !this.enabled
-
                     ||
-
                     this.paused
-
                     ||
-
                     this.mode !==
                     "TPS"
-
                     ||
-
                     this.aiming
                 ) {
+
                     return;
+
                 }
 
 
@@ -748,16 +765,14 @@ export class CameraManager {
 
                 if (
                     !this.enabled
-
                     ||
-
                     this.paused
-
                     ||
-
                     event.repeat
                 ) {
+
                     return;
+
                 }
 
 
@@ -802,8 +817,7 @@ export class CameraManager {
 
 
                 if (
-                    typeof
-                    this.pointerLockChangeHandler ===
+                    typeof this.pointerLockChangeHandler ===
                     "function"
                 ) {
 
@@ -825,18 +839,8 @@ export class CameraManager {
 
 
     /* =====================================================
-       COMPATIBILITY
+       POINTER LOCK
     ====================================================== */
-
-    setADSAnchorProvider(
-        provider
-    ) {
-
-        this.adsAnchorProvider =
-            provider;
-
-    }
-
 
     cancelAim() {
 
@@ -846,34 +850,18 @@ export class CameraManager {
     }
 
 
-    setPointerLockChangeHandler(
-        handler
-    ) {
-
-        this.pointerLockChangeHandler =
-            handler;
-
-    }
-
-
-    /* =====================================================
-       POINTER LOCK
-    ====================================================== */
-
     requestPointerLock() {
 
         if (
             !this.enabled
-
             ||
-
             this.paused
-
             ||
-
             this.pointerLocked
         ) {
+
             return;
+
         }
 
 
@@ -928,10 +916,6 @@ export class CameraManager {
 
     }
 
-
-    /* =====================================================
-       STATE
-    ====================================================== */
 
     enable() {
 
@@ -996,8 +980,12 @@ export class CameraManager {
             target;
 
 
-        if (!target) {
+        if (
+            !target
+        ) {
+
             return;
+
         }
 
 
@@ -1009,16 +997,15 @@ export class CameraManager {
         );
 
 
-        /*
-         * Construimos cache inmediatamente.
-         */
         this.refreshNearbyWalls();
 
 
         if (
             !snap
         ) {
+
             return;
+
         }
 
 
@@ -1040,6 +1027,13 @@ export class CameraManager {
                 this.forward,
 
                 -this.tpsDistance
+
+            )
+            .addScaledVector(
+
+                this.right,
+
+                this.tpsSideOffset
 
             );
 
@@ -1086,7 +1080,7 @@ export class CameraManager {
 
 
     /* =====================================================
-       DIRECTION
+       DIRECTIONS
     ====================================================== */
 
     updateDirectionVectors() {
@@ -1161,12 +1155,12 @@ export class CameraManager {
 
         if (
             !this.target
-
             ||
-
             !this.environment
         ) {
+
             return;
+
         }
 
 
@@ -1234,14 +1228,7 @@ export class CameraManager {
 
 
     /* =====================================================
-       HARD LIMITS
-
-       Esta es la protección definitiva.
-
-       NO depende solamente del bounding box
-       del escenario.
-
-       Utiliza la altura real del jugador.
+       HARD MAP LIMITS
     ====================================================== */
 
     applyHardLimits(
@@ -1251,7 +1238,9 @@ export class CameraManager {
         if (
             !this.target
         ) {
+
             return;
+
         }
 
 
@@ -1259,10 +1248,6 @@ export class CameraManager {
             this.clampReference
         );
 
-
-        /* =================================================
-           PLAYER-RELATIVE FLOOR
-        ================================================= */
 
         let minimumY =
 
@@ -1273,10 +1258,6 @@ export class CameraManager {
             this.minHeightAbovePlayer;
 
 
-        /* =================================================
-           PLAYER-RELATIVE CEILING
-        ================================================= */
-
         let maximumY =
 
             this.clampReference.y
@@ -1285,10 +1266,6 @@ export class CameraManager {
 
             this.maxHeightAbovePlayer;
 
-
-        /* =================================================
-           GLOBAL FALLBACK
-        ================================================= */
 
         if (
             this.environment
@@ -1324,10 +1301,6 @@ export class CameraManager {
                 );
 
 
-            /*
-             * Si el GLTF tiene un bounding box extraño,
-             * nunca permitimos invertir límites.
-             */
             if (
                 maximumY <=
                 minimumY
@@ -1340,10 +1313,6 @@ export class CameraManager {
 
             }
 
-
-            /* =================================================
-               ABSOLUTE X / Z SAFETY
-            ================================================= */
 
             position.x =
 
@@ -1405,7 +1374,7 @@ export class CameraManager {
 
 
     /* =====================================================
-       FAST WALL COLLISION
+       ENVIRONMENT CAMERA COLLISION
     ====================================================== */
 
     calculateAllowedDistance(
@@ -1460,17 +1429,14 @@ export class CameraManager {
             of this.nearbyWallBoxes
         ) {
 
-            /*
-             * Bounding boxes grandes que contienen
-             * el pivot completo no funcionan como
-             * pared concreta y se ignoran.
-             */
             if (
                 box.containsPoint(
                     pivot
                 )
             ) {
+
                 continue;
+
             }
 
 
@@ -1485,8 +1451,12 @@ export class CameraManager {
                 );
 
 
-            if (!hit) {
+            if (
+                !hit
+            ) {
+
                 continue;
+
             }
 
 
@@ -1500,13 +1470,13 @@ export class CameraManager {
             if (
                 distance <=
                 0.01
-
                 ||
-
                 distance >=
                 nearestDistance
             ) {
+
                 continue;
+
             }
 
 
@@ -1525,7 +1495,7 @@ export class CameraManager {
 
                 Math.max(
 
-                    this.tpsMinDistance,
+                    0.28,
 
                     nearestDistance -
                     this.wallPadding
@@ -1539,13 +1509,6 @@ export class CameraManager {
 
     }
 
-
-    /* =====================================================
-       POSITION CORRECTION
-
-       Box collision se hace cada frame,
-       pero solo contra cajas CERCANAS.
-    ====================================================== */
 
     correctCameraPosition(
 
@@ -1589,9 +1552,7 @@ export class CameraManager {
         if (
             requestedDistance >
             0.001
-
             &&
-
             allowedDistance <
             requestedDistance
         ) {
@@ -1615,11 +1576,207 @@ export class CameraManager {
         }
 
 
-        /*
-         * Aplicar SIEMPRE al resultado.
-         */
         this.applyHardLimits(
             output
+        );
+
+    }
+
+
+    /* =====================================================
+       FPS ENEMY SEPARATION
+    ====================================================== */
+
+    applyDynamicBlockerSeparation(
+        position
+    ) {
+
+        if (
+            typeof this.dynamicBlockersProvider !==
+            "function"
+        ) {
+
+            return;
+
+        }
+
+
+        const blockers =
+
+            this.dynamicBlockersProvider();
+
+
+        if (
+            !Array.isArray(
+                blockers
+            )
+            ||
+            blockers.length ===
+            0
+        ) {
+
+            return;
+
+        }
+
+
+        for (
+            const blocker
+            of blockers
+        ) {
+
+            if (
+                !blocker
+            ) {
+
+                continue;
+
+            }
+
+
+            if (
+                typeof blocker
+                    .getWorldPosition ===
+                "function"
+            ) {
+
+                blocker.getWorldPosition(
+                    this.blockerPosition
+                );
+
+            }
+
+            else if (
+                blocker.position
+            ) {
+
+                this.blockerPosition.copy(
+                    blocker.position
+                );
+
+            }
+
+            else {
+
+                continue;
+
+            }
+
+
+            /*
+             * Si está en otro piso, no afecta.
+             */
+            const blockerCenterY =
+
+                this.blockerPosition.y
+
+                +
+
+                1.05;
+
+
+            if (
+                Math.abs(
+
+                    position.y -
+                    blockerCenterY
+
+                ) >
+                1.25
+            ) {
+
+                continue;
+
+            }
+
+
+            this.blockerSeparation.set(
+
+                position.x -
+                this.blockerPosition.x,
+
+                0,
+
+                position.z -
+                this.blockerPosition.z
+
+            );
+
+
+            const distance =
+
+                this.blockerSeparation
+                    .length();
+
+
+            if (
+                distance >=
+                this.dynamicBlockerRadius
+            ) {
+
+                continue;
+
+            }
+
+
+            if (
+                distance <
+                0.0001
+            ) {
+
+                this.blockerSeparation
+                    .copy(
+                        this.horizontalForward
+                    )
+                    .multiplyScalar(
+                        -1
+                    );
+
+            }
+
+            else {
+
+                this.blockerSeparation
+                    .multiplyScalar(
+
+                        1 /
+                        distance
+
+                    );
+
+            }
+
+
+            position.x =
+
+                this.blockerPosition.x
+
+                +
+
+                this.blockerSeparation.x
+
+                *
+
+                this.dynamicBlockerRadius;
+
+
+            position.z =
+
+                this.blockerPosition.z
+
+                +
+
+                this.blockerSeparation.z
+
+                *
+
+                this.dynamicBlockerRadius;
+
+        }
+
+
+        this.applyHardLimits(
+            position
         );
 
     }
@@ -1706,7 +1863,8 @@ export class CameraManager {
                 newFov;
 
 
-            this.camera.updateProjectionMatrix();
+            this.camera
+                .updateProjectionMatrix();
 
         }
 
@@ -1787,12 +1945,6 @@ export class CameraManager {
         );
 
 
-        /*
-         * Important:
-         *
-         * Lerp puede crear un frame intermedio fuera
-         * del límite. Lo corregimos otra vez DESPUÉS.
-         */
         this.applyHardLimits(
             this.camera.position
         );
@@ -1963,10 +2115,7 @@ export class CameraManager {
 
                     this.fpsForwardOffset
 
-            );
-
-
-        this.desiredPosition
+            )
             .addScaledVector(
 
                 this.right,
@@ -1989,9 +2138,15 @@ export class CameraManager {
         );
 
 
-        this.camera.position.lerp(
+        /*
+         * Primera corrección antes del lerp.
+         */
+        this.applyDynamicBlockerSeparation(
+            this.desiredPosition
+        );
 
-            this.desiredPosition,
+
+        const alpha =
 
             1 -
 
@@ -2000,8 +2155,23 @@ export class CameraManager {
                 -this.fpsResponse *
                 deltaTime
 
-            )
+            );
 
+
+        this.camera.position.lerp(
+
+            this.desiredPosition,
+
+            alpha
+
+        );
+
+
+        /*
+         * Segunda corrección después del lerp.
+         */
+        this.applyDynamicBlockerSeparation(
+            this.camera.position
         );
 
 
@@ -2054,10 +2224,6 @@ export class CameraManager {
             false;
 
 
-        /*
-         * Clamp inmediatamente al rango del
-         * modo seleccionado.
-         */
         if (
             this.mode ===
             "FPS"
@@ -2098,9 +2264,7 @@ export class CameraManager {
 
 
         console.log(
-
             `[Camera] ${this.mode}`
-
         );
 
     }
@@ -2116,24 +2280,16 @@ export class CameraManager {
 
         if (
             !this.enabled
-
             ||
-
             this.paused
-
             ||
-
             !this.target
         ) {
+
             return;
+
         }
 
-
-        /* =================================================
-           WALL CACHE
-
-           Barato: solo cada 120 ms.
-        ================================================= */
 
         this.wallCacheTimer -=
             deltaTime;
@@ -2191,13 +2347,6 @@ export class CameraManager {
         }
 
 
-        /*
-         * Último seguro del frame.
-
-         * Aunque cualquier cálculo anterior
-         * intente sacar la cámara del volumen,
-         * termina aquí dentro otra vez.
-         */
         this.applyHardLimits(
             this.camera.position
         );

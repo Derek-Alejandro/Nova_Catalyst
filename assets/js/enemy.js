@@ -2,16 +2,21 @@
    NOVA CATALYST
    Enemy System
 
-   Performance Build v0.8.4
+   Build v0.10.0
 
-   - FBX
-   - AnimationMixer
-   - Spawn anomaly
-   - 30 Hz AI
-   - Box wall collision
-   - No triangle raycasting
-   - Object avoidance
-   - Player separation
+   ---------------------------------------------------------
+   - FBX enemy
+   - Red spawn anomaly
+   - Rapier enemy physics
+   - CharacterController
+   - Wall sliding
+   - Snap-to-ground
+   - Anti-stuck steering
+   - Player pursuit
+   - Attack damage
+   - Animation-synchronized hit
+   - Hit / Death
+   - Health bar
 ========================================================= */
 
 import * as THREE from "three";
@@ -74,6 +79,10 @@ const ENEMY_CONFIG = {
         100,
 
 
+    /* =====================================================
+       AI
+    ====================================================== */
+
     detectionDistance:
         45,
 
@@ -83,9 +92,18 @@ const ENEMY_CONFIG = {
     attackDistance:
         1.55,
 
-    playerCollisionDistance:
-        1.05,
 
+    /*
+     * El jugador debe seguir a esta distancia
+     * cuando llegue el frame de impacto.
+     */
+    damageDistance:
+        1.82,
+
+
+    /* =====================================================
+       MOVEMENT
+    ====================================================== */
 
     walkSpeed:
         1.35,
@@ -94,64 +112,63 @@ const ENEMY_CONFIG = {
         3.15,
 
     rotationSpeed:
-        9,
-
-
-    radius:
-        0.42,
+        9.0,
 
 
     /* =====================================================
-       30 Hz AI
+       PHYSICS
     ====================================================== */
 
-    aiStep:
-        1 / 30,
+    physicsRadius:
+        0.31,
+
+    physicsMass:
+        68,
 
 
     /* =====================================================
-       STATIC COLLISION CACHE
+       COMBAT
     ====================================================== */
 
-    wallCacheInterval:
-        0.15,
-
-    wallCacheRadius:
-        2.2,
-
-    wallProbeDistance:
-        0.60,
-
-
-    /* =====================================================
-       DYNAMIC OBJECTS
-    ====================================================== */
-
-    objectCheckInterval:
-        0.14,
-
-    obstacleRadius:
-        1.25,
-
-    avoidanceStrength:
-        2.2,
-
-    pushRadius:
-        0.85,
-
-    pushForce:
-        0.9,
-
-    pushCooldown:
-        0.18,
-
-
-    /* =====================================================
-       ATTACK
-    ====================================================== */
+    attackDamage:
+        10,
 
     attackCooldown:
         1.30,
+
+
+    /*
+     * Momento de impacto dentro de cada animación.
+     *
+     * 0.50 = 50% de la duración.
+     */
+    attackImpactRatio01:
+        0.48,
+
+    attackImpactRatio02:
+        0.53,
+
+
+    /* =====================================================
+       AI REFRESH
+    ====================================================== */
+
+    aiInterval:
+        0.08,
+
+
+    /* =====================================================
+       ANTI-STUCK
+    ====================================================== */
+
+    stuckTime:
+        0.28,
+
+    steerDuration:
+        0.70,
+
+    steerStrength:
+        0.82,
 
 
     /* =====================================================
@@ -164,6 +181,10 @@ const ENEMY_CONFIG = {
     spawnParticles:
         18,
 
+
+    /* =====================================================
+       HUD
+    ====================================================== */
 
     healthBarHeight:
         2.16
@@ -213,7 +234,6 @@ class EnemySpawnEffect {
         ================================================= */
 
         this.ring =
-
             new THREE.Mesh(
 
                 new THREE.RingGeometry(
@@ -269,7 +289,6 @@ class EnemySpawnEffect {
         ================================================= */
 
         this.column =
-
             new THREE.Mesh(
 
                 new THREE.CylinderGeometry(
@@ -327,7 +346,6 @@ class EnemySpawnEffect {
         ================================================= */
 
         const positions =
-
             new Float32Array(
 
                 ENEMY_CONFIG.spawnParticles *
@@ -386,11 +404,13 @@ class EnemySpawnEffect {
 
                 speed:
                     1 +
-                    Math.random() * 2,
+                    Math.random() *
+                    2,
 
                 rise:
                     0.4 +
-                    Math.random() * 0.7
+                    Math.random() *
+                    0.7
 
             });
 
@@ -417,7 +437,6 @@ class EnemySpawnEffect {
 
 
         this.particles =
-
             new THREE.Points(
 
                 geometry,
@@ -457,7 +476,6 @@ class EnemySpawnEffect {
         ================================================= */
 
         this.light =
-
             new THREE.PointLight(
 
                 0xff1818,
@@ -493,7 +511,9 @@ class EnemySpawnEffect {
         if (
             this.finished
         ) {
+
             return;
+
         }
 
 
@@ -518,7 +538,8 @@ class EnemySpawnEffect {
         this.ring.scale.setScalar(
 
             0.45 +
-            progress * 2.1
+            progress *
+            2.1
 
         );
 
@@ -538,20 +559,25 @@ class EnemySpawnEffect {
                 this.elapsed *
                 15
 
-            ) *
+            )
+
+            *
+
             0.5;
 
 
         this.column.material.opacity =
 
             0.05 +
-            pulse * 0.08;
+            pulse *
+            0.08;
 
 
         this.light.intensity =
 
             10 +
-            pulse * 8;
+            pulse *
+            8;
 
 
         const attribute =
@@ -583,7 +609,9 @@ class EnemySpawnEffect {
 
 
             let y =
-                array[i * 3 + 1];
+                array[
+                    i * 3 + 1
+                ];
 
 
             y +=
@@ -607,7 +635,10 @@ class EnemySpawnEffect {
 
                 Math.cos(
                     data.angle
-                ) *
+                )
+
+                *
+
                 data.radius;
 
 
@@ -619,7 +650,10 @@ class EnemySpawnEffect {
 
                 Math.sin(
                     data.angle
-                ) *
+                )
+
+                *
+
                 data.radius;
 
         }
@@ -641,7 +675,10 @@ class EnemySpawnEffect {
                 (
                     progress -
                     0.72
-                ) /
+                )
+
+                /
+
                 0.28;
 
 
@@ -682,7 +719,9 @@ class EnemySpawnEffect {
         if (
             this.finished
         ) {
+
             return;
+
         }
 
 
@@ -694,9 +733,37 @@ class EnemySpawnEffect {
 
             object => {
 
-                object.geometry?.dispose?.();
+                object.geometry
+                    ?.dispose
+                    ?.();
 
-                object.material?.dispose?.();
+
+                if (
+                    Array.isArray(
+                        object.material
+                    )
+                ) {
+
+                    for (
+                        const material
+                        of object.material
+                    ) {
+
+                        material
+                            ?.dispose
+                            ?.();
+
+                    }
+
+                }
+
+                else {
+
+                    object.material
+                        ?.dispose
+                        ?.();
+
+                }
 
             }
 
@@ -730,11 +797,11 @@ export class Enemy {
 
         playerController,
 
-        objectManager,
-
         physicsManager,
 
-        wallBoxes
+        camera,
+
+        playerHealth
 
     }) {
 
@@ -746,16 +813,16 @@ export class Enemy {
             playerController;
 
 
-        this.objectManager =
-            objectManager;
-
-
         this.physicsManager =
             physicsManager;
 
 
-        this.allWallBoxes =
-            wallBoxes;
+        this.camera =
+            camera;
+
+
+        this.playerHealth =
+            playerHealth;
 
 
         /* =================================================
@@ -766,16 +833,16 @@ export class Enemy {
             new THREE.Group();
 
 
+        this.root.name =
+            "NovaCatalyst_BaseEnemy";
+
+
         this.root.position.copy(
             spawnPosition
         );
 
 
-        this.baseY =
-            spawnPosition.y;
-
-
-        scene.add(
+        this.scene.add(
             this.root
         );
 
@@ -785,10 +852,15 @@ export class Enemy {
         ================================================= */
 
         this.model =
-
             SkeletonUtils.clone(
+
                 modelSource
+
             );
+
+
+        this.model.name =
+            "Enemy_Visual";
 
 
         this.root.add(
@@ -800,12 +872,12 @@ export class Enemy {
            STATE
         ================================================= */
 
-        this.health =
-            ENEMY_CONFIG.maxHealth;
-
-
         this.maxHealth =
             ENEMY_CONFIG.maxHealth;
+
+
+        this.health =
+            this.maxHealth;
 
 
         this.dead =
@@ -820,26 +892,15 @@ export class Enemy {
             ENEMY_CONFIG.spawnDuration;
 
 
-        this.model.visible =
-            false;
-
-
-        this.spawnEffect =
-
-            new EnemySpawnEffect(
-
-                scene,
-
-                spawnPosition
-
-            );
-
-
         this.isHit =
             false;
 
 
         this.isAttacking =
+            false;
+
+
+        this.attackHasDealtDamage =
             false;
 
 
@@ -851,24 +912,30 @@ export class Enemy {
             "Idle";
 
 
+        this.model.visible =
+            false;
+
+
         /* =================================================
-           TIMERS
+           SPAWN EFFECT
         ================================================= */
 
-        this.aiAccumulator =
-            0;
+        this.spawnEffect =
+            new EnemySpawnEffect(
+
+                this.scene,
+
+                spawnPosition
+
+            );
 
 
-        this.wallCacheTimer =
-            0;
+        /* =================================================
+           PHYSICS
+        ================================================= */
 
-
-        this.objectTimer =
-            0;
-
-
-        this.pushTimer =
-            0;
+        this.physicsHandle =
+            null;
 
 
         /* =================================================
@@ -876,9 +943,10 @@ export class Enemy {
         ================================================= */
 
         this.mixer =
-
             new THREE.AnimationMixer(
+
                 this.model
+
             );
 
 
@@ -895,34 +963,52 @@ export class Enemy {
 
 
         /* =================================================
-           COLLISION
+           AI
         ================================================= */
 
-        this.nearbyWalls =
-            [];
+        this.aiTimer =
+            0;
 
 
-        this.queryBox =
-            new THREE.Box3();
-
-
-        this.collisionRay =
-            new THREE.Ray();
-
-
-        this.collisionPoint =
-            new THREE.Vector3();
-
-
-        this.wallNormal =
-            new THREE.Vector3();
+        this.desiredSpeed =
+            0;
 
 
         /* =================================================
-           TEMP
+           ANTI-STUCK
+        ================================================= */
+
+        this.stuckTimer =
+            0;
+
+
+        this.steerTimer =
+            0;
+
+
+        this.steerSign =
+
+            Math.random() <
+            0.5
+
+                ?
+
+                -1
+
+                :
+
+                1;
+
+
+        /* =================================================
+           VECTORS
         ================================================= */
 
         this.playerPosition =
+            new THREE.Vector3();
+
+
+        this.enemyPosition =
             new THREE.Vector3();
 
 
@@ -930,28 +1016,20 @@ export class Enemy {
             new THREE.Vector3();
 
 
-        this.finalDirection =
+        this.directDirection =
             new THREE.Vector3();
 
 
-        this.avoidance =
+        this.sideDirection =
             new THREE.Vector3();
 
 
-        this.tempDirection =
+        this.faceDirection =
             new THREE.Vector3();
 
 
-        this.tempPosition =
-            new THREE.Vector3();
-
-
-        this.rightDirection =
-            new THREE.Vector3();
-
-
-        this.slideDirection =
-            new THREE.Vector3();
+        this.lastSyncedPosition =
+            spawnPosition.clone();
 
 
         this.targetQuaternion =
@@ -959,7 +1037,17 @@ export class Enemy {
 
 
         this.tempEuler =
-            new THREE.Euler();
+            new THREE.Euler(
+
+                0,
+
+                0,
+
+                0,
+
+                "YXZ"
+
+            );
 
 
         /* =================================================
@@ -968,17 +1056,24 @@ export class Enemy {
 
         this.configureModel();
 
+
         this.createActions(
             animationClips
         );
 
+
         this.createHealthBar();
+
 
         this.markMeshes();
 
+
         this.playAnimation(
+
             "Idle",
+
             0
+
         );
 
     }
@@ -997,12 +1092,14 @@ export class Enemy {
                 if (
                     !object.isMesh
                 ) {
+
                     return;
+
                 }
 
 
                 object.castShadow =
-                    false;
+                    true;
 
 
                 object.receiveShadow =
@@ -1037,7 +1134,6 @@ export class Enemy {
 
 
         let box =
-
             new THREE.Box3()
                 .setFromObject(
                     this.model
@@ -1074,7 +1170,6 @@ export class Enemy {
 
 
         box =
-
             new THREE.Box3()
                 .setFromObject(
                     this.model
@@ -1084,8 +1179,17 @@ export class Enemy {
         this.model.position.y -=
             box.min.y;
 
+
+        this.model.updateMatrixWorld(
+            true
+        );
+
     }
 
+
+    /* =====================================================
+       HIT MESHES
+    ====================================================== */
 
     markMeshes() {
 
@@ -1096,7 +1200,9 @@ export class Enemy {
                 if (
                     !object.isMesh
                 ) {
+
                     return;
+
                 }
 
 
@@ -1128,7 +1234,8 @@ export class Enemy {
         ) {
 
             const name =
-                track.name.toLowerCase();
+                track.name
+                    .toLowerCase();
 
 
             if (
@@ -1136,18 +1243,28 @@ export class Enemy {
                     ".position"
                 )
             ) {
+
                 continue;
+
             }
 
 
             if (
-                !name.includes("hips")
+
+                !name.includes(
+                    "hips"
+                )
 
                 &&
 
-                !name.includes("root")
+                !name.includes(
+                    "root"
+                )
+
             ) {
+
                 continue;
+
             }
 
 
@@ -1159,7 +1276,9 @@ export class Enemy {
                 values.length <
                 3
             ) {
+
                 continue;
+
             }
 
 
@@ -1224,9 +1343,10 @@ export class Enemy {
 
             const action =
 
-                this.mixer.clipAction(
-                    clip
-                );
+                this.mixer
+                    .clipAction(
+                        clip
+                    );
 
 
             action._novaName =
@@ -1234,24 +1354,33 @@ export class Enemy {
 
 
             if (
-                name === "Attack_01"
+
+                name ===
+                "Attack_01"
 
                 ||
 
-                name === "Attack_02"
+                name ===
+                "Attack_02"
 
                 ||
 
-                name === "Hit"
+                name ===
+                "Hit"
 
                 ||
 
-                name === "Death"
+                name ===
+                "Death"
+
             ) {
 
                 action.setLoop(
+
                     THREE.LoopOnce,
+
                     1
+
                 );
 
 
@@ -1263,8 +1392,11 @@ export class Enemy {
             else {
 
                 action.setLoop(
+
                     THREE.LoopRepeat,
+
                     Infinity
+
                 );
 
             }
@@ -1285,7 +1417,8 @@ export class Enemy {
             event => {
 
                 const name =
-                    event.action?._novaName;
+                    event.action
+                        ?._novaName;
 
 
                 if (
@@ -1301,7 +1434,11 @@ export class Enemy {
                         !this.dead
                     ) {
 
-                        this.changeState(
+                        this.state =
+                            "Idle";
+
+
+                        this.playAnimation(
                             "Idle"
                         );
 
@@ -1314,14 +1451,22 @@ export class Enemy {
 
 
                 if (
-                    name === "Attack_01"
+
+                    name ===
+                    "Attack_01"
 
                     ||
 
-                    name === "Attack_02"
+                    name ===
+                    "Attack_02"
+
                 ) {
 
                     this.isAttacking =
+                        false;
+
+
+                    this.attackHasDealtDamage =
                         false;
 
 
@@ -1329,7 +1474,11 @@ export class Enemy {
                         !this.dead
                     ) {
 
-                        this.changeState(
+                        this.state =
+                            "Idle";
+
+
+                        this.playAnimation(
                             "Idle"
                         );
 
@@ -1345,26 +1494,32 @@ export class Enemy {
 
 
     playAnimation(
+
         name,
+
         fade = 0.12
+
     ) {
 
         const next =
-
             this.actions.get(
                 name
             );
 
 
         if (
+
             !next
 
             ||
 
             next ===
             this.currentAction
+
         ) {
+
             return;
+
         }
 
 
@@ -1374,8 +1529,15 @@ export class Enemy {
 
         next.reset();
 
+
         next.enabled =
             true;
+
+
+        next.setEffectiveWeight(
+            1
+        );
+
 
         next.play();
 
@@ -1407,13 +1569,27 @@ export class Enemy {
 
         if (
             this.dead
+        ) {
 
-            ||
+            return;
+
+        }
+
+
+        if (
 
             this.state ===
             state
+
+            &&
+
+            this.currentActionName ===
+            state
+
         ) {
+
             return;
+
         }
 
 
@@ -1447,12 +1623,11 @@ export class Enemy {
         );
 
 
-        this.healthBack =
-
+        const background =
             new THREE.Mesh(
 
                 new THREE.PlaneGeometry(
-                    1,
+                    1.0,
                     0.10
                 ),
 
@@ -1461,16 +1636,31 @@ export class Enemy {
                     color:
                         0x111111,
 
+                    transparent:
+                        true,
+
+                    opacity:
+                        0.82,
+
                     depthTest:
-                        false
+                        false,
+
+                    depthWrite:
+                        false,
+
+                    side:
+                        THREE.DoubleSide
 
                 })
 
             );
 
 
-        this.healthFill =
+        background.renderOrder =
+            1000;
 
+
+        this.healthFill =
             new THREE.Mesh(
 
                 new THREE.PlaneGeometry(
@@ -1484,7 +1674,13 @@ export class Enemy {
                         0xd82620,
 
                     depthTest:
-                        false
+                        false,
+
+                    depthWrite:
+                        false,
+
+                    side:
+                        THREE.DoubleSide
 
                 })
 
@@ -1495,9 +1691,13 @@ export class Enemy {
             0.002;
 
 
+        this.healthFill.renderOrder =
+            1001;
+
+
         this.healthBar.add(
 
-            this.healthBack,
+            background,
 
             this.healthFill
 
@@ -1510,20 +1710,23 @@ export class Enemy {
     }
 
 
-    updateHealthBar(
+    updateVisuals(
         camera
     ) {
 
         if (
-            this.spawning
+
+            this.dead
 
             ||
 
-            this.dead
+            this.spawning
+
         ) {
 
             this.healthBar.visible =
                 false;
+
 
             return;
 
@@ -1534,15 +1737,23 @@ export class Enemy {
             true;
 
 
-        this.healthBar.quaternion.copy(
-            camera.quaternion
+        this.healthBar.lookAt(
+            camera.position
         );
 
 
         const percent =
 
-            this.health /
-            this.maxHealth;
+            THREE.MathUtils.clamp(
+
+                this.health /
+                this.maxHealth,
+
+                0,
+
+                1
+
+            );
 
 
         this.healthFill.scale.x =
@@ -1561,354 +1772,102 @@ export class Enemy {
 
 
     /* =====================================================
-       LOCAL WALL CACHE
+       PHYSICS CHARACTER
     ====================================================== */
 
-    refreshWallCache() {
+    createPhysicsCharacter() {
 
-        this.nearbyWalls.length =
-            0;
-
-
-        const radius =
-            ENEMY_CONFIG.wallCacheRadius;
-
-
-        this.queryBox.min.set(
-
-            this.root.position.x -
-            radius,
-
-            this.root.position.y,
-
-            this.root.position.z -
-            radius
-
-        );
-
-
-        this.queryBox.max.set(
-
-            this.root.position.x +
-            radius,
-
-            this.root.position.y +
-            2,
-
-            this.root.position.z +
-            radius
-
-        );
-
-
-        for (
-            const box
-            of this.allWallBoxes
+        if (
+            this.physicsHandle
         ) {
 
-            if (
-                box.intersectsBox(
-                    this.queryBox
-                )
-            ) {
-
-                this.nearbyWalls.push(
-                    box
-                );
-
-            }
+            return;
 
         }
+
+
+        this.physicsHandle =
+
+            this.physicsManager
+                .createEnemyCharacter({
+
+                    spawnPosition:
+                        this.root.position,
+
+                    height:
+                        ENEMY_CONFIG.targetHeight,
+
+                    radius:
+                        ENEMY_CONFIG.physicsRadius,
+
+                    mass:
+                        ENEMY_CONFIG.physicsMass
+
+                });
+
+
+        this.lastSyncedPosition.copy(
+            this.root.position
+        );
 
     }
 
 
     /* =====================================================
-       BOX NORMAL
+       SPAWN
     ====================================================== */
 
-    getBoxNormal(
-
-        box,
-
-        point,
-
-        output
-
+    updateSpawn(
+        deltaTime
     ) {
 
-        let best =
-            Infinity;
-
-
-        output.set(
-            0,
-            0,
-            0
-        );
-
-
-        let distance =
-
-            Math.abs(
-
-                point.x -
-                box.min.x
-
-            );
-
-
         if (
-            distance <
-            best
+            !this.spawning
         ) {
 
-            best =
-                distance;
-
-            output.set(
-                -1,
-                0,
-                0
-            );
-
-        }
-
-
-        distance =
-
-            Math.abs(
-
-                point.x -
-                box.max.x
-
-            );
-
-
-        if (
-            distance <
-            best
-        ) {
-
-            best =
-                distance;
-
-            output.set(
-                1,
-                0,
-                0
-            );
-
-        }
-
-
-        distance =
-
-            Math.abs(
-
-                point.z -
-                box.min.z
-
-            );
-
-
-        if (
-            distance <
-            best
-        ) {
-
-            best =
-                distance;
-
-            output.set(
-                0,
-                0,
-                -1
-            );
-
-        }
-
-
-        distance =
-
-            Math.abs(
-
-                point.z -
-                box.max.z
-
-            );
-
-
-        if (
-            distance <
-            best
-        ) {
-
-            output.set(
-                0,
-                0,
-                1
-            );
-
-        }
-
-
-        return output;
-
-    }
-
-
-    /* =====================================================
-       FAST WALL TEST
-    ====================================================== */
-
-    findWall(
-
-        direction,
-
-        distance
-
-    ) {
-
-        const originX =
-            this.root.position.x;
-
-
-        const originY =
-            this.root.position.y +
-            0.85;
-
-
-        const originZ =
-            this.root.position.z;
-
-
-        this.collisionRay.origin.set(
-
-            originX,
-
-            originY,
-
-            originZ
-
-        );
-
-
-        this.collisionRay.direction.copy(
-            direction
-        );
-
-
-        let nearest =
-            null;
-
-
-        let nearestDistance =
-            distance +
-            ENEMY_CONFIG.radius;
-
-
-        for (
-            const box
-            of this.nearbyWalls
-        ) {
-
-            /*
-             * Evita cajas enormes que ya contengan
-             * al enemigo.
-             */
-            if (
-                box.containsPoint(
-                    this.collisionRay.origin
-                )
-            ) {
-                continue;
-            }
-
-
-            const point =
-
-                this.collisionRay.intersectBox(
-
-                    box,
-
-                    this.collisionPoint
-
-                );
-
-
-            if (
-                !point
-            ) {
-                continue;
-            }
-
-
-            const hitDistance =
-
-                this.collisionRay.origin
-                    .distanceTo(
-                        point
-                    );
-
-
-            if (
-                hitDistance >
-                nearestDistance
-            ) {
-                continue;
-            }
-
-
-            nearestDistance =
-                hitDistance;
-
-
-            nearest = {
-
-                box,
-
-                pointX:
-                    point.x,
-
-                pointY:
-                    point.y,
-
-                pointZ:
-                    point.z
-
-            };
-
-        }
-
-
-        if (
-            !nearest
-        ) {
             return false;
+
         }
 
 
-        this.collisionPoint.set(
-
-            nearest.pointX,
-
-            nearest.pointY,
-
-            nearest.pointZ
-
+        this.spawnEffect.update(
+            deltaTime
         );
 
 
-        this.getBoxNormal(
+        this.spawnTimer -=
+            deltaTime;
 
-            nearest.box,
 
-            this.collisionPoint,
+        if (
+            this.spawnTimer <=
+            0
+        ) {
 
-            this.wallNormal
+            this.spawning =
+                false;
 
-        );
+
+            this.model.visible =
+                true;
+
+
+            this.createPhysicsCharacter();
+
+
+            this.state =
+                "Idle";
+
+
+            this.playAnimation(
+
+                "Idle",
+
+                0
+
+            );
+
+        }
 
 
         return true;
@@ -1917,153 +1876,10 @@ export class Enemy {
 
 
     /* =====================================================
-       OBJECT AVOIDANCE
+       PLAYER DISTANCE
     ====================================================== */
 
-    refreshObjectAvoidance() {
-
-        this.avoidance.set(
-            0,
-            0,
-            0
-        );
-
-
-        if (
-            !this.objectManager
-        ) {
-            return;
-        }
-
-
-        const objects =
-
-            this.objectManager
-                .getDynamicObjects();
-
-
-        for (
-            const object
-            of objects
-        ) {
-
-            if (
-                !object.mesh
-
-                ||
-
-                !object.rigidBody
-            ) {
-                continue;
-            }
-
-
-            object.mesh.getWorldPosition(
-                this.tempPosition
-            );
-
-
-            this.tempDirection
-                .subVectors(
-
-                    this.root.position,
-
-                    this.tempPosition
-
-                );
-
-
-            this.tempDirection.y =
-                0;
-
-
-            const distance =
-                this.tempDirection.length();
-
-
-            if (
-                distance <
-                0.001
-
-                ||
-
-                distance >
-                ENEMY_CONFIG.obstacleRadius
-            ) {
-                continue;
-            }
-
-
-            this.tempDirection.normalize();
-
-
-            this.avoidance.addScaledVector(
-
-                this.tempDirection,
-
-                (
-                    1 -
-
-                    distance /
-                    ENEMY_CONFIG.obstacleRadius
-                )
-
-                *
-
-                ENEMY_CONFIG.avoidanceStrength
-
-            );
-
-
-            if (
-                distance <
-                ENEMY_CONFIG.pushRadius
-
-                &&
-
-                this.pushTimer <=
-                0
-            ) {
-
-                this.tempDirection
-                    .copy(
-                        this.moveDirection
-                    )
-                    .multiplyScalar(
-
-                        ENEMY_CONFIG.pushForce
-
-                    );
-
-
-                this.tempDirection.y =
-                    0.04;
-
-
-                this.physicsManager.applyImpulse(
-
-                    object.rigidBody,
-
-                    this.tempDirection
-
-                );
-
-
-                this.pushTimer =
-                    ENEMY_CONFIG.pushCooldown;
-
-            }
-
-        }
-
-    }
-
-
-    /* =====================================================
-       PLAYER COLLISION
-    ====================================================== */
-
-    resolvePlayerCollision() {
+    getHorizontalDistanceToPlayer() {
 
         this.playerController
             .getObject()
@@ -2072,90 +1888,129 @@ export class Enemy {
             );
 
 
-        this.tempDirection
-            .subVectors(
+        const dx =
 
-                this.root.position,
-
-                this.playerPosition
-
-            );
+            this.playerPosition.x -
+            this.root.position.x;
 
 
-        this.tempDirection.y =
-            0;
+        const dz =
+
+            this.playerPosition.z -
+            this.root.position.z;
 
 
-        const distance =
-            this.tempDirection.length();
-
-
-        if (
-            distance <=
-            0.001
-
-            ||
-
-            distance >=
-            ENEMY_CONFIG.playerCollisionDistance
-        ) {
-            return;
-        }
-
-
-        this.tempDirection.normalize();
-
-
-        this.root.position.addScaledVector(
-
-            this.tempDirection,
-
-            ENEMY_CONFIG.playerCollisionDistance -
-            distance
-
+        return Math.hypot(
+            dx,
+            dz
         );
 
     }
 
 
     /* =====================================================
-       MOVE
+       ATTACK IMPACT
+
+       El daño NO ocurre al iniciar la animación.
+       Ocurre cerca del frame real del golpe.
     ====================================================== */
 
-    moveWithCollision(
+    updateAttackDamage() {
 
-        direction,
+        if (
 
-        speed,
+            !this.isAttacking
 
-        deltaTime
+            ||
 
-    ) {
+            this.attackHasDealtDamage
 
-        const distance =
+            ||
 
-            speed *
-            deltaTime;
+            this.dead
+
+            ||
+
+            !this.currentAction
+
+            ||
+
+            !this.playerHealth
+
+            ||
+
+            this.playerHealth.isDead()
+
+        ) {
+
+            return;
+
+        }
+
+
+        const animationName =
+            this.currentActionName;
 
 
         if (
-            !this.findWall(
 
-                direction,
+            animationName !==
+            "Attack_01"
 
-                distance
+            &&
 
-            )
+            animationName !==
+            "Attack_02"
+
         ) {
 
-            this.root.position.addScaledVector(
+            return;
 
-                direction,
+        }
 
-                distance
 
-            );
+        const clip =
+            this.currentAction.getClip();
 
+
+        if (
+            !clip
+
+            ||
+
+            clip.duration <=
+            0
+        ) {
+
+            return;
+
+        }
+
+
+        const impactRatio =
+
+            animationName ===
+            "Attack_01"
+
+                ?
+
+                ENEMY_CONFIG.attackImpactRatio01
+
+                :
+
+                ENEMY_CONFIG.attackImpactRatio02;
+
+
+        const impactTime =
+
+            clip.duration *
+            impactRatio;
+
+
+        if (
+            this.currentAction.time <
+            impactTime
+        ) {
 
             return;
 
@@ -2163,69 +2018,75 @@ export class Enemy {
 
 
         /*
-         * Slide along the wall.
+         * Aunque falle, este ataque ya consumió
+         * su único intento de daño.
          */
-
-        const intoWall =
-
-            direction.dot(
-                this.wallNormal
-            );
+        this.attackHasDealtDamage =
+            true;
 
 
-        this.slideDirection.copy(
-            direction
-        );
+        const distance =
+
+            this.getHorizontalDistanceToPlayer();
 
 
-        if (
-            intoWall <
-            0
-        ) {
+        const verticalDistance =
 
-            this.slideDirection.addScaledVector(
+            Math.abs(
 
-                this.wallNormal,
-
-                -intoWall
+                this.playerPosition.y -
+                this.root.position.y
 
             );
 
-        }
-
-
-        this.slideDirection.y =
-            0;
-
 
         if (
-            this.slideDirection.lengthSq() <
-            0.001
+
+            distance >
+            ENEMY_CONFIG.damageDistance
+
+            ||
+
+            verticalDistance >
+            1.7
+
         ) {
+
+            console.log(
+
+                "[Enemy] Golpe fallido."
+
+            );
+
+
             return;
+
         }
 
 
-        this.slideDirection.normalize();
+        const damaged =
+
+            this.playerHealth.takeDamage(
+
+                ENEMY_CONFIG.attackDamage,
+
+                {
+
+                    source:
+                        this
+
+                }
+
+            );
 
 
         if (
-            !this.findWall(
-
-                this.slideDirection,
-
-                distance *
-                0.8
-
-            )
+            damaged
         ) {
 
-            this.root.position.addScaledVector(
+            console.log(
 
-                this.slideDirection,
-
-                distance *
-                0.8
+                `[Enemy] Impacto confirmado · -${ENEMY_CONFIG.attackDamage} HP`
 
             );
 
@@ -2235,14 +2096,138 @@ export class Enemy {
 
 
     /* =====================================================
-       ROTATE
+       AI
     ====================================================== */
 
-    rotateTowardPlayer(
-        deltaTime
-    ) {
+    updateAIState() {
 
-        this.tempDirection
+        if (
+
+            this.playerHealth
+
+            &&
+
+            this.playerHealth.isDead()
+
+        ) {
+
+            this.desiredSpeed =
+                0;
+
+
+            this.changeState(
+                "Idle"
+            );
+
+
+            return;
+
+        }
+
+
+        const distance =
+            this.getHorizontalDistanceToPlayer();
+
+
+        if (
+
+            this.isHit
+
+            ||
+
+            this.isAttacking
+
+        ) {
+
+            this.desiredSpeed =
+                0;
+
+
+            return;
+
+        }
+
+
+        if (
+            distance >
+            ENEMY_CONFIG.detectionDistance
+        ) {
+
+            this.desiredSpeed =
+                0;
+
+
+            this.changeState(
+                "Idle"
+            );
+
+
+            return;
+
+        }
+
+
+        if (
+            distance <=
+            ENEMY_CONFIG.attackDistance
+        ) {
+
+            this.desiredSpeed =
+                0;
+
+
+            this.attackPlayer();
+
+
+            return;
+
+        }
+
+
+        if (
+            distance <=
+            ENEMY_CONFIG.runDistance
+        ) {
+
+            this.desiredSpeed =
+                ENEMY_CONFIG.runSpeed;
+
+
+            this.changeState(
+                "Run"
+            );
+
+        }
+
+        else {
+
+            this.desiredSpeed =
+                ENEMY_CONFIG.walkSpeed;
+
+
+            this.changeState(
+                "Walk"
+            );
+
+        }
+
+    }
+
+
+    /* =====================================================
+       MOVE DIRECTION
+    ====================================================== */
+
+    buildMovementDirection() {
+
+        this.playerController
+            .getObject()
+            .getWorldPosition(
+                this.playerPosition
+            );
+
+
+        this.directDirection
             .subVectors(
 
                 this.playerPosition,
@@ -2252,46 +2237,145 @@ export class Enemy {
             );
 
 
-        this.tempDirection.y =
+        this.directDirection.y =
             0;
 
 
         if (
-            this.tempDirection.lengthSq() <
-            0.001
+            this.directDirection.lengthSq() <
+            0.000001
         ) {
+
+            this.moveDirection.set(
+                0,
+                0,
+                0
+            );
+
+
             return;
+
         }
 
 
-        this.tempDirection.normalize();
+        this.directDirection.normalize();
+
+
+        this.moveDirection.copy(
+            this.directDirection
+        );
+
+
+        if (
+            this.steerTimer >
+            0
+        ) {
+
+            this.sideDirection.set(
+
+                -this.directDirection.z,
+
+                0,
+
+                this.directDirection.x
+
+            );
+
+
+            this.moveDirection
+                .addScaledVector(
+
+                    this.sideDirection,
+
+                    ENEMY_CONFIG.steerStrength *
+                    this.steerSign
+
+                );
+
+
+            this.moveDirection.normalize();
+
+        }
+
+    }
+
+
+    /* =====================================================
+       ROTATION
+    ====================================================== */
+
+    rotateTowardDirection(
+        direction,
+        deltaTime
+    ) {
+
+        if (
+
+            !direction
+
+            ||
+
+            direction.lengthSq() <
+            0.000001
+
+        ) {
+
+            return;
+
+        }
+
+
+        this.faceDirection.copy(
+            direction
+        );
+
+
+        this.faceDirection.y =
+            0;
+
+
+        if (
+            this.faceDirection.lengthSq() <
+            0.000001
+        ) {
+
+            return;
+
+        }
+
+
+        this.faceDirection.normalize();
+
+
+        const angle =
+
+            Math.atan2(
+
+                this.faceDirection.x,
+
+                this.faceDirection.z
+
+            );
 
 
         this.tempEuler.set(
 
             0,
 
-            Math.atan2(
-
-                this.tempDirection.x,
-
-                this.tempDirection.z
-
-            ),
+            angle,
 
             0
 
         );
 
 
-        this.targetQuaternion.setFromEuler(
-            this.tempEuler
-        );
+        this.targetQuaternion
+            .setFromEuler(
+                this.tempEuler
+            );
 
 
-        this.root.quaternion.slerp(
-
-            this.targetQuaternion,
+        const alpha =
 
             1 -
 
@@ -2300,94 +2384,16 @@ export class Enemy {
                 -ENEMY_CONFIG.rotationSpeed *
                 deltaTime
 
-            )
-
-        );
-
-    }
-
-
-    /* =====================================================
-       MOVE TO PLAYER
-    ====================================================== */
-
-    moveTowardPlayer(
-
-        speed,
-
-        deltaTime
-
-    ) {
-
-        this.moveDirection
-            .subVectors(
-
-                this.playerPosition,
-
-                this.root.position
-
             );
 
 
-        this.moveDirection.y =
-            0;
+        this.root.quaternion.slerp(
 
+            this.targetQuaternion,
 
-        if (
-            this.moveDirection.length() <=
-            ENEMY_CONFIG.attackDistance
-        ) {
-            return;
-        }
-
-
-        this.moveDirection.normalize();
-
-
-        this.finalDirection
-            .copy(
-                this.moveDirection
-            )
-            .add(
-                this.avoidance
-            );
-
-
-        this.finalDirection.y =
-            0;
-
-
-        if (
-            this.finalDirection.lengthSq() <
-            0.001
-        ) {
-            return;
-        }
-
-
-        this.finalDirection.normalize();
-
-
-        this.moveWithCollision(
-
-            this.finalDirection,
-
-            speed,
-
-            deltaTime
+            alpha
 
         );
-
-
-        /*
-         * Zona A es esencialmente plana.
-         * Evitamos cualquier drift vertical.
-         */
-        this.root.position.y =
-            this.baseY;
-
-
-        this.resolvePlayerCollision();
 
     }
 
@@ -2399,6 +2405,7 @@ export class Enemy {
     attackPlayer() {
 
         if (
+
             this.dead
 
             ||
@@ -2417,13 +2424,30 @@ export class Enemy {
 
             this.attackTimer >
             0
+
+            ||
+
+            (
+                this.playerHealth
+
+                &&
+
+                this.playerHealth.isDead()
+            )
+
         ) {
+
             return;
+
         }
 
 
         this.isAttacking =
             true;
+
+
+        this.attackHasDealtDamage =
+            false;
 
 
         this.attackTimer =
@@ -2460,7 +2484,7 @@ export class Enemy {
 
 
     /* =====================================================
-       DAMAGE
+       DAMAGE RECEIVED
     ====================================================== */
 
     takeDamage(
@@ -2468,13 +2492,17 @@ export class Enemy {
     ) {
 
         if (
+
             this.dead
 
             ||
 
             this.spawning
+
         ) {
+
             return false;
+
         }
 
 
@@ -2510,13 +2538,24 @@ export class Enemy {
             false;
 
 
+        this.attackHasDealtDamage =
+            false;
+
+
+        this.desiredSpeed =
+            0;
+
+
         this.state =
             "Hit";
 
 
         this.playAnimation(
+
             "Hit",
+
             0.06
+
         );
 
 
@@ -2525,12 +2564,18 @@ export class Enemy {
     }
 
 
+    /* =====================================================
+       DEATH
+    ====================================================== */
+
     die() {
 
         if (
             this.dead
         ) {
+
             return;
+
         }
 
 
@@ -2538,93 +2583,139 @@ export class Enemy {
             true;
 
 
+        this.desiredSpeed =
+            0;
+
+
+        this.isAttacking =
+            false;
+
+
+        this.attackHasDealtDamage =
+            false;
+
+
         this.healthBar.visible =
             false;
 
 
+        if (
+            this.physicsHandle
+        ) {
+
+            this.physicsManager
+                .removeEnemyCharacter(
+
+                    this.physicsHandle
+
+                );
+
+
+            this.physicsHandle =
+                null;
+
+        }
+
+
+        this.state =
+            "Death";
+
+
         this.playAnimation(
+
             "Death",
+
             0.08
+
         );
 
     }
 
 
     /* =====================================================
-       SPAWN
+       PRE PHYSICS
     ====================================================== */
 
-    updateSpawn(
+    prePhysicsUpdate(
         deltaTime
     ) {
 
-        if (
-            !this.spawning
-        ) {
-            return false;
-        }
-
-
-        this.spawnEffect.update(
+        /*
+         * Animación a FPS completos.
+         */
+        this.mixer.update(
             deltaTime
         );
 
 
-        this.spawnTimer -=
-            deltaTime;
+        /* =================================================
+           IMPORTANT:
+           Revisamos daño DESPUÉS de avanzar AnimationMixer.
+        ================================================= */
+
+        this.updateAttackDamage();
 
 
         if (
-            this.spawnTimer <=
-            0
+            this.updateSpawn(
+                deltaTime
+            )
         ) {
 
-            this.spawning =
-                false;
-
-
-            this.model.visible =
-                true;
-
-
-            this.refreshWallCache();
-
-
-            this.playAnimation(
-                "Idle",
-                0
-            );
+            return;
 
         }
 
 
-        return true;
+        if (
+            this.dead
+        ) {
 
-    }
+            return;
+
+        }
 
 
-    /* =====================================================
-       AI STEP
-    ====================================================== */
+        this.attackTimer =
 
-    updateAI(
-        deltaTime
-    ) {
+            Math.max(
 
-        this.wallCacheTimer -=
+                0,
+
+                this.attackTimer -
+                deltaTime
+
+            );
+
+
+        this.steerTimer =
+
+            Math.max(
+
+                0,
+
+                this.steerTimer -
+                deltaTime
+
+            );
+
+
+        this.aiTimer -=
             deltaTime;
 
 
-        this.objectTimer -=
-            deltaTime;
+        if (
+            this.aiTimer <=
+            0
+        ) {
+
+            this.aiTimer =
+                ENEMY_CONFIG.aiInterval;
 
 
-        this.pushTimer -=
-            deltaTime;
+            this.updateAIState();
 
-
-        this.attackTimer -=
-            deltaTime;
+        }
 
 
         this.playerController
@@ -2634,138 +2725,121 @@ export class Enemy {
             );
 
 
-        if (
-            this.wallCacheTimer <=
-            0
-        ) {
+        this.directDirection
+            .subVectors(
 
-            this.wallCacheTimer =
-                ENEMY_CONFIG.wallCacheInterval;
+                this.playerPosition,
 
+                this.root.position
 
-            this.refreshWallCache();
-
-        }
+            );
 
 
-        if (
-            this.objectTimer <=
-            0
-        ) {
-
-            this.objectTimer =
-                ENEMY_CONFIG.objectCheckInterval;
+        this.directDirection.y =
+            0;
 
 
-            this.refreshObjectAvoidance();
-
-        }
-
-
-        this.resolvePlayerCollision();
-
+        /* =================================================
+           STOP MOVEMENT
+        ================================================= */
 
         if (
+
             this.isHit
 
             ||
 
             this.isAttacking
+
+            ||
+
+            this.desiredSpeed <=
+            0
+
+            ||
+
+            (
+                this.playerHealth
+
+                &&
+
+                this.playerHealth.isDead()
+            )
+
         ) {
 
-            this.rotateTowardPlayer(
-                deltaTime
+            this.moveDirection.set(
+                0,
+                0,
+                0
             );
 
 
-            return;
+            if (
+                this.directDirection.lengthSq() >
+                0.000001
+            ) {
 
-        }
+                this.directDirection.normalize();
 
 
-        const distance =
+                this.rotateTowardDirection(
 
-            this.root.position
-                .distanceTo(
-                    this.playerPosition
+                    this.directDirection,
+
+                    deltaTime
+
                 );
 
-
-        if (
-            distance >
-            ENEMY_CONFIG.detectionDistance
-        ) {
-
-            this.changeState(
-                "Idle"
-            );
-
-            return;
+            }
 
         }
 
-
-        if (
-            distance <=
-            ENEMY_CONFIG.attackDistance
-        ) {
-
-            this.changeState(
-                "Idle"
-            );
-
-
-            this.rotateTowardPlayer(
-                deltaTime
-            );
-
-
-            this.attackPlayer();
-
-            return;
-
-        }
-
-
-        this.rotateTowardPlayer(
-            deltaTime
-        );
-
-
-        if (
-            distance <=
-            ENEMY_CONFIG.runDistance
-        ) {
-
-            this.changeState(
-                "Run"
-            );
-
-
-            this.moveTowardPlayer(
-
-                ENEMY_CONFIG.runSpeed,
-
-                deltaTime
-
-            );
-
-        }
+        /* =================================================
+           CHASE
+        ================================================= */
 
         else {
 
-            this.changeState(
-                "Walk"
-            );
+            this.buildMovementDirection();
 
 
-            this.moveTowardPlayer(
+            this.rotateTowardDirection(
 
-                ENEMY_CONFIG.walkSpeed,
+                this.moveDirection,
 
                 deltaTime
 
             );
+
+        }
+
+
+        /* =================================================
+           RAPIER
+
+           Aun parado:
+           - gravity
+           - snap
+           - floor
+        ================================================= */
+
+        if (
+            this.physicsHandle
+        ) {
+
+            this.physicsManager
+                .moveEnemyCharacter(
+
+                    this.physicsHandle,
+
+                    this.moveDirection,
+
+                    this.desiredSpeed,
+
+                    deltaTime
+
+                );
 
         }
 
@@ -2773,77 +2847,165 @@ export class Enemy {
 
 
     /* =====================================================
-       UPDATE
+       POST PHYSICS
     ====================================================== */
 
-    update(
-        deltaTime,
-        camera
+    postPhysicsUpdate(
+        deltaTime
     ) {
 
-        /*
-         * Animations remain at display refresh rate.
-         */
-        this.mixer.update(
-            deltaTime
-        );
-
-
         if (
-            this.updateSpawn(
-                deltaTime
-            )
-        ) {
-            return;
-        }
 
-
-        if (
             this.dead
+
+            ||
+
+            this.spawning
+
+            ||
+
+            !this.physicsHandle
+
         ) {
+
             return;
+
         }
 
 
-        this.updateHealthBar(
-            camera
-        );
+        this.physicsManager
+            .syncEnemyCharacter(
 
+                this.physicsHandle,
 
-        /* =================================================
-           AI = 30 Hz
-        ================================================= */
-
-        this.aiAccumulator +=
-            deltaTime;
-
-
-        if (
-            this.aiAccumulator <
-            ENEMY_CONFIG.aiStep
-        ) {
-            return;
-        }
-
-
-        const aiDelta =
-
-            Math.min(
-
-                this.aiAccumulator,
-
-                0.08
+                this.root
 
             );
 
 
-        this.aiAccumulator =
-            0;
+        /* =================================================
+           ANTI-STUCK
+        ================================================= */
+
+        const dx =
+
+            this.root.position.x -
+            this.lastSyncedPosition.x;
 
 
-        this.updateAI(
-            aiDelta
+        const dz =
+
+            this.root.position.z -
+            this.lastSyncedPosition.z;
+
+
+        const moved =
+
+            Math.hypot(
+                dx,
+                dz
+            );
+
+
+        const wantsToMove =
+
+            this.desiredSpeed >
+            0
+
+            &&
+
+            !this.isHit
+
+            &&
+
+            !this.isAttacking;
+
+
+        if (
+            wantsToMove
+        ) {
+
+            const expected =
+
+                this.desiredSpeed *
+                deltaTime;
+
+
+            if (
+
+                moved <
+
+                Math.max(
+
+                    0.0015,
+
+                    expected *
+                    0.12
+
+                )
+
+            ) {
+
+                this.stuckTimer +=
+                    deltaTime;
+
+            }
+
+            else {
+
+                this.stuckTimer =
+                    0;
+
+            }
+
+
+            if (
+                this.stuckTimer >=
+                ENEMY_CONFIG.stuckTime
+            ) {
+
+                this.stuckTimer =
+                    0;
+
+
+                this.steerTimer =
+                    ENEMY_CONFIG.steerDuration;
+
+
+                this.steerSign *=
+                    -1;
+
+            }
+
+        }
+
+        else {
+
+            this.stuckTimer =
+                0;
+
+        }
+
+
+        this.lastSyncedPosition.copy(
+            this.root.position
         );
+
+
+        this.root.updateMatrixWorld(
+            true
+        );
+
+    }
+
+
+    /* =====================================================
+       GETTERS
+    ====================================================== */
+
+    getObject() {
+
+        return this.root;
 
     }
 
@@ -2887,7 +3049,9 @@ export class EnemyManager {
 
         physicsManager,
 
-        objectManager
+        objectManager,
+
+        playerHealth
 
     }) {
 
@@ -2911,6 +3075,10 @@ export class EnemyManager {
             objectManager;
 
 
+        this.playerHealth =
+            playerHealth;
+
+
         this.loader =
             new FBXLoader();
 
@@ -2931,12 +3099,12 @@ export class EnemyManager {
             false;
 
 
-        this.wallBoxes =
-            [];
+        this.environment =
+            null;
 
 
-        this.tempSize =
-            new THREE.Vector3();
+        this.enabled =
+            true;
 
 
         this.tempPlayerPosition =
@@ -2958,103 +3126,36 @@ export class EnemyManager {
 
 
     /* =====================================================
-       STATIC COLLISION BOXES
+       ENABLE
+    ====================================================== */
+
+    setEnabled(
+        enabled
+    ) {
+
+        this.enabled =
+            enabled;
+
+    }
+
+
+    /* =====================================================
+       ENVIRONMENT
     ====================================================== */
 
     setEnvironment(
         environment
     ) {
 
-        this.wallBoxes.length =
-            0;
-
-
-        environment.updateMatrixWorld(
-            true
-        );
-
-
-        environment.traverse(
-
-            object => {
-
-                if (
-                    !object.isMesh
-
-                    ||
-
-                    !object.geometry
-
-                    ||
-
-                    !object.visible
-                ) {
-                    return;
-                }
-
-
-                if (
-                    !object.geometry.boundingBox
-                ) {
-
-                    object.geometry.computeBoundingBox();
-
-                }
-
-
-                if (
-                    !object.geometry.boundingBox
-                ) {
-                    return;
-                }
-
-
-                const box =
-
-                    object.geometry
-                        .boundingBox
-                        .clone();
-
-
-                box.applyMatrix4(
-                    object.matrixWorld
-                );
-
-
-                box.getSize(
-                    this.tempSize
-                );
-
-
-                /*
-                 * Pisos planos no necesitan ser tratados
-                 * como paredes.
-                 */
-                if (
-                    this.tempSize.y <
-                    0.55
-                ) {
-                    return;
-                }
-
-
-                this.wallBoxes.push(
-                    box
-                );
-
-            }
-
-        );
-
-
-        console.log(
-
-            `[EnemyManager] Fast wall boxes: ${this.wallBoxes.length}`
-
-        );
+        this.environment =
+            environment;
 
     }
 
+
+    /* =====================================================
+       FBX
+    ====================================================== */
 
     loadFBX(
         path
@@ -3095,16 +3196,20 @@ export class EnemyManager {
         if (
             this.loaded
         ) {
+
             return;
+
         }
 
 
+        console.log(
+            "[EnemyManager] Cargando infectado..."
+        );
+
+
         this.baseModel =
-
             await this.loadFBX(
-
                 ENEMY_PATHS.model
-
             );
 
 
@@ -3121,35 +3226,42 @@ export class EnemyManager {
             try {
 
                 const fbx =
-
                     await this.loadFBX(
                         path
                     );
 
 
                 if (
-                    fbx.animations?.length
+                    !fbx.animations
+                        ?.length
                 ) {
 
-                    const clip =
-
-                        fbx.animations[0]
-                            .clone();
-
-
-                    clip.name =
-                        name;
-
-
-                    this.animationClips.set(
-
-                        name,
-
-                        clip
-
-                    );
+                    continue;
 
                 }
+
+
+                const clip =
+                    fbx.animations[0]
+                        .clone();
+
+
+                clip.name =
+                    name;
+
+
+                this.animationClips.set(
+
+                    name,
+
+                    clip
+
+                );
+
+
+                console.log(
+                    `[EnemyManager] ${name} OK`
+                );
 
             }
 
@@ -3159,7 +3271,7 @@ export class EnemyManager {
 
                 console.error(
 
-                    `[Enemy] ${name}:`,
+                    `[EnemyManager] Error ${name}:`,
 
                     error
 
@@ -3173,11 +3285,16 @@ export class EnemyManager {
         this.loaded =
             true;
 
+
+        console.log(
+            "[EnemyManager] ONLINE"
+        );
+
     }
 
 
     /* =====================================================
-       SPAWN
+       TEST SPAWN
     ====================================================== */
 
     spawnTestEnemy(
@@ -3187,16 +3304,16 @@ export class EnemyManager {
         if (
             !this.loaded
         ) {
+
             return null;
+
         }
 
 
         this.playerController
             .getObject()
             .getWorldPosition(
-
                 this.tempPlayerPosition
-
             );
 
 
@@ -3226,13 +3343,14 @@ export class EnemyManager {
         this.spawnDirection.normalize();
 
 
-        this.spawnDirection.applyAxisAngle(
+        this.spawnDirection
+            .applyAxisAngle(
 
-            this.up,
+                this.up,
 
-            1.30
+                1.30
 
-        );
+            );
 
 
         let radius =
@@ -3257,9 +3375,10 @@ export class EnemyManager {
         }
 
 
-        this.spawnDirection.multiplyScalar(
-            radius
-        );
+        this.spawnDirection
+            .multiplyScalar(
+                radius
+            );
 
 
         this.spawnDirection.y =
@@ -3267,7 +3386,6 @@ export class EnemyManager {
 
 
         const enemy =
-
             new Enemy({
 
                 scene:
@@ -3285,14 +3403,14 @@ export class EnemyManager {
                 playerController:
                     this.playerController,
 
-                objectManager:
-                    this.objectManager,
-
                 physicsManager:
                     this.physicsManager,
 
-                wallBoxes:
-                    this.wallBoxes
+                camera:
+                    this.camera,
+
+                playerHealth:
+                    this.playerHealth
 
             });
 
@@ -3307,27 +3425,91 @@ export class EnemyManager {
     }
 
 
-    update(
+    /* =====================================================
+       PRE PHYSICS
+    ====================================================== */
+
+    prePhysicsUpdate(
         deltaTime
     ) {
+
+        if (
+            !this.enabled
+        ) {
+
+            return;
+
+        }
+
 
         for (
             const enemy
             of this.enemies
         ) {
 
-            enemy.update(
-
-                deltaTime,
-
-                this.camera
-
+            enemy.prePhysicsUpdate(
+                deltaTime
             );
 
         }
 
     }
 
+
+    /* =====================================================
+       POST PHYSICS
+    ====================================================== */
+
+    postPhysicsUpdate(
+        deltaTime
+    ) {
+
+        if (
+            !this.enabled
+        ) {
+
+            return;
+
+        }
+
+
+        for (
+            const enemy
+            of this.enemies
+        ) {
+
+            enemy.postPhysicsUpdate(
+                deltaTime
+            );
+
+        }
+
+    }
+
+
+    /* =====================================================
+       VISUALS
+    ====================================================== */
+
+    updateVisuals() {
+
+        for (
+            const enemy
+            of this.enemies
+        ) {
+
+            enemy.updateVisuals(
+                this.camera
+            );
+
+        }
+
+    }
+
+
+    /* =====================================================
+       HIT MESHES
+    ====================================================== */
 
     getHitMeshes() {
 
@@ -3341,38 +3523,50 @@ export class EnemyManager {
         ) {
 
             if (
+
                 enemy.isDead()
 
                 ||
 
                 enemy.isSpawning()
+
             ) {
+
                 continue;
+
             }
 
 
-            enemy.getModel().traverse(
+            enemy.getModel()
+                .traverse(
 
-                object => {
+                    object => {
 
-                    if (
-                        object.isMesh
-                    ) {
+                        if (
+                            object.isMesh
+                        ) {
 
-                        meshes.push(
-                            object
-                        );
+                            meshes.push(
+                                object
+                            );
+
+                        }
 
                     }
 
-                }
-
-            );
+                );
 
         }
 
 
         return meshes;
+
+    }
+
+
+    getEnemies() {
+
+        return this.enemies;
 
     }
 
@@ -3391,7 +3585,8 @@ export class EnemyManager {
 
     getAliveCount() {
 
-        return this.getAliveEnemies()
+        return this
+            .getAliveEnemies()
             .length;
 
     }
