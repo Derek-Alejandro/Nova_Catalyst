@@ -1,13 +1,14 @@
 /* =========================================================
    NOVA CATALYST
-   Survival Build v0.15.0
+   Boss Transition Build v0.16.1
 
-   - Optimized rendering
-   - Dynamic resolution
-   - Controlled shadow refresh
-   - Player shadow
-   - Suspense lighting
-   - Global pickups
+   - Waves 1-5
+   - Boss asset preloading
+   - "ÉL VIENE POR TI"
+   - Boss Arena loading screen
+   - Error-safe transition
+   - "SOBREVIVE"
+   - Boss fight
 ========================================================= */
 
 import * as THREE from "three";
@@ -40,6 +41,10 @@ import {
 import {
     EnemyManager
 } from "./enemy.js";
+
+import {
+    BossManager
+} from "./boss.js";
 
 import {
     PlayerHealthManager
@@ -92,17 +97,9 @@ const PERFORMANCE = {
     debugInterval:
         0.25,
 
-    /*
-     * Shadow map a ~30 actualizaciones por segundo.
-     */
     shadowRefreshInterval:
-        1 /
-        30,
+        1 / 30,
 
-    /*
-     * Recentramos el volumen de sombras
-     * unas 8 veces por segundo.
-     */
     shadowFocusInterval:
         0.125
 
@@ -123,6 +120,7 @@ let currentPixelRatio =
 let qualityTimer =
     0;
 
+
 let qualityFrames =
     0;
 
@@ -130,8 +128,10 @@ let qualityFrames =
 let fpsTimer =
     0;
 
+
 let fpsFrames =
     0;
+
 
 let displayedFPS =
     60;
@@ -150,7 +150,7 @@ let shadowFocusTimer =
 
 
 /* =========================================================
-   STATE
+   STATES
 ========================================================= */
 
 const GAME_STATE = {
@@ -170,6 +170,12 @@ const GAME_STATE = {
     PLAYING:
         "playing",
 
+    TRANSITION:
+        "transition",
+
+    BOSS_FIGHT:
+        "boss_fight",
+
     PAUSED:
         "paused",
 
@@ -177,7 +183,10 @@ const GAME_STATE = {
         "dying",
 
     GAME_OVER:
-        "game_over"
+        "game_over",
+
+    VICTORY:
+        "victory"
 
 };
 
@@ -186,8 +195,20 @@ let currentState =
     GAME_STATE.MENU;
 
 
+let stateBeforePause =
+    GAME_STATE.PLAYING;
+
+
+let bossTransitionStarted =
+    false;
+
+
+let bossTransitionFailed =
+    false;
+
+
 /* =========================================================
-   PLAYER SPAWN
+   ZONE A SPAWN
 ========================================================= */
 
 const PLAYER_SPAWN_ZONE_A = {
@@ -305,7 +326,7 @@ const btnSurvive =
 
 
 /* =========================================================
-   FPS COUNTER
+   FPS
 ========================================================= */
 
 const fpsCounter =
@@ -476,13 +497,6 @@ renderer.toneMappingExposure =
     1.42;
 
 
-/* =========================================================
-   SHADOWS
-
-   Volvemos al PCF estándar porque es más económico
-   que PCFSoftShadowMap.
-========================================================= */
-
 renderer.shadowMap.enabled =
     true;
 
@@ -491,9 +505,6 @@ renderer.shadowMap.type =
     THREE.PCFShadowMap;
 
 
-/*
- * Control manual.
- */
 renderer.shadowMap.autoUpdate =
     false;
 
@@ -516,7 +527,7 @@ const clock =
 
 
 /* =========================================================
-   STARFIELD
+   STAR FIELD
 ========================================================= */
 
 function createStarField() {
@@ -539,43 +550,44 @@ function createStarField() {
     ) {
 
         positions[
-            i *
-            3
+            i * 3
         ] =
 
             (
                 Math.random() -
                 0.5
             )
+
             *
+
             300;
 
 
         positions[
-            i *
-            3 +
-            1
+            i * 3 + 1
         ] =
 
             (
                 Math.random() -
                 0.5
             )
+
             *
+
             300;
 
 
         positions[
-            i *
-            3 +
-            2
+            i * 3 + 2
         ] =
 
             (
                 Math.random() -
                 0.5
             )
+
             *
+
             300;
 
     }
@@ -590,8 +602,11 @@ function createStarField() {
         "position",
 
         new THREE.BufferAttribute(
+
             positions,
+
             3
+
         )
 
     );
@@ -758,7 +773,7 @@ playerHealth.setVisible(
 
 
 /* =========================================================
-   ENEMY MANAGER
+   ENEMY
 ========================================================= */
 
 const enemyManager =
@@ -780,7 +795,31 @@ const enemyManager =
 
 
 /* =========================================================
-   PICKUP MANAGER
+   BOSS
+========================================================= */
+
+const bossManager =
+    new BossManager({
+
+        scene,
+
+        playerController,
+
+        playerHealth,
+
+        onDeath:
+
+            () => {
+
+                finishBossEncounter();
+
+            }
+
+    });
+
+
+/* =========================================================
+   PICKUPS
 ========================================================= */
 
 const pickupManager =
@@ -814,7 +853,7 @@ const pickupManager =
 
 
 /* =========================================================
-   WAVE MANAGER
+   WAVES
 ========================================================= */
 
 const waveManager =
@@ -857,30 +896,22 @@ const waveManager =
 
             },
 
-        onBossStarted:
-
-            data => {
-
-                console.log(
-
-                    "[Nova] Boss solicitado:",
-
-                    data.position
-
-                );
-
-
-                return null;
-
-            },
-
-        onMissionComplete:
+        onFinalWaveCleared:
 
             () => {
 
-                showNotification(
-                    "ZONE A SECURED"
-                );
+                beginBossTransition()
+                    .catch(
+
+                        error => {
+
+                            handleBossTransitionError(
+                                error
+                            );
+
+                        }
+
+                    );
 
             }
 
@@ -921,9 +952,33 @@ installBarrelEnemyDamage({
 cameraManager
     .setDynamicBlockersProvider(
 
-        () =>
+        () => {
 
-            enemyManager
+            if (
+                currentState ===
+                GAME_STATE.BOSS_FIGHT
+            ) {
+
+                if (
+                    bossManager.isDead()
+                ) {
+
+                    return [];
+
+                }
+
+
+                return [
+
+                    bossManager
+                        .getObject()
+
+                ];
+
+            }
+
+
+            return enemyManager
                 .getAliveEnemies()
                 .filter(
 
@@ -936,7 +991,9 @@ cameraManager
                     enemy =>
                         enemy.getObject()
 
-                )
+                );
+
+        }
 
     );
 
@@ -1026,7 +1083,7 @@ let cachedFirstPerson =
 
 
 /* =========================================================
-   LIGHTING
+   LIGHTS
 ========================================================= */
 
 const ambientLight =
@@ -1061,10 +1118,6 @@ scene.add(
 );
 
 
-/* =========================================================
-   MAIN SHADOW LIGHT
-========================================================= */
-
 const mainLight =
     new THREE.DirectionalLight(
 
@@ -1086,9 +1139,6 @@ mainLight.castShadow =
     true;
 
 
-/*
- * 768 vuelve a ser suficiente y es más barato.
- */
 mainLight.shadow.mapSize.set(
     768,
     768
@@ -1137,10 +1187,6 @@ scene.add(
 );
 
 
-/* =========================================================
-   SECONDARY FILL
-========================================================= */
-
 const secondaryFill =
     new THREE.DirectionalLight(
 
@@ -1166,10 +1212,6 @@ scene.add(
     secondaryFill
 );
 
-
-/* =========================================================
-   EMERGENCY RED
-========================================================= */
 
 const emergencyLight =
     new THREE.PointLight(
@@ -1201,10 +1243,6 @@ scene.add(
 );
 
 
-/* =========================================================
-   PLAYER FILL
-========================================================= */
-
 const playerLight =
     new THREE.PointLight(
 
@@ -1230,8 +1268,6 @@ scene.add(
 
 /* =========================================================
    STATIC ENVIRONMENT
-
-   RECIBE sombras pero NO las genera.
 ========================================================= */
 
 function optimizeStaticEnvironment(
@@ -1286,8 +1322,6 @@ function optimizeStaticEnvironment(
 
 /* =========================================================
    PLAYER SHADOW
-
-   Principal sombra dinámica.
 ========================================================= */
 
 function configurePlayerShadows(
@@ -1326,10 +1360,7 @@ function configurePlayerShadows(
 
 
 /* =========================================================
-   DYNAMIC OBJECTS
-
-   Reciben sombra, pero ya NO todos generan shadow map.
-   Esto reduce bastante el costo durante físicas.
+   DYNAMIC SHADOWS
 ========================================================= */
 
 function configureDynamicObjectShadows() {
@@ -1378,7 +1409,928 @@ function configureDynamicObjectShadows() {
 
 
 /* =========================================================
-   SCREENS
+   BOSS TRANSITION UI
+========================================================= */
+
+const bossOverlay =
+    document.createElement(
+        "div"
+    );
+
+
+Object.assign(
+
+    bossOverlay.style,
+
+    {
+
+        position:
+            "fixed",
+
+        inset:
+            "0",
+
+        zIndex:
+            "50000",
+
+        background:
+            "#000",
+
+        display:
+            "flex",
+
+        justifyContent:
+            "center",
+
+        alignItems:
+            "center",
+
+        visibility:
+            "hidden",
+
+        opacity:
+            "0",
+
+        transition:
+            "opacity .55s ease",
+
+        pointerEvents:
+            "none"
+
+    }
+
+);
+
+
+document.body.appendChild(
+    bossOverlay
+);
+
+
+/* =========================================================
+   CINEMATIC TEXT
+========================================================= */
+
+const bossCinematicText =
+    document.createElement(
+        "div"
+    );
+
+
+Object.assign(
+
+    bossCinematicText.style,
+
+    {
+
+        position:
+            "absolute",
+
+        left:
+            "50%",
+
+        top:
+            "50%",
+
+        transform:
+            "translate(-50%,-50%) scale(.96)",
+
+        width:
+            "100%",
+
+        textAlign:
+            "center",
+
+        color:
+            "#f4f4f4",
+
+        fontFamily:
+            "Orbitron,Consolas,monospace",
+
+        fontSize:
+            "clamp(27px,5vw,66px)",
+
+        fontWeight:
+            "900",
+
+        letterSpacing:
+            "8px",
+
+        textShadow:
+            "0 0 30px rgba(255,45,35,.55)",
+
+        opacity:
+            "0",
+
+        transition:
+            "opacity .35s ease, transform .50s ease"
+
+    }
+
+);
+
+
+bossOverlay.appendChild(
+    bossCinematicText
+);
+
+
+/* =========================================================
+   BOSS LOADING PANEL
+========================================================= */
+
+const bossLoadingPanel =
+    document.createElement(
+        "div"
+    );
+
+
+Object.assign(
+
+    bossLoadingPanel.style,
+
+    {
+
+        width:
+            "min(440px,82vw)",
+
+        padding:
+            "26px",
+
+        border:
+            "1px solid rgba(255,255,255,.12)",
+
+        borderRadius:
+            "6px",
+
+        background:
+            "rgba(7,9,12,.92)",
+
+        boxShadow:
+            "0 0 45px rgba(255,30,20,.10)",
+
+        fontFamily:
+            "Orbitron,Consolas,monospace",
+
+        color:
+            "#fff",
+
+        opacity:
+            "0",
+
+        transform:
+            "translateY(8px)",
+
+        transition:
+            "opacity .25s ease, transform .25s ease",
+
+        display:
+            "none"
+
+    }
+
+);
+
+
+bossOverlay.appendChild(
+    bossLoadingPanel
+);
+
+
+const bossLoadingEyebrow =
+    document.createElement(
+        "div"
+    );
+
+
+bossLoadingEyebrow.textContent =
+    "PROTOCOLO DE TRANSFERENCIA";
+
+
+Object.assign(
+
+    bossLoadingEyebrow.style,
+
+    {
+
+        fontSize:
+            "8px",
+
+        letterSpacing:
+            "3px",
+
+        color:
+            "#ff5148",
+
+        marginBottom:
+            "9px"
+
+    }
+
+);
+
+
+const bossLoadingTitle =
+    document.createElement(
+        "div"
+    );
+
+
+bossLoadingTitle.textContent =
+    "CARGANDO SECTOR CORE";
+
+
+Object.assign(
+
+    bossLoadingTitle.style,
+
+    {
+
+        fontSize:
+            "15px",
+
+        fontWeight:
+            "900",
+
+        letterSpacing:
+            "2px",
+
+        marginBottom:
+            "18px"
+
+    }
+
+);
+
+
+const bossLoadingTrack =
+    document.createElement(
+        "div"
+    );
+
+
+Object.assign(
+
+    bossLoadingTrack.style,
+
+    {
+
+        position:
+            "relative",
+
+        width:
+            "100%",
+
+        height:
+            "5px",
+
+        background:
+            "rgba(255,255,255,.10)",
+
+        overflow:
+            "hidden",
+
+        borderRadius:
+            "999px",
+
+        marginBottom:
+            "12px"
+
+    }
+
+);
+
+
+const bossLoadingFill =
+    document.createElement(
+        "div"
+    );
+
+
+Object.assign(
+
+    bossLoadingFill.style,
+
+    {
+
+        width:
+            "0%",
+
+        height:
+            "100%",
+
+        background:
+            "#ef3930",
+
+        transition:
+            "width .20s ease"
+
+    }
+
+);
+
+
+bossLoadingTrack.appendChild(
+    bossLoadingFill
+);
+
+
+const bossLoadingStatus =
+    document.createElement(
+        "div"
+    );
+
+
+Object.assign(
+
+    bossLoadingStatus.style,
+
+    {
+
+        fontSize:
+            "8px",
+
+        letterSpacing:
+            "1.3px",
+
+        color:
+            "rgba(255,255,255,.55)",
+
+        minHeight:
+            "14px"
+
+    }
+
+);
+
+
+const bossLoadingPercent =
+    document.createElement(
+        "div"
+    );
+
+
+Object.assign(
+
+    bossLoadingPercent.style,
+
+    {
+
+        marginTop:
+            "8px",
+
+        fontSize:
+            "8px",
+
+        letterSpacing:
+            "1px",
+
+        color:
+            "rgba(255,255,255,.35)",
+
+        textAlign:
+            "right"
+
+    }
+
+);
+
+
+/* =========================================================
+   LOADING ERROR BUTTONS
+========================================================= */
+
+const bossErrorButtons =
+    document.createElement(
+        "div"
+    );
+
+
+Object.assign(
+
+    bossErrorButtons.style,
+
+    {
+
+        display:
+            "none",
+
+        gap:
+            "8px",
+
+        marginTop:
+            "20px"
+
+    }
+
+);
+
+
+const bossRetryButton =
+    document.createElement(
+        "button"
+    );
+
+
+bossRetryButton.textContent =
+    "REINICIAR";
+
+
+const bossMenuButton =
+    document.createElement(
+        "button"
+    );
+
+
+bossMenuButton.textContent =
+    "MENÚ";
+
+
+for (
+    const button
+    of [
+        bossRetryButton,
+        bossMenuButton
+    ]
+) {
+
+    Object.assign(
+
+        button.style,
+
+        {
+
+            flex:
+                "1",
+
+            padding:
+                "11px",
+
+            background:
+                "#11151a",
+
+            border:
+                "1px solid rgba(255,255,255,.15)",
+
+            color:
+                "#fff",
+
+            fontFamily:
+                "Orbitron,Consolas,monospace",
+
+            fontSize:
+                "8px",
+
+            fontWeight:
+                "700",
+
+            letterSpacing:
+                "1.4px",
+
+            cursor:
+                "pointer"
+
+        }
+
+    );
+
+}
+
+
+bossRetryButton.addEventListener(
+
+    "click",
+
+    retryGame
+
+);
+
+
+bossMenuButton.addEventListener(
+
+    "click",
+
+    fleeToMenu
+
+);
+
+
+bossErrorButtons.append(
+
+    bossRetryButton,
+
+    bossMenuButton
+
+);
+
+
+bossLoadingPanel.append(
+
+    bossLoadingEyebrow,
+
+    bossLoadingTitle,
+
+    bossLoadingTrack,
+
+    bossLoadingStatus,
+
+    bossLoadingPercent,
+
+    bossErrorButtons
+
+);
+
+
+/* =========================================================
+   BOSS UI HELPERS
+========================================================= */
+
+function setBossLoading(
+
+    percentage,
+
+    status
+
+) {
+
+    const value =
+        THREE.MathUtils.clamp(
+
+            percentage,
+
+            0,
+
+            100
+
+        );
+
+
+    bossLoadingFill.style.width =
+        `${value}%`;
+
+
+    bossLoadingPercent.textContent =
+        `${Math.round(value)}%`;
+
+
+    bossLoadingStatus.textContent =
+        status;
+
+}
+
+
+function showBossOverlay() {
+
+    bossOverlay.style.visibility =
+        "visible";
+
+
+    bossOverlay.style.opacity =
+        "1";
+
+}
+
+
+function showCinematicText(
+    text
+) {
+
+    showBossOverlay();
+
+
+    bossLoadingPanel.style.display =
+        "none";
+
+
+    bossCinematicText.textContent =
+        text;
+
+
+    bossCinematicText.style.opacity =
+        "0";
+
+
+    bossCinematicText.style.transform =
+        "translate(-50%,-50%) scale(.96)";
+
+
+    requestAnimationFrame(
+
+        () => {
+
+            bossCinematicText.style.opacity =
+                "1";
+
+
+            bossCinematicText.style.transform =
+                "translate(-50%,-50%) scale(1)";
+
+        }
+
+    );
+
+}
+
+
+function hideCinematicText() {
+
+    bossCinematicText.style.opacity =
+        "0";
+
+}
+
+
+async function showBossLoadingPanel() {
+
+    bossCinematicText.style.opacity =
+        "0";
+
+
+    bossLoadingPanel.style.display =
+        "block";
+
+
+    bossLoadingPanel.style.opacity =
+        "0";
+
+
+    bossLoadingPanel.style.transform =
+        "translateY(8px)";
+
+
+    await nextFrame();
+
+
+    bossLoadingPanel.style.opacity =
+        "1";
+
+
+    bossLoadingPanel.style.transform =
+        "translateY(0)";
+
+}
+
+
+function hideBossOverlay() {
+
+    bossCinematicText.style.opacity =
+        "0";
+
+
+    bossLoadingPanel.style.opacity =
+        "0";
+
+
+    bossOverlay.style.opacity =
+        "0";
+
+
+    setTimeout(
+
+        () => {
+
+            bossOverlay.style.visibility =
+                "hidden";
+
+
+            bossLoadingPanel.style.display =
+                "none";
+
+        },
+
+        600
+
+    );
+
+}
+
+
+/* =========================================================
+   ASYNC HELPERS
+========================================================= */
+
+function sleep(
+    milliseconds
+) {
+
+    return new Promise(
+
+        resolve => {
+
+            setTimeout(
+
+                resolve,
+
+                milliseconds
+
+            );
+
+        }
+
+    );
+
+}
+
+
+function nextFrame() {
+
+    return new Promise(
+
+        resolve => {
+
+            requestAnimationFrame(
+                resolve
+            );
+
+        }
+
+    );
+
+}
+
+
+/* =========================================================
+   VICTORY
+========================================================= */
+
+const victoryOverlay =
+    document.createElement(
+        "div"
+    );
+
+
+Object.assign(
+
+    victoryOverlay.style,
+
+    {
+
+        position:
+            "fixed",
+
+        inset:
+            "0",
+
+        zIndex:
+            "51000",
+
+        display:
+            "none",
+
+        alignItems:
+            "center",
+
+        justifyContent:
+            "center",
+
+        background:
+            "rgba(0,0,0,.86)",
+
+        backdropFilter:
+            "blur(8px)",
+
+        fontFamily:
+            "Orbitron,Consolas,monospace",
+
+        color:
+            "#fff"
+
+    }
+
+);
+
+
+victoryOverlay.innerHTML = `
+
+    <div style="
+        width:min(520px,88vw);
+        text-align:center;
+        padding:34px;
+        border:1px solid rgba(255,255,255,.14);
+        background:rgba(7,9,12,.90);
+        border-radius:8px;
+        box-shadow:0 0 45px rgba(255,30,20,.12);
+    ">
+
+        <div style="
+            font-size:10px;
+            letter-spacing:4px;
+            color:#ff554c;
+            margin-bottom:12px;
+        ">
+            SECTOR CORE
+        </div>
+
+        <div style="
+            font-size:clamp(25px,4vw,44px);
+            font-weight:900;
+            letter-spacing:4px;
+            margin-bottom:10px;
+        ">
+            ANOMALÍA NEUTRALIZADA
+        </div>
+
+        <div style="
+            font-size:9px;
+            letter-spacing:2px;
+            color:rgba(255,255,255,.55);
+            margin-bottom:28px;
+        ">
+            OPERACIÓN COMPLETADA
+        </div>
+
+        <button
+            id="nova-victory-retry"
+            style="
+                width:100%;
+                padding:13px;
+                margin-bottom:10px;
+                background:#15191d;
+                border:1px solid rgba(255,255,255,.16);
+                color:white;
+                font:700 10px Orbitron,Consolas,monospace;
+                letter-spacing:2px;
+                cursor:pointer;
+            "
+        >
+            REINICIAR OPERACIÓN
+        </button>
+
+        <button
+            id="nova-victory-menu"
+            style="
+                width:100%;
+                padding:13px;
+                background:#0b0d10;
+                border:1px solid rgba(255,255,255,.12);
+                color:white;
+                font:700 10px Orbitron,Consolas,monospace;
+                letter-spacing:2px;
+                cursor:pointer;
+            "
+        >
+            VOLVER AL MENÚ
+        </button>
+
+    </div>
+
+`;
+
+
+document.body.appendChild(
+    victoryOverlay
+);
+
+
+victoryOverlay
+    .querySelector(
+        "#nova-victory-retry"
+    )
+    ?.addEventListener(
+
+        "click",
+
+        retryGame
+
+    );
+
+
+victoryOverlay
+    .querySelector(
+        "#nova-victory-menu"
+    )
+    ?.addEventListener(
+
+        "click",
+
+        fleeToMenu
+
+    );
+
+
+/* =========================================================
+   HELPERS
+========================================================= */
+
+function isGameplayState() {
+
+    return (
+
+        currentState ===
+        GAME_STATE.PLAYING
+
+        ||
+
+        currentState ===
+        GAME_STATE.BOSS_FIGHT
+
+    );
+
+}
+
+
+/* =========================================================
+   MAIN SCREENS
 ========================================================= */
 
 function hideMainScreens() {
@@ -1465,7 +2417,7 @@ function showScreen(
 
 
 /* =========================================================
-   MENU EVENTS
+   MENU
 ========================================================= */
 
 btnEnter?.addEventListener(
@@ -1558,6 +2510,39 @@ btnSurvive?.addEventListener(
 
 
 /* =========================================================
+   ESC DURING TRANSITION ERROR
+========================================================= */
+
+window.addEventListener(
+
+    "keydown",
+
+    event => {
+
+        if (
+            event.code ===
+            "Escape"
+
+            &&
+
+            currentState ===
+            GAME_STATE.TRANSITION
+
+            &&
+
+            bossTransitionFailed
+        ) {
+
+            fleeToMenu();
+
+        }
+
+    }
+
+);
+
+
+/* =========================================================
    POINTER LOCK
 ========================================================= */
 
@@ -1574,6 +2559,16 @@ cameraManager
 
                 currentState ===
                 GAME_STATE.GAME_OVER
+
+                ||
+
+                currentState ===
+                GAME_STATE.TRANSITION
+
+                ||
+
+                currentState ===
+                GAME_STATE.VICTORY
             ) {
 
                 return;
@@ -1584,8 +2579,7 @@ cameraManager
             pauseMenu
                 .setCaptureHintVisible(
 
-                    currentState ===
-                    GAME_STATE.PLAYING
+                    isGameplayState()
 
                     &&
 
@@ -1599,8 +2593,7 @@ cameraManager
 
                 &&
 
-                currentState ===
-                GAME_STATE.PLAYING
+                isGameplayState()
             ) {
 
                 pauseGame();
@@ -1619,13 +2612,16 @@ cameraManager
 function pauseGame() {
 
     if (
-        currentState !==
-        GAME_STATE.PLAYING
+        !isGameplayState()
     ) {
 
         return;
 
     }
+
+
+    stateBeforePause =
+        currentState;
 
 
     currentState =
@@ -1648,6 +2644,11 @@ function pauseGame() {
 
 
     enemyManager.setEnabled(
+        false
+    );
+
+
+    bossManager.setEnabled(
         false
     );
 
@@ -1687,7 +2688,7 @@ function resumeGame() {
 
 
     currentState =
-        GAME_STATE.PLAYING;
+        stateBeforePause;
 
 
     playerController.setEnabled(
@@ -1705,19 +2706,64 @@ function resumeGame() {
     );
 
 
-    enemyManager.setEnabled(
-        true
-    );
+    if (
+        currentState ===
+        GAME_STATE.BOSS_FIGHT
+    ) {
+
+        enemyManager.setEnabled(
+            false
+        );
 
 
-    waveManager.setEnabled(
-        true
-    );
+        waveManager.setEnabled(
+            false
+        );
 
 
-    pickupManager.setEnabled(
-        true
-    );
+        pickupManager.setEnabled(
+            false
+        );
+
+
+        bossManager.setEnabled(
+            true
+        );
+
+
+        weaponManager.setEnemyManager(
+            bossManager
+        );
+
+    }
+
+    else {
+
+        enemyManager.setEnabled(
+            true
+        );
+
+
+        waveManager.setEnabled(
+            true
+        );
+
+
+        pickupManager.setEnabled(
+            true
+        );
+
+
+        bossManager.setEnabled(
+            false
+        );
+
+
+        weaponManager.setEnemyManager(
+            enemyManager
+        );
+
+    }
 
 
     cameraManager
@@ -1761,6 +2807,11 @@ function beginPlayerDeath() {
     );
 
 
+    bossManager.setEnabled(
+        false
+    );
+
+
     waveManager.setEnabled(
         false
     );
@@ -1797,6 +2848,7 @@ function beginPlayerDeath() {
     ) {
 
         finishPlayerDeath();
+
 
         return;
 
@@ -1877,6 +2929,11 @@ function finishPlayerDeath() {
     );
 
 
+    bossManager.setEnabled(
+        false
+    );
+
+
     waveManager.setEnabled(
         false
     );
@@ -1893,7 +2950,7 @@ function finishPlayerDeath() {
 
 
 /* =========================================================
-   RETRY / FLEE
+   RETRY
 ========================================================= */
 
 function retryGame() {
@@ -1925,15 +2982,12 @@ function fleeToMenu() {
 
 
 /* =========================================================
-   LOADING
+   NORMAL LOADING
 ========================================================= */
 
 function setLoading(
-
     percentage,
-
     text
-
 ) {
 
     if (
@@ -1959,6 +3013,95 @@ function setLoading(
 
 
 /* =========================================================
+   PRELOAD BOSS IN BACKGROUND
+========================================================= */
+
+function preloadBossEncounter() {
+
+    const job =
+        async () => {
+
+            try {
+
+                console.log(
+                    "[Nova] Precargando Boss Encounter..."
+                );
+
+
+                await Promise.all([
+
+                    environmentManager
+                        .preloadEnvironment(
+                            ENVIRONMENTS.BOSS_ARENA
+                        ),
+
+                    bossManager
+                        .preload()
+
+                ]);
+
+
+                console.log(
+                    "[Nova] Boss Encounter precargado."
+                );
+
+            }
+
+            catch (
+                error
+            ) {
+
+                /*
+                 * No detenemos la partida.
+                 * Se volverá a intentar al terminar Wave 5.
+                 */
+                console.warn(
+
+                    "[Nova] Preload Boss incompleto:",
+
+                    error
+
+                );
+
+            }
+
+        };
+
+
+    if (
+        "requestIdleCallback"
+        in window
+    ) {
+
+        window.requestIdleCallback(
+
+            job,
+
+            {
+                timeout:
+                    4000
+            }
+
+        );
+
+    }
+
+    else {
+
+        setTimeout(
+
+            job,
+
+            1200
+
+        );
+
+    }
+
+}
+
+
+/* =========================================================
    ZONE A
 ========================================================= */
 
@@ -1976,6 +3119,29 @@ async function enterZoneA() {
 
     currentState =
         GAME_STATE.LOADING;
+
+
+    bossTransitionStarted =
+        false;
+
+
+    bossTransitionFailed =
+        false;
+
+
+    bossManager.setEnabled(
+        false
+    );
+
+
+    bossManager.setVisible(
+        false
+    );
+
+
+    weaponManager.setEnemyManager(
+        enemyManager
+    );
 
 
     playerHealth.setVisible(
@@ -2246,7 +3412,7 @@ async function enterZoneA() {
 
 
         /* =================================================
-           GAME READY
+           READY
         ================================================= */
 
         playerController.setEnabled(
@@ -2348,17 +3514,19 @@ async function enterZoneA() {
 
                 );
 
+
+                /*
+                 * A partir de aquí descargamos
+                 * la arena y FBX del Boss sin bloquear
+                 * la entrada inicial.
+                 */
+                preloadBossEncounter();
+
             },
 
             300
 
         );
-
-
-        environmentManager
-            .preloadEnvironment(
-                ENVIRONMENTS.BOSS_ARENA
-            );
 
     }
 
@@ -2394,7 +3562,7 @@ async function enterZoneA() {
 
 
 /* =========================================================
-   SPAWN
+   ZONE A SPAWN
 ========================================================= */
 
 function calculateZoneASpawn(
@@ -2520,7 +3688,1544 @@ function calculateZoneASpawn(
 
 
 /* =========================================================
-   NOTIFICATIONS
+   DEACTIVATE ZONE A
+========================================================= */
+
+function deactivateZoneAExtras() {
+
+    enemyManager.setEnabled(
+        false
+    );
+
+
+    enemyManager.pruneDeadEnemies(
+        0
+    );
+
+
+    pickupManager.setEnabled(
+        false
+    );
+
+
+    for (
+        const pickup
+        of pickupManager.pickups ||
+        []
+    ) {
+
+        if (
+            pickup?.root
+        ) {
+
+            pickup.root.visible =
+                false;
+
+        }
+
+    }
+
+
+    const dynamicObjects =
+
+        typeof objectManager
+            .getDynamicObjects ===
+        "function"
+
+            ?
+
+            objectManager
+                .getDynamicObjects()
+
+            :
+
+            [];
+
+
+    for (
+        const object
+        of dynamicObjects
+    ) {
+
+        if (
+            object?.mesh
+        ) {
+
+            object.mesh.visible =
+                false;
+
+        }
+
+
+        if (
+            object?.rigidBody
+
+            &&
+
+            typeof object
+                .rigidBody
+                .setEnabled ===
+            "function"
+        ) {
+
+            object.rigidBody
+                .setEnabled(
+                    false
+                );
+
+        }
+
+    }
+
+
+    /*
+     * Nada de Zone A debe seguir participando
+     * en las balas dentro del Boss Arena.
+     */
+    weaponManager.dynamicTargets =
+        [];
+
+}
+
+
+/* =========================================================
+   ARENA FLOOR HELPERS
+========================================================= */
+
+function getEnvironmentFloorMeshes(
+    environment
+) {
+
+    const meshes =
+        [];
+
+
+    environment.updateMatrixWorld(
+        true
+    );
+
+
+    environment.traverse(
+
+        object => {
+
+            if (
+                object.isMesh
+
+                &&
+
+                object.visible
+
+                &&
+
+                object.geometry
+            ) {
+
+                meshes.push(
+                    object
+                );
+
+            }
+
+        }
+
+    );
+
+
+    return meshes;
+
+}
+
+
+function sampleArenaFloor(
+
+    meshes,
+
+    box,
+
+    x,
+
+    z
+
+) {
+
+    const raycaster =
+        new THREE.Raycaster(
+
+            new THREE.Vector3(
+
+                x,
+
+                box.max.y +
+                5,
+
+                z
+
+            ),
+
+            new THREE.Vector3(
+                0,
+                -1,
+                0
+            )
+
+        );
+
+
+    const normalMatrix =
+        new THREE.Matrix3();
+
+
+    const normal =
+        new THREE.Vector3();
+
+
+    const hits =
+        raycaster.intersectObjects(
+
+            meshes,
+
+            false
+
+        );
+
+
+    const horizontalHits =
+        [];
+
+
+    for (
+        const hit
+        of hits
+    ) {
+
+        if (
+            hit.face
+        ) {
+
+            normalMatrix
+                .getNormalMatrix(
+                    hit.object.matrixWorld
+                );
+
+
+            normal
+                .copy(
+                    hit.face.normal
+                )
+                .applyMatrix3(
+                    normalMatrix
+                )
+                .normalize();
+
+
+            if (
+                Math.abs(
+                    normal.y
+                ) <
+                0.60
+            ) {
+
+                continue;
+
+            }
+
+        }
+
+
+        horizontalHits.push(
+            hit.point.clone()
+        );
+
+    }
+
+
+    if (
+        horizontalHits.length ===
+        0
+    ) {
+
+        return null;
+
+    }
+
+
+    const lowAreaLimit =
+
+        box.min.y
+
+        +
+
+        (
+            box.max.y -
+            box.min.y
+        )
+
+        *
+
+        0.48;
+
+
+    const lowerHits =
+        horizontalHits.filter(
+
+            point =>
+                point.y <=
+                lowAreaLimit
+
+        );
+
+
+    const pool =
+
+        lowerHits.length >
+        0
+
+            ?
+
+            lowerHits
+
+            :
+
+            horizontalHits;
+
+
+    pool.sort(
+
+        (
+            a,
+            b
+        ) =>
+
+            b.y -
+            a.y
+
+    );
+
+
+    return pool[0];
+
+}
+
+
+/* =========================================================
+   CALCULATE BOSS ARENA SPAWNS
+========================================================= */
+
+function calculateBossArenaSpawns(
+    environment
+) {
+
+    const box =
+        new THREE.Box3()
+            .setFromObject(
+                environment
+            );
+
+
+    const size =
+        new THREE.Vector3();
+
+
+    const center =
+        new THREE.Vector3();
+
+
+    box.getSize(
+        size
+    );
+
+
+    box.getCenter(
+        center
+    );
+
+
+    const meshes =
+        getEnvironmentFloorMeshes(
+            environment
+        );
+
+
+    const radiusBase =
+
+        Math.min(
+
+            size.x,
+
+            size.z
+
+        )
+
+        *
+
+        0.34;
+
+
+    const candidates =
+        [];
+
+
+    const radii = [
+
+        radiusBase *
+        0.45,
+
+        radiusBase *
+        0.70,
+
+        radiusBase
+
+    ];
+
+
+    for (
+        const radius
+        of radii
+    ) {
+
+        for (
+            let i = 0;
+            i < 16;
+            i++
+        ) {
+
+            const angle =
+
+                i /
+                16
+
+                *
+
+                Math.PI *
+                2;
+
+
+            const point =
+                sampleArenaFloor(
+
+                    meshes,
+
+                    box,
+
+                    center.x
+
+                    +
+
+                    Math.cos(
+                        angle
+                    )
+
+                    *
+
+                    radius,
+
+                    center.z
+
+                    +
+
+                    Math.sin(
+                        angle
+                    )
+
+                    *
+
+                    radius
+
+                );
+
+
+            if (
+                point
+            ) {
+
+                candidates.push(
+                    point
+                );
+
+            }
+
+        }
+
+    }
+
+
+    const centerFloor =
+        sampleArenaFloor(
+
+            meshes,
+
+            box,
+
+            center.x,
+
+            center.z
+
+        );
+
+
+    if (
+        centerFloor
+    ) {
+
+        candidates.push(
+            centerFloor
+        );
+
+    }
+
+
+    if (
+        candidates.length <
+        2
+    ) {
+
+        const fallbackY =
+            box.min.y +
+            0.08;
+
+
+        return {
+
+            player:
+                new THREE.Vector3(
+
+                    center.x,
+
+                    fallbackY,
+
+                    center.z -
+                    size.z *
+                    0.16
+
+                ),
+
+            boss:
+                new THREE.Vector3(
+
+                    center.x,
+
+                    fallbackY,
+
+                    center.z +
+                    size.z *
+                    0.16
+
+                )
+
+        };
+
+    }
+
+
+    const sortedY =
+        candidates
+            .map(
+
+                point =>
+                    point.y
+
+            )
+            .sort(
+
+                (
+                    a,
+                    b
+                ) =>
+
+                    a -
+                    b
+
+            );
+
+
+    const medianY =
+        sortedY[
+
+            Math.floor(
+
+                sortedY.length /
+                2
+
+            )
+
+        ];
+
+
+    const mainFloor =
+        candidates.filter(
+
+            point =>
+
+                Math.abs(
+
+                    point.y -
+                    medianY
+
+                )
+
+                <=
+
+                0.85
+
+        );
+
+
+    const pool =
+
+        mainFloor.length >=
+        2
+
+            ?
+
+            mainFloor
+
+            :
+
+            candidates;
+
+
+    let playerPoint =
+        pool[0];
+
+
+    let bossPoint =
+        pool[1];
+
+
+    let bestDistance =
+        -1;
+
+
+    for (
+        let i = 0;
+        i < pool.length;
+        i++
+    ) {
+
+        for (
+            let j =
+                i + 1;
+
+            j < pool.length;
+
+            j++
+        ) {
+
+            if (
+                Math.abs(
+
+                    pool[i].y -
+                    pool[j].y
+
+                )
+
+                >
+
+                0.65
+            ) {
+
+                continue;
+
+            }
+
+
+            const distance =
+                Math.hypot(
+
+                    pool[i].x -
+                    pool[j].x,
+
+                    pool[i].z -
+                    pool[j].z
+
+                );
+
+
+            if (
+                distance >
+                bestDistance
+            ) {
+
+                bestDistance =
+                    distance;
+
+
+                playerPoint =
+                    pool[i];
+
+
+                bossPoint =
+                    pool[j];
+
+            }
+
+        }
+
+    }
+
+
+    return {
+
+        player:
+
+            playerPoint
+                .clone()
+                .add(
+
+                    new THREE.Vector3(
+                        0,
+                        0.08,
+                        0
+                    )
+
+                ),
+
+        boss:
+
+            bossPoint
+                .clone()
+                .add(
+
+                    new THREE.Vector3(
+                        0,
+                        0.04,
+                        0
+                    )
+
+                )
+
+    };
+
+}
+
+
+/* =========================================================
+   TELEPORT
+========================================================= */
+
+function teleportPlayerTo(
+
+    position,
+
+    lookAtPosition =
+        null
+
+) {
+
+    const playerRoot =
+        playerController
+            .getObject();
+
+
+    playerRoot.position.copy(
+        position
+    );
+
+
+    if (
+        lookAtPosition
+    ) {
+
+        const direction =
+            new THREE.Vector3()
+                .subVectors(
+
+                    lookAtPosition,
+
+                    position
+
+                );
+
+
+        direction.y =
+            0;
+
+
+        if (
+            direction.lengthSq() >
+            0.0001
+        ) {
+
+            playerRoot.rotation.y =
+                Math.atan2(
+
+                    direction.x,
+
+                    direction.z
+
+                );
+
+        }
+
+    }
+
+
+    const body =
+        physicsManager
+            .characterBody;
+
+
+    const footOffset =
+
+        Number.isFinite(
+
+            physicsManager
+                .characterFootOffset
+
+        )
+
+            ?
+
+            physicsManager
+                .characterFootOffset
+
+            :
+
+            0.90;
+
+
+    const physicsPosition = {
+
+        x:
+            position.x,
+
+        y:
+            position.y +
+            footOffset,
+
+        z:
+            position.z
+
+    };
+
+
+    if (
+        body
+    ) {
+
+        if (
+            typeof body.setTranslation ===
+            "function"
+        ) {
+
+            body.setTranslation(
+
+                physicsPosition,
+
+                true
+
+            );
+
+        }
+
+
+        if (
+            typeof body
+                .setNextKinematicTranslation ===
+            "function"
+        ) {
+
+            body.setNextKinematicTranslation(
+                physicsPosition
+            );
+
+        }
+
+    }
+
+
+    if (
+        "verticalVelocity"
+        in physicsManager
+    ) {
+
+        physicsManager.verticalVelocity =
+            0;
+
+    }
+
+
+    playerRoot.updateMatrixWorld(
+        true
+    );
+
+}
+
+
+/* =========================================================
+   BOSS TRANSITION ERROR
+========================================================= */
+
+function handleBossTransitionError(
+    error
+) {
+
+    console.error(
+
+        "[Nova] Boss transition failed:",
+
+        error
+
+    );
+
+
+    bossTransitionFailed =
+        true;
+
+
+    currentState =
+        GAME_STATE.TRANSITION;
+
+
+    showBossOverlay();
+
+
+    bossCinematicText.style.opacity =
+        "0";
+
+
+    bossLoadingPanel.style.display =
+        "block";
+
+
+    bossLoadingPanel.style.opacity =
+        "1";
+
+
+    bossLoadingPanel.style.transform =
+        "translateY(0)";
+
+
+    bossLoadingEyebrow.textContent =
+        "ERROR DE TRANSFERENCIA";
+
+
+    bossLoadingTitle.textContent =
+        "SECTOR CORE NO RESPONDE";
+
+
+    setBossLoading(
+
+        100,
+
+        "No se pudo completar la transición. Revisa la consola para conocer el archivo que falló."
+
+    );
+
+
+    bossLoadingFill.style.background =
+        "#d92828";
+
+
+    bossErrorButtons.style.display =
+        "flex";
+
+
+    bossOverlay.style.pointerEvents =
+        "auto";
+
+}
+
+
+/* =========================================================
+   BOSS TRANSITION
+========================================================= */
+
+async function beginBossTransition() {
+
+    if (
+        bossTransitionStarted
+
+        ||
+
+        currentState ===
+        GAME_STATE.DYING
+
+        ||
+
+        currentState ===
+        GAME_STATE.GAME_OVER
+    ) {
+
+        return;
+
+    }
+
+
+    bossTransitionStarted =
+        true;
+
+
+    bossTransitionFailed =
+        false;
+
+
+    currentState =
+        GAME_STATE.TRANSITION;
+
+
+    playerController.setEnabled(
+        false
+    );
+
+
+    weaponManager.setPaused(
+        true
+    );
+
+
+    enemyManager.setEnabled(
+        false
+    );
+
+
+    waveManager.setEnabled(
+        false
+    );
+
+
+    pickupManager.setEnabled(
+        false
+    );
+
+
+    bossManager.setEnabled(
+        false
+    );
+
+
+    cameraManager.cancelAim();
+
+
+    if (
+        cameraManager.getMode() ===
+        "FPS"
+    ) {
+
+        cameraManager.toggleMode();
+
+    }
+
+
+    cameraManager
+        .releasePointerLock();
+
+
+    waveManager.setVisible(
+        false
+    );
+
+
+    /* =================================================
+       PHASE 1
+       "ÉL VIENE POR TI"
+    ================================================= */
+
+    bossOverlay.style.pointerEvents =
+        "none";
+
+
+    bossErrorButtons.style.display =
+        "none";
+
+
+    bossLoadingFill.style.background =
+        "#ef3930";
+
+
+    showCinematicText(
+        "ÉL VIENE POR TI"
+    );
+
+
+    await sleep(
+        1650
+    );
+
+
+    hideCinematicText();
+
+
+    await sleep(
+        420
+    );
+
+
+    /* =================================================
+       PHASE 2
+       LOADING SCREEN
+    ================================================= */
+
+    showBossOverlay();
+
+
+    bossLoadingEyebrow.textContent =
+        "PROTOCOLO DE TRANSFERENCIA";
+
+
+    bossLoadingTitle.textContent =
+        "CARGANDO SECTOR CORE";
+
+
+    await showBossLoadingPanel();
+
+
+    setBossLoading(
+
+        5,
+
+        "Aislando Zona A..."
+
+    );
+
+
+    await nextFrame();
+
+
+    deactivateZoneAExtras();
+
+
+    setBossLoading(
+
+        14,
+
+        "Conectando con Sector Core..."
+
+    );
+
+
+    await nextFrame();
+
+
+    /* =================================================
+       ENVIRONMENT
+    ================================================= */
+
+    const bossArena =
+        await environmentManager
+            .activateEnvironment(
+
+                ENVIRONMENTS.BOSS_ARENA,
+
+                progress => {
+
+                    /*
+                     * Solo se usa si el escenario
+                     * todavía no estaba precargado.
+                     */
+                    setBossLoading(
+
+                        14
+
+                        +
+
+                        progress *
+                        0.20,
+
+                        "Transfiriendo geometría de Sector Core..."
+
+                    );
+
+                }
+
+            );
+
+
+    setBossLoading(
+
+        36,
+
+        "Optimizando Sector Core..."
+
+    );
+
+
+    await nextFrame();
+
+
+    optimizeStaticEnvironment(
+        bossArena
+    );
+
+
+    /* =================================================
+       PHYSICS
+    ================================================= */
+
+    setBossLoading(
+
+        45,
+
+        "Reconstruyendo colisiones..."
+
+    );
+
+
+    /*
+     * Dejamos pintar el 45% antes de entrar
+     * al trabajo síncrono de Rapier.
+     */
+    await nextFrame();
+
+
+    physicsManager
+        .createEnvironmentColliders(
+            bossArena
+        );
+
+
+    setBossLoading(
+
+        57,
+
+        "Calibrando sistemas de combate..."
+
+    );
+
+
+    await nextFrame();
+
+
+    cameraManager.setEnvironment(
+        bossArena
+    );
+
+
+    weaponManager.setEnvironment(
+        bossArena
+    );
+
+
+    bossManager.setEnvironment(
+        bossArena
+    );
+
+
+    /* =================================================
+       SPAWN ANALYSIS
+    ================================================= */
+
+    setBossLoading(
+
+        65,
+
+        "Localizando zona segura..."
+
+    );
+
+
+    await nextFrame();
+
+
+    const spawns =
+        calculateBossArenaSpawns(
+            bossArena
+        );
+
+
+    console.log(
+
+        "[Boss Arena] Player spawn:",
+
+        spawns.player
+
+    );
+
+
+    console.log(
+
+        "[Boss Arena] Boss spawn:",
+
+        spawns.boss
+
+    );
+
+
+    teleportPlayerTo(
+
+        spawns.player,
+
+        spawns.boss
+
+    );
+
+
+    cameraManager.setTarget(
+
+        playerController
+            .getObject(),
+
+        true
+
+    );
+
+
+    /* =================================================
+       BOSS ASSETS
+    ================================================= */
+
+    setBossLoading(
+
+        73,
+
+        "Inicializando anomalía..."
+
+    );
+
+
+    await nextFrame();
+
+
+    /*
+     * Si se precargó durante las waves esto
+     * regresa inmediatamente.
+     *
+     * Si el preload falló, aquí se vuelve
+     * a intentar y la pantalla informa al jugador.
+     */
+    await bossManager.load();
+
+
+    setBossLoading(
+
+        88,
+
+        "Sincronizando patrón hostil..."
+
+    );
+
+
+    await nextFrame();
+
+
+    await bossManager.spawn(
+        spawns.boss
+    );
+
+
+    /* =================================================
+       WEAPON CONNECTION
+    ================================================= */
+
+    weaponManager.setEnemyManager(
+        bossManager
+    );
+
+
+    weaponManager.setViewMode(
+        "TPS"
+    );
+
+
+    weaponManager.setEnabled(
+        true
+    );
+
+
+    weaponManager.dynamicTargets =
+        [];
+
+
+    weaponManager.setPaused(
+        false
+    );
+
+
+    cachedCameraMode =
+        "TPS";
+
+
+    cachedFirstPerson =
+        false;
+
+
+    cachedAiming =
+        false;
+
+
+    playerController
+        .setFirstPersonMode(
+            false
+        );
+
+
+    playerController.setAimState(
+
+        false,
+
+        cameraAimDirection
+
+    );
+
+
+    renderer.shadowMap.needsUpdate =
+        true;
+
+
+    setBossLoading(
+
+        100,
+
+        "SECTOR CORE ONLINE"
+
+    );
+
+
+    /*
+     * Como muchas cosas probablemente ya estaban
+     * precargadas, mantenemos unos milisegundos el
+     * panel para que no parpadee.
+     */
+    await sleep(
+        420
+    );
+
+
+    bossLoadingPanel.style.opacity =
+        "0";
+
+
+    await sleep(
+        280
+    );
+
+
+    /* =================================================
+       PHASE 3
+       BLACK -> SOBREVIVE
+    ================================================= */
+
+    bossLoadingPanel.style.display =
+        "none";
+
+
+    showCinematicText(
+        "SOBREVIVE"
+    );
+
+
+    await sleep(
+        950
+    );
+
+
+    /* =================================================
+       BOSS FIGHT READY
+    ================================================= */
+
+    playerController.setEnabled(
+        true
+    );
+
+
+    playerHealth.setVisible(
+        true
+    );
+
+
+    currentState =
+        GAME_STATE.BOSS_FIGHT;
+
+
+    hideBossOverlay();
+
+
+    showNotification(
+
+        "ANOMALÍA DETECTADA · SOBREVIVE"
+
+    );
+
+
+    setTimeout(
+
+        () => {
+
+            if (
+                currentState ===
+                GAME_STATE.BOSS_FIGHT
+            ) {
+
+                cameraManager
+                    .requestPointerLock();
+
+            }
+
+        },
+
+        650
+
+    );
+
+}
+
+
+/* =========================================================
+   BOSS DEFEATED
+========================================================= */
+
+function finishBossEncounter() {
+
+    if (
+        currentState ===
+        GAME_STATE.VICTORY
+    ) {
+
+        return;
+
+    }
+
+
+    currentState =
+        GAME_STATE.VICTORY;
+
+
+    playerController.setEnabled(
+        false
+    );
+
+
+    weaponManager.setPaused(
+        true
+    );
+
+
+    bossManager.setEnabled(
+        false
+    );
+
+
+    cameraManager.cancelAim();
+
+
+    cameraManager
+        .releasePointerLock();
+
+
+    showNotification(
+        "ANOMALÍA NEUTRALIZADA"
+    );
+
+
+    setTimeout(
+
+        () => {
+
+            victoryOverlay.style.display =
+                "flex";
+
+        },
+
+        900
+
+    );
+
+}
+
+
+/* =========================================================
+   NOTIFICATION
 ========================================================= */
 
 let notificationTimeout =
@@ -2579,7 +5284,7 @@ function showNotification(
 
 
 /* =========================================================
-   FPS COUNTER
+   FPS
 ========================================================= */
 
 function updateFPSCounter(
@@ -2675,8 +5380,7 @@ function updateAdaptiveQuality(
 
         ||
 
-        currentState !==
-        GAME_STATE.PLAYING
+        !isGameplayState()
     ) {
 
         return;
@@ -2788,12 +5492,15 @@ function updateAdaptiveQuality(
 
 
 /* =========================================================
-   SHADOW PERFORMANCE
+   SHADOW SYSTEM
 ========================================================= */
 
 function updateShadowSystem(
+
     deltaTime,
+
     playerPosition
+
 ) {
 
     shadowRefreshTimer +=
@@ -2803,10 +5510,6 @@ function updateShadowSystem(
     shadowFocusTimer +=
         deltaTime;
 
-
-    /* =================================================
-       RECENTER LIGHT
-    ================================================= */
 
     if (
         shadowFocusTimer >=
@@ -2847,10 +5550,6 @@ function updateShadowSystem(
 
     }
 
-
-    /* =================================================
-       REFRESH SHADOW MAP ~30HZ
-    ================================================= */
 
     if (
         shadowRefreshTimer >=
@@ -2934,9 +5633,14 @@ function update(
 
 
     if (
-        currentState ===
-        GAME_STATE.PLAYING
+        isGameplayState()
     ) {
+
+        const bossFight =
+
+            currentState ===
+            GAME_STATE.BOSS_FIGHT;
+
 
         cameraManager
             .getForwardDirection(
@@ -3067,17 +5771,23 @@ function update(
 
 
         /* =================================================
-           ENEMIES PRE PHYSICS
+           ENEMY PRE PHYSICS
         ================================================= */
 
-        enemyManager
-            .prePhysicsUpdate(
-                deltaTime
-            );
+        if (
+            !bossFight
+        ) {
+
+            enemyManager
+                .prePhysicsUpdate(
+                    deltaTime
+                );
+
+        }
 
 
         /* =================================================
-           ONE PHYSICS STEP ONLY
+           ONE PHYSICS STEP
         ================================================= */
 
         physicsManager.step(
@@ -3086,7 +5796,7 @@ function update(
 
 
         /* =================================================
-           SYNC PLAYER
+           PLAYER SYNC
         ================================================= */
 
         physicsManager
@@ -3099,20 +5809,35 @@ function update(
 
 
         /* =================================================
-           SYNC ENEMIES
+           NORMAL WAVES
         ================================================= */
 
-        enemyManager
-            .postPhysicsUpdate(
-                deltaTime
-            );
+        if (
+            !bossFight
+        ) {
+
+            enemyManager
+                .postPhysicsUpdate(
+                    deltaTime
+                );
+
+
+            objectManager.update();
+
+        }
 
 
         /* =================================================
-           OBJECTS
+           BOSS
         ================================================= */
 
-        objectManager.update();
+        else {
+
+            bossManager.update(
+                deltaTime
+            );
+
+        }
 
 
         playerController
@@ -3135,8 +5860,14 @@ function update(
            VISUALS
         ================================================= */
 
-        enemyManager
-            .updateVisuals();
+        if (
+            !bossFight
+        ) {
+
+            enemyManager
+                .updateVisuals();
+
+        }
 
 
         weaponManager.update(
@@ -3144,18 +5875,24 @@ function update(
         );
 
 
-        pickupManager.update(
-            deltaTime
-        );
+        if (
+            !bossFight
+        ) {
+
+            pickupManager.update(
+                deltaTime
+            );
 
 
-        waveManager.update(
-            deltaTime
-        );
+            waveManager.update(
+                deltaTime
+            );
+
+        }
 
 
         /* =================================================
-           PLAYER POSITION
+           PLAYER LIGHT
         ================================================= */
 
         const playerPosition =
@@ -3175,10 +5912,6 @@ function update(
 
         );
 
-
-        /* =================================================
-           CONTROLLED SHADOW UPDATE
-        ================================================= */
 
         updateShadowSystem(
 
@@ -3210,6 +5943,19 @@ function update(
                 0;
 
 
+            const threatText =
+
+                bossFight
+
+                    ?
+
+                    ` · BOSS HP ${Math.ceil(bossManager.getHealth())}`
+
+                    :
+
+                    ` · WAVE ${waveManager.getWave()}/5 · HOSTILES ${enemyManager.getAliveCount()}`;
+
+
             spawnDebug.textContent =
 
                 `${cameraMode}`
@@ -3218,9 +5964,13 @@ function update(
 
                 (
                     aiming
+
                         ?
+
                         " · ADS"
+
                         :
+
                         ""
                 )
 
@@ -3234,16 +5984,16 @@ function update(
 
                 +
 
-                ` · WAVE ${waveManager.getWave()}/5`
-
-                +
-
-                ` · HOSTILES ${enemyManager.getAliveCount()}`;
+                threatText;
 
         }
 
     }
 
+
+    /* =====================================================
+       DYING
+    ====================================================== */
 
     else if (
         currentState ===
@@ -3272,12 +6022,45 @@ function update(
             .updateVisuals();
 
 
+        bossManager.update(
+            deltaTime
+        );
+
+
         objectManager.update();
 
     }
 
 
+    /* =====================================================
+       VICTORY
+    ====================================================== */
+
+    else if (
+        currentState ===
+        GAME_STATE.VICTORY
+    ) {
+
+        bossManager.update(
+            deltaTime
+        );
+
+
+        playerController
+            .updateAnimationOnly(
+                deltaTime
+            );
+
+
+        cameraManager.update(
+            deltaTime
+        );
+
+    }
+
+
     stars.rotation.y +=
+
         deltaTime *
         0.0003;
 
@@ -3406,7 +6189,7 @@ console.log(
 
 console.log(
 
-    "%cPerformance & Supply Build v0.15.0",
+    "%cBoss Transition Build v0.16.1",
 
     "color:#8effa8;"
 
