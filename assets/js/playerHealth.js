@@ -1,16 +1,22 @@
 /* =========================================================
    NOVA CATALYST
    Player Health Manager
-   Build v0.10.1
 
+   Build v0.14.1
+
+   ---------------------------------------------------------
    - 100 HP
-   - Damage feedback
-   - Invulnerability window
-   - Health HUD
-   - Healing support
-   - Hit callback
-   - Death callback
+   - Damage
+   - Invulnerability
+   - Red damage vignette
+   - Healing
+   - Medkits
    - Game Over
+   - Retry / Flee
+
+   FIX v0.14.1:
+   - Health HUD hidden while in main menu
+   - HUD appears only after gameplay starts
 ========================================================= */
 
 export class PlayerHealthManager {
@@ -47,21 +53,31 @@ export class PlayerHealthManager {
             0;
 
 
+        this.damageFlashTimer =
+            0;
+
+
+        this.healFlashTimer =
+            0;
+
+
         this.enabled =
             true;
+
+
+        /*
+         * IMPORTANTE:
+         *
+         * Antes comenzaba en true.
+         * Eso hacía visible el HUD desde el menú.
+         */
+        this.visible =
+            false;
 
 
         this.dead =
             false;
 
-
-        this.visible =
-            false;
-
-
-        /* =================================================
-           CALLBACKS
-        ================================================= */
 
         this.onDamage =
             onDamage;
@@ -79,34 +95,25 @@ export class PlayerHealthManager {
             onFlee;
 
 
-        /* =================================================
-           EFFECTS
-        ================================================= */
-
-        this.damageFlashTimer =
-            0;
-
-
-        this.damageFlashDuration =
-            0.24;
-
-
-        this.lowHealthPulse =
-            0;
-
-
-        /* =================================================
-           UI
-        ================================================= */
-
         this.createHUD();
+
 
         this.createDamageOverlay();
 
-        this.createGameOverScreen();
+
+        this.createHealOverlay();
+
+
+        this.createGameOver();
+
 
         this.updateHUD();
 
+
+        /*
+         * Aseguramos que permanezca oculto
+         * mientras estamos en el menú.
+         */
         this.setVisible(
             false
         );
@@ -121,299 +128,178 @@ export class PlayerHealthManager {
     createHUD() {
 
         this.hud =
-            document.createElement(
-                "div"
+            document.getElementById(
+                "nova-health-hud"
             );
 
 
-        this.hud.id =
-            "nova-player-health";
+        if (
+            !this.hud
+        ) {
+
+            this.hud =
+                document.createElement(
+                    "div"
+                );
 
 
-        Object.assign(
-
-            this.hud.style,
-
-            {
-
-                position:
-                    "fixed",
-
-                left:
-                    "24px",
-
-                bottom:
-                    "26px",
-
-                width:
-                    "220px",
-
-                padding:
-                    "11px 13px",
-
-                zIndex:
-                    "700",
-
-                pointerEvents:
-                    "none",
-
-                userSelect:
-                    "none",
-
-                border:
-                    "1px solid rgba(255,255,255,.13)",
-
-                borderRadius:
-                    "5px",
-
-                background:
-                    "rgba(0,0,0,.58)",
-
-                backdropFilter:
-                    "blur(7px)",
-
-                boxShadow:
-                    "0 4px 18px rgba(0,0,0,.28)",
-
-                fontFamily:
-                    "Orbitron, Consolas, monospace",
-
-                color:
-                    "#ffffff",
-
-                transition:
-                    "opacity .2s ease"
-
-            }
-
-        );
+            this.hud.id =
+                "nova-health-hud";
 
 
-        this.header =
-            document.createElement(
-                "div"
+            Object.assign(
+
+                this.hud.style,
+
+                {
+
+                    position:
+                        "fixed",
+
+                    left:
+                        "26px",
+
+                    bottom:
+                        "26px",
+
+                    width:
+                        "215px",
+
+                    padding:
+                        "10px 13px",
+
+                    background:
+                        "rgba(0,0,0,.55)",
+
+                    border:
+                        "1px solid rgba(255,255,255,.12)",
+
+                    backdropFilter:
+                        "blur(6px)",
+
+                    color:
+                        "#fff",
+
+                    fontFamily:
+                        "Orbitron, Consolas, monospace",
+
+                    zIndex:
+                        "500",
+
+                    pointerEvents:
+                        "none",
+
+                    /*
+                     * Oculto desde su creación.
+                     */
+                    display:
+                        "none"
+
+                }
+
             );
 
 
-        Object.assign(
+            document.body.appendChild(
+                this.hud
+            );
 
-            this.header.style,
-
-            {
-
-                display:
-                    "flex",
-
-                justifyContent:
-                    "space-between",
-
-                alignItems:
-                    "center",
-
-                marginBottom:
-                    "7px"
-
-            }
-
-        );
+        }
 
 
-        this.title =
-            document.createElement(
-                "span"
+        this.hud.innerHTML = `
+
+            <div style="
+                display:flex;
+                justify-content:space-between;
+                align-items:center;
+                margin-bottom:6px;
+            ">
+
+                <span style="
+                    opacity:.60;
+                    font-size:8px;
+                    letter-spacing:1.3px;
+                ">
+                    INTEGRIDAD
+                </span>
+
+                <strong
+                    id="nova-health-value"
+                    style="
+                        font-size:11px;
+                    "
+                >
+                    100 HP
+                </strong>
+
+            </div>
+
+            <div style="
+                width:100%;
+                height:7px;
+                border-radius:4px;
+                overflow:hidden;
+                background:rgba(255,255,255,.10);
+            ">
+
+                <div
+                    id="nova-health-bar"
+                    style="
+                        width:100%;
+                        height:100%;
+                        background:linear-gradient(
+                            90deg,
+                            #d82b27,
+                            #ff6960
+                        );
+                        transition:width .15s ease-out;
+                    "
+                ></div>
+
+            </div>
+
+        `;
+
+
+        this.healthValue =
+            this.hud.querySelector(
+                "#nova-health-value"
             );
 
 
-        this.title.textContent =
-            "VITALS";
-
-
-        Object.assign(
-
-            this.title.style,
-
-            {
-
-                fontSize:
-                    "8px",
-
-                letterSpacing:
-                    "1.6px",
-
-                opacity:
-                    "0.55"
-
-            }
-
-        );
-
-
-        this.healthText =
-            document.createElement(
-                "span"
+        this.healthBar =
+            this.hud.querySelector(
+                "#nova-health-bar"
             );
-
-
-        Object.assign(
-
-            this.healthText.style,
-
-            {
-
-                fontSize:
-                    "11px",
-
-                fontWeight:
-                    "700",
-
-                letterSpacing:
-                    "1px"
-
-            }
-
-        );
-
-
-        this.header.append(
-
-            this.title,
-
-            this.healthText
-
-        );
-
-
-        this.barBackground =
-            document.createElement(
-                "div"
-            );
-
-
-        Object.assign(
-
-            this.barBackground.style,
-
-            {
-
-                width:
-                    "100%",
-
-                height:
-                    "9px",
-
-                background:
-                    "rgba(255,255,255,.09)",
-
-                border:
-                    "1px solid rgba(255,255,255,.10)",
-
-                borderRadius:
-                    "2px",
-
-                overflow:
-                    "hidden",
-
-                boxShadow:
-                    "inset 0 0 5px rgba(0,0,0,.5)"
-
-            }
-
-        );
-
-
-        this.bar =
-            document.createElement(
-                "div"
-            );
-
-
-        Object.assign(
-
-            this.bar.style,
-
-            {
-
-                width:
-                    "100%",
-
-                height:
-                    "100%",
-
-                transformOrigin:
-                    "left center",
-
-                background:
-                    "linear-gradient(90deg,#31d17c,#73ff9e)",
-
-                transition:
-                    "width .18s ease, background .18s ease"
-
-            }
-
-        );
-
-
-        this.barBackground.appendChild(
-            this.bar
-        );
-
-
-        this.status =
-            document.createElement(
-                "div"
-            );
-
-
-        Object.assign(
-
-            this.status.style,
-
-            {
-
-                marginTop:
-                    "6px",
-
-                fontSize:
-                    "7px",
-
-                letterSpacing:
-                    "1.25px",
-
-                opacity:
-                    "0.45"
-
-            }
-
-        );
-
-
-        this.status.textContent =
-            "ESTADO · ESTABLE";
-
-
-        this.hud.append(
-
-            this.header,
-
-            this.barBackground,
-
-            this.status
-
-        );
-
-
-        document.body.appendChild(
-            this.hud
-        );
 
     }
 
 
     /* =====================================================
-       DAMAGE OVERLAY
+       DAMAGE VIGNETTE
     ====================================================== */
 
     createDamageOverlay() {
+
+        this.damageOverlay =
+            document.getElementById(
+                "nova-damage-overlay"
+            );
+
+
+        if (
+            this.damageOverlay
+        ) {
+
+            this.damageOverlay.style.opacity =
+                "0";
+
+
+            return;
+
+        }
+
 
         this.damageOverlay =
             document.createElement(
@@ -437,20 +323,20 @@ export class PlayerHealthManager {
                 inset:
                     "0",
 
-                zIndex:
-                    "650",
-
                 pointerEvents:
                     "none",
+
+                zIndex:
+                    "850",
 
                 opacity:
                     "0",
 
                 background:
-                    "radial-gradient(circle at center, transparent 38%, rgba(160,0,0,.32) 70%, rgba(255,0,0,.62) 100%)",
+                    "radial-gradient(circle at center, transparent 35%, rgba(190,0,0,.35) 75%, rgba(255,0,0,.58) 100%)",
 
                 transition:
-                    "opacity .06s linear"
+                    "opacity .05s linear"
 
             }
 
@@ -465,20 +351,43 @@ export class PlayerHealthManager {
 
 
     /* =====================================================
-       GAME OVER SCREEN
+       HEAL EFFECT
     ====================================================== */
 
-    createGameOverScreen() {
+    createHealOverlay() {
 
-        this.gameOverScreen =
+        this.healOverlay =
+            document.getElementById(
+                "nova-heal-overlay"
+            );
+
+
+        if (
+            this.healOverlay
+        ) {
+
+            this.healOverlay.style.opacity =
+                "0";
+
+
+            return;
+
+        }
+
+
+        this.healOverlay =
             document.createElement(
                 "div"
             );
 
 
+        this.healOverlay.id =
+            "nova-heal-overlay";
+
+
         Object.assign(
 
-            this.gameOverScreen.style,
+            this.healOverlay.style,
 
             {
 
@@ -488,8 +397,79 @@ export class PlayerHealthManager {
                 inset:
                     "0",
 
+                pointerEvents:
+                    "none",
+
                 zIndex:
-                    "100000",
+                    "849",
+
+                opacity:
+                    "0",
+
+                background:
+                    "radial-gradient(circle at center, rgba(40,255,125,.05), transparent 58%, rgba(40,255,125,.22) 100%)",
+
+                transition:
+                    "opacity .08s linear"
+
+            }
+
+        );
+
+
+        document.body.appendChild(
+            this.healOverlay
+        );
+
+    }
+
+
+    /* =====================================================
+       GAME OVER
+    ====================================================== */
+
+    createGameOver() {
+
+        this.gameOver =
+            document.getElementById(
+                "nova-game-over"
+            );
+
+
+        if (
+            this.gameOver
+        ) {
+
+            this.gameOver.style.display =
+                "none";
+
+
+            return;
+
+        }
+
+
+        this.gameOver =
+            document.createElement(
+                "div"
+            );
+
+
+        this.gameOver.id =
+            "nova-game-over";
+
+
+        Object.assign(
+
+            this.gameOver.style,
+
+            {
+
+                position:
+                    "fixed",
+
+                inset:
+                    "0",
 
                 display:
                     "none",
@@ -501,13 +481,13 @@ export class PlayerHealthManager {
                     "center",
 
                 background:
-                    "radial-gradient(circle at center, rgba(25,0,0,.42), rgba(0,0,0,.93))",
+                    "rgba(0,0,0,.80)",
 
                 backdropFilter:
-                    "blur(4px)",
+                    "blur(7px)",
 
-                fontFamily:
-                    "Orbitron, Consolas, monospace"
+                zIndex:
+                    "5000"
 
             }
 
@@ -527,427 +507,144 @@ export class PlayerHealthManager {
             {
 
                 width:
-                    "min(440px, calc(100vw - 40px))",
+                    "min(420px, calc(100vw - 36px))",
 
                 padding:
-                    "34px 30px",
+                    "30px",
 
                 textAlign:
                     "center",
 
-                border:
-                    "1px solid rgba(255,70,60,.30)",
-
-                borderRadius:
-                    "8px",
-
                 background:
-                    "rgba(8,8,10,.88)",
+                    "rgba(7,10,14,.96)",
+
+                border:
+                    "1px solid rgba(255,70,60,.35)",
 
                 boxShadow:
-                    "0 0 60px rgba(180,0,0,.18)"
-
-            }
-
-        );
-
-
-        const danger =
-            document.createElement(
-                "div"
-            );
-
-
-        danger.textContent =
-            "NOVA ATLAS · SEÑAL VITAL PERDIDA";
-
-
-        Object.assign(
-
-            danger.style,
-
-            {
+                    "0 0 45px rgba(200,0,0,.20)",
 
                 color:
-                    "#ff5a50",
+                    "#fff",
 
-                fontSize:
-                    "9px",
-
-                letterSpacing:
-                    "2px",
-
-                marginBottom:
-                    "12px",
-
-                opacity:
-                    "0.75"
+                fontFamily:
+                    "Orbitron, Consolas, monospace"
 
             }
 
         );
 
 
-        const title =
-            document.createElement(
-                "div"
-            );
-
-
-        title.textContent =
-            "GAME OVER";
-
-
-        Object.assign(
-
-            title.style,
-
-            {
-
-                color:
-                    "#ffffff",
-
-                fontSize:
-                    "38px",
-
-                fontWeight:
-                    "800",
-
-                letterSpacing:
-                    "3px",
-
-                marginBottom:
-                    "9px",
-
-                textShadow:
-                    "0 0 20px rgba(255,40,30,.4)"
-
-            }
-
-        );
-
-
-        const subtitle =
-            document.createElement(
-                "div"
-            );
-
-
-        subtitle.textContent =
-            "El personal de seguridad ha sido neutralizado.";
-
-
-        Object.assign(
-
-            subtitle.style,
-
-            {
-
-                color:
-                    "rgba(255,255,255,.55)",
-
-                fontSize:
-                    "10px",
-
-                marginBottom:
-                    "26px",
-
-                lineHeight:
-                    "1.6"
-
-            }
-
-        );
-
-
-        const buttonContainer =
-            document.createElement(
-                "div"
-            );
-
-
-        Object.assign(
-
-            buttonContainer.style,
-
-            {
-
-                display:
-                    "flex",
-
-                gap:
-                    "10px",
-
-                justifyContent:
-                    "center",
-
-                flexWrap:
-                    "wrap"
-
-            }
-
-        );
-
-
-        this.retryButton =
-            this.createButton(
-
-                "REINTENTAR",
-
-                true
-
-            );
-
-
-        this.fleeButton =
-            this.createButton(
-
-                "HUIR",
-
-                false
-
-            );
-
-
-        this.retryButton.addEventListener(
-
-            "click",
-
-            () => {
-
-                if (
-                    typeof this.onRetry ===
-                    "function"
-                ) {
-
-                    this.onRetry();
-
-                }
-
-            }
-
-        );
-
-
-        this.fleeButton.addEventListener(
-
-            "click",
-
-            () => {
-
-                if (
-                    typeof this.onFlee ===
-                    "function"
-                ) {
-
-                    this.onFlee();
-
-                }
-
-            }
-
-        );
-
-
-        buttonContainer.append(
-
-            this.retryButton,
-
-            this.fleeButton
-
-        );
-
-
-        panel.append(
-
-            danger,
-
-            title,
-
-            subtitle,
-
-            buttonContainer
-
-        );
-
-
-        this.gameOverScreen.appendChild(
+        panel.innerHTML = `
+
+            <div style="
+                color:#e43b35;
+                font-size:10px;
+                letter-spacing:4px;
+                margin-bottom:7px;
+            ">
+                NOVA CATALYST
+            </div>
+
+            <h1 style="
+                margin:0 0 8px;
+                font-size:30px;
+            ">
+                GAME OVER
+            </h1>
+
+            <p style="
+                opacity:.55;
+                font-size:10px;
+                line-height:1.7;
+                margin-bottom:22px;
+            ">
+                SIGNOS VITALES PERDIDOS
+            </p>
+
+            <div style="
+                display:flex;
+                gap:10px;
+                justify-content:center;
+            ">
+
+                <button
+                    id="nova-retry"
+                    style="
+                        cursor:pointer;
+                        padding:10px 18px;
+                        border:1px solid #d9342f;
+                        background:#d9342f;
+                        color:white;
+                        font-family:inherit;
+                        font-size:9px;
+                    "
+                >
+                    RETRY
+                </button>
+
+                <button
+                    id="nova-flee"
+                    style="
+                        cursor:pointer;
+                        padding:10px 18px;
+                        border:1px solid rgba(255,255,255,.20);
+                        background:transparent;
+                        color:white;
+                        font-family:inherit;
+                        font-size:9px;
+                    "
+                >
+                    FLEE
+                </button>
+
+            </div>
+
+        `;
+
+
+        this.gameOver.appendChild(
             panel
         );
 
 
         document.body.appendChild(
-            this.gameOverScreen
+            this.gameOver
         );
 
-    }
 
+        panel
+            .querySelector(
+                "#nova-retry"
+            )
+            ?.addEventListener(
 
-    /* =====================================================
-       BUTTON
-    ====================================================== */
+                "click",
 
-    createButton(
-        text,
-        primary
-    ) {
+                () => {
 
-        const button =
-            document.createElement(
-                "button"
+                    this.onRetry?.();
+
+                }
+
             );
 
 
-        button.textContent =
-            text;
+        panel
+            .querySelector(
+                "#nova-flee"
+            )
+            ?.addEventListener(
 
+                "click",
 
-        Object.assign(
+                () => {
 
-            button.style,
+                    this.onFlee?.();
 
-            {
+                }
 
-                minWidth:
-                    "145px",
-
-                padding:
-                    "12px 18px",
-
-                cursor:
-                    "pointer",
-
-                borderRadius:
-                    "4px",
-
-                border:
-
-                    primary
-
-                        ?
-
-                        "1px solid rgba(255,80,70,.75)"
-
-                        :
-
-                        "1px solid rgba(255,255,255,.18)",
-
-                background:
-
-                    primary
-
-                        ?
-
-                        "rgba(170,25,20,.85)"
-
-                        :
-
-                        "rgba(255,255,255,.05)",
-
-                color:
-                    "#ffffff",
-
-                fontFamily:
-                    "Orbitron, Consolas, monospace",
-
-                fontSize:
-                    "9px",
-
-                fontWeight:
-                    "700",
-
-                letterSpacing:
-                    "1.25px",
-
-                transition:
-                    "transform .12s ease, background .12s ease"
-
-            }
-
-        );
-
-
-        button.addEventListener(
-
-            "mouseenter",
-
-            () => {
-
-                button.style.transform =
-                    "translateY(-1px)";
-
-            }
-
-        );
-
-
-        button.addEventListener(
-
-            "mouseleave",
-
-            () => {
-
-                button.style.transform =
-                    "translateY(0)";
-
-            }
-
-        );
-
-
-        return button;
-
-    }
-
-
-    /* =====================================================
-       VISIBILITY
-    ====================================================== */
-
-    setVisible(
-        visible
-    ) {
-
-        this.visible =
-            visible;
-
-
-        this.hud.style.display =
-
-            visible
-
-                ?
-
-                "block"
-
-                :
-
-                "none";
-
-
-        if (
-            !visible
-        ) {
-
-            this.damageOverlay.style.opacity =
-                "0";
-
-        }
-
-    }
-
-
-    setEnabled(
-        enabled
-    ) {
-
-        this.enabled =
-
-            enabled
-
-            &&
-
-            !this.dead;
+            );
 
     }
 
@@ -960,20 +657,19 @@ export class PlayerHealthManager {
 
         amount,
 
-        {
-            source = null
-        } = {}
+        context = null
 
     ) {
 
         if (
             !this.enabled
+
             ||
+
             this.dead
+
             ||
-            amount <=
-            0
-            ||
+
             this.invulnerabilityTimer >
             0
         ) {
@@ -983,14 +679,37 @@ export class PlayerHealthManager {
         }
 
 
-        this.health =
+        const damage =
+            Math.max(
 
+                0,
+
+                Number(
+                    amount
+                )
+                ||
+                0
+
+            );
+
+
+        if (
+            damage <=
+            0
+        ) {
+
+            return false;
+
+        }
+
+
+        this.health =
             Math.max(
 
                 0,
 
                 this.health -
-                amount
+                damage
 
             );
 
@@ -1000,64 +719,38 @@ export class PlayerHealthManager {
 
 
         this.damageFlashTimer =
-            this.damageFlashDuration;
-
-
-        this.damageOverlay.style.opacity =
-            "1";
+            0.28;
 
 
         this.updateHUD();
 
 
-        console.log(
+        this.onDamage?.({
 
-            `[PlayerHealth] -${amount} HP · ${this.health}/${this.maxHealth}`
+            amount:
+                damage,
 
-        );
+            health:
+                this.health,
 
+            source:
+                context?.source
 
-        /* =================================================
-           NON-FATAL HIT
-        ================================================= */
+        });
+
 
         if (
-            this.health >
+            this.health <=
             0
         ) {
 
-            if (
-                typeof this.onDamage ===
-                "function"
-            ) {
-
-                this.onDamage({
-
-                    amount,
-
-                    health:
-                        this.health,
-
-                    maxHealth:
-                        this.maxHealth,
-
-                    source
-
-                });
-
-            }
+            this.dead =
+                true;
 
 
-            return true;
+            this.onDeath?.();
 
         }
-
-
-        /* =================================================
-           FATAL HIT
-        ================================================= */
-
-        this.kill();
 
 
         return true;
@@ -1066,7 +759,7 @@ export class PlayerHealthManager {
 
 
     /* =====================================================
-       HEALING
+       HEAL
     ====================================================== */
 
     heal(
@@ -1074,9 +767,39 @@ export class PlayerHealthManager {
     ) {
 
         if (
-            this.dead
+            !this.enabled
+
             ||
-            amount <=
+
+            this.dead
+
+            ||
+
+            this.health >=
+            this.maxHealth
+        ) {
+
+            return 0;
+
+        }
+
+
+        const requested =
+            Math.max(
+
+                0,
+
+                Number(
+                    amount
+                )
+                ||
+                0
+
+            );
+
+
+        if (
+            requested <=
             0
         ) {
 
@@ -1085,44 +808,59 @@ export class PlayerHealthManager {
         }
 
 
-        const previous =
+        const before =
             this.health;
 
 
         this.health =
-
             Math.min(
 
                 this.maxHealth,
 
                 this.health +
-                amount
+                requested
 
             );
 
 
-        const healed =
-
+        const restored =
             this.health -
-            previous;
+            before;
 
 
-        this.updateHUD();
+        if (
+            restored >
+            0
+        ) {
+
+            this.healFlashTimer =
+                0.40;
 
 
-        return healed;
+            this.updateHUD();
+
+        }
+
+
+        return restored;
 
     }
 
 
-    healPercent(
-        percentage
-    ) {
+    canHeal() {
 
-        return this.heal(
+        return (
 
-            this.maxHealth *
-            percentage
+            this.enabled
+
+            &&
+
+            !this.dead
+
+            &&
+
+            this.health <
+            this.maxHealth
 
         );
 
@@ -1130,81 +868,106 @@ export class PlayerHealthManager {
 
 
     /* =====================================================
-       KILL
+       UPDATE
     ====================================================== */
 
-    kill() {
+    update(
+        deltaTime
+    ) {
+
+        this.invulnerabilityTimer =
+            Math.max(
+
+                0,
+
+                this.invulnerabilityTimer -
+                deltaTime
+
+            );
+
+
+        this.damageFlashTimer =
+            Math.max(
+
+                0,
+
+                this.damageFlashTimer -
+                deltaTime
+
+            );
+
+
+        this.healFlashTimer =
+            Math.max(
+
+                0,
+
+                this.healFlashTimer -
+                deltaTime
+
+            );
+
 
         if (
-            this.dead
+            this.damageOverlay
         ) {
 
-            return;
+            const opacity =
+
+                this.damageFlashTimer >
+                0
+
+                    ?
+
+                    Math.min(
+
+                        1,
+
+                        this.damageFlashTimer /
+                        0.20
+
+                    )
+
+                    :
+
+                    0;
+
+
+            this.damageOverlay.style.opacity =
+                `${opacity}`;
 
         }
 
 
-        this.dead =
-            true;
-
-
-        this.enabled =
-            false;
-
-
-        this.health =
-            0;
-
-
-        this.updateHUD();
-
-
-        /*
-         * Dejamos un rojo ligero mientras vemos
-         * la animación Death.
-         */
-        this.damageOverlay.style.opacity =
-            "0.30";
-
-
-        /*
-         * El Game Over no aparece todavía.
-         * main.js espera a que Death termine.
-         */
         if (
-            typeof this.onDeath ===
-            "function"
+            this.healOverlay
         ) {
 
-            this.onDeath();
+            const opacity =
+
+                this.healFlashTimer >
+                0
+
+                    ?
+
+                    Math.min(
+
+                        0.7,
+
+                        this.healFlashTimer /
+                        0.40
+
+                    )
+
+                    :
+
+                    0;
+
+
+            this.healOverlay.style.opacity =
+                `${opacity}`;
 
         }
-
-        else {
-
-            this.showGameOver();
-
-        }
-
-    }
-
-
-    /* =====================================================
-       GAME OVER
-    ====================================================== */
-
-    showGameOver() {
-
-        this.gameOverScreen.style.display =
-            "flex";
-
-    }
-
-
-    hideGameOver() {
-
-        this.gameOverScreen.style.display =
-            "none";
 
     }
 
@@ -1235,16 +998,28 @@ export class PlayerHealthManager {
             0;
 
 
-        this.lowHealthPulse =
+        this.healFlashTimer =
             0;
 
 
-        this.damageOverlay.style.opacity =
-            "0";
+        if (
+            this.damageOverlay
+        ) {
+
+            this.damageOverlay.style.opacity =
+                "0";
+
+        }
 
 
-        this.hud.style.opacity =
-            "1";
+        if (
+            this.healOverlay
+        ) {
+
+            this.healOverlay.style.opacity =
+                "0";
+
+        }
 
 
         this.hideGameOver();
@@ -1256,7 +1031,7 @@ export class PlayerHealthManager {
 
 
     /* =====================================================
-       UPDATE HUD
+       HUD UPDATE
     ====================================================== */
 
     updateHUD() {
@@ -1268,254 +1043,112 @@ export class PlayerHealthManager {
 
                 ?
 
-                this.health /
-                this.maxHealth
+                (
+                    this.health /
+                    this.maxHealth
+                )
+                *
+                100
 
                 :
 
                 0;
 
 
-        const percentDisplay =
+        if (
+            this.healthValue
+        ) {
 
-            Math.round(
+            this.healthValue.textContent =
+                `${Math.ceil(this.health)} HP`;
 
-                percentage *
-                100
+        }
 
+
+        if (
+            this.healthBar
+        ) {
+
+            this.healthBar.style.width =
+                `${percentage}%`;
+
+        }
+
+    }
+
+
+    /* =====================================================
+       VISIBILITY
+    ====================================================== */
+
+    setVisible(
+        visible
+    ) {
+
+        this.visible =
+            Boolean(
+                visible
             );
 
 
-        this.healthText.textContent =
-
-            `${Math.ceil(this.health)} / ${this.maxHealth}`;
-
-
-        this.bar.style.width =
-
-            `${percentDisplay}%`;
-
-
-        /* =================================================
-           HEALTHY
-        ================================================= */
-
         if (
-            percentage >
-            0.60
+            this.hud
         ) {
 
-            this.bar.style.background =
-                "linear-gradient(90deg,#31d17c,#73ff9e)";
+            this.hud.style.display =
 
-
-            this.healthText.style.color =
-                "#ffffff";
-
-
-            this.status.textContent =
-                "ESTADO · ESTABLE";
-
-
-            this.status.style.color =
-                "rgba(255,255,255,.55)";
-
-        }
-
-
-        /* =================================================
-           WOUNDED
-        ================================================= */
-
-        else if (
-            percentage >
-            0.30
-        ) {
-
-            this.bar.style.background =
-                "linear-gradient(90deg,#d7a42c,#ffd85e)";
-
-
-            this.healthText.style.color =
-                "#ffe28c";
-
-
-            this.status.textContent =
-                "ESTADO · HERIDO";
-
-
-            this.status.style.color =
-                "#ffd85e";
-
-        }
-
-
-        /* =================================================
-           CRITICAL
-        ================================================= */
-
-        else {
-
-            this.bar.style.background =
-                "linear-gradient(90deg,#a81818,#ff4a3d)";
-
-
-            this.healthText.style.color =
-                "#ff6258";
-
-
-            this.status.textContent =
-
-                this.dead
+                this.visible
 
                     ?
 
-                    "ESTADO · SIN SIGNOS VITALES"
+                    "block"
 
                     :
 
-                    "ESTADO · CRÍTICO";
-
-
-            this.status.style.color =
-                "#ff554b";
+                    "none";
 
         }
 
     }
 
 
-    /* =====================================================
-       UPDATE
-    ====================================================== */
-
-    update(
-        deltaTime
+    setEnabled(
+        enabled
     ) {
 
-        /* =================================================
-           INVULNERABILITY
-        ================================================= */
+        this.enabled =
+            enabled;
+
+    }
+
+
+    showGameOver() {
 
         if (
-            this.invulnerabilityTimer >
-            0
+            this.gameOver
         ) {
 
-            this.invulnerabilityTimer =
-
-                Math.max(
-
-                    0,
-
-                    this.invulnerabilityTimer -
-                    deltaTime
-
-                );
-
-        }
-
-
-        /* =================================================
-           DAMAGE FLASH
-        ================================================= */
-
-        if (
-            this.damageFlashTimer >
-            0
-            &&
-            !this.dead
-        ) {
-
-            this.damageFlashTimer -=
-                deltaTime;
-
-
-            const value =
-
-                Math.max(
-
-                    0,
-
-                    this.damageFlashTimer /
-                    this.damageFlashDuration
-
-                );
-
-
-            this.damageOverlay.style.opacity =
-
-                String(
-
-                    value *
-                    0.82
-
-                );
-
-        }
-
-        else if (
-            !this.dead
-        ) {
-
-            this.damageOverlay.style.opacity =
-                "0";
-
-        }
-
-
-        /* =================================================
-           LOW HEALTH PULSE
-        ================================================= */
-
-        if (
-            !this.dead
-            &&
-            this.health /
-            this.maxHealth <=
-            0.30
-        ) {
-
-            this.lowHealthPulse +=
-
-                deltaTime *
-                4.5;
-
-
-            const pulse =
-
-                0.72
-
-                +
-
-                Math.sin(
-                    this.lowHealthPulse
-                )
-
-                *
-                0.28;
-
-
-            this.hud.style.opacity =
-                String(
-                    pulse
-                );
-
-        }
-
-        else {
-
-            this.hud.style.opacity =
-                "1";
+            this.gameOver.style.display =
+                "flex";
 
         }
 
     }
 
 
-    /* =====================================================
-       GETTERS
-    ====================================================== */
+    hideGameOver() {
+
+        if (
+            this.gameOver
+        ) {
+
+            this.gameOver.style.display =
+                "none";
+
+        }
+
+    }
+
 
     getHealth() {
 
@@ -1527,24 +1160,6 @@ export class PlayerHealthManager {
     getMaxHealth() {
 
         return this.maxHealth;
-
-    }
-
-
-    getHealthPercent() {
-
-        if (
-            this.maxHealth <=
-            0
-        ) {
-
-            return 0;
-
-        }
-
-
-        return this.health /
-            this.maxHealth;
 
     }
 

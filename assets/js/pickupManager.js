@@ -2,21 +2,35 @@
    NOVA CATALYST
    Pickup Manager
 
-   Build v0.13.0
+   Build v0.14.0-R
+
+   STABLE PRE-ALPHA ROLLBACK
 
    ---------------------------------------------------------
-   - Weapon pickups
-   - SMG / Shotgun
-   - Safe floor detection
-   - Same-level validation
-   - Wall clearance
-   - Reachable spawn positions
+   - SMG pickup
+   - Shotgun pickup
+   - SMG ammo
+   - Shotgun ammo
+   - Rare medkits
    - E interaction
-   - Uses real weapon GLTF
+   - Safe local spawn positions
+   - Wave rewards
+
+   IMPORTANTE
+   ---------------------------------------------------------
+   Esta versión NO intenta repartir objetos por todo
+   el bounding box del escenario.
+
+   Usa nuevamente el sistema estable alrededor de la
+   zona jugable conocida del jugador.
 ========================================================= */
 
 import * as THREE from "three";
 
+
+/* =========================================================
+   CONFIG
+========================================================= */
 
 const PICKUP_CONFIG = {
 
@@ -24,13 +38,12 @@ const PICKUP_CONFIG = {
         1.85,
 
 
-    minDistanceFromPlayerSpawn:
-        4.5,
-
+    /* =====================================================
+       FLOOR
+    ====================================================== */
 
     maxFloorDifference:
         1.15,
-
 
     rayHeight:
         3.5,
@@ -39,35 +52,58 @@ const PICKUP_CONFIG = {
         7,
 
 
+    /* =====================================================
+       CLEARANCE
+    ====================================================== */
+
     wallClearance:
         0.50,
 
 
+    /* =====================================================
+       VISUALS
+    ====================================================== */
+
     visualGroundOffset:
         0.025,
-
 
     ringRadius:
         0.55,
 
 
+    /* =====================================================
+       LOCAL SAFE SEARCH
+
+       Esta es la distribución original estable.
+    ====================================================== */
+
     searchRadii: [
-
         5,
-
         7,
-
         9,
-
         11,
-
         13
-
     ],
 
-
     searchSteps:
-        24
+        24,
+
+
+    /* =====================================================
+       RESOURCES
+    ====================================================== */
+
+    smgAmmo:
+        45,
+
+    shotgunAmmo:
+        8,
+
+    medkitHealth:
+        25,
+
+    maxMedkits:
+        2
 
 };
 
@@ -86,9 +122,15 @@ export class PickupManager {
 
         weaponManager,
 
+        playerHealth,
+
         onPickup = null
 
     }) {
+
+        /* =================================================
+           REFERENCES
+        ================================================= */
 
         this.scene =
             scene;
@@ -102,9 +144,17 @@ export class PickupManager {
             weaponManager;
 
 
+        this.playerHealth =
+            playerHealth;
+
+
         this.onPickup =
             onPickup;
 
+
+        /* =================================================
+           ENVIRONMENT
+        ================================================= */
 
         this.environment =
             null;
@@ -113,6 +163,10 @@ export class PickupManager {
         this.environmentMeshes =
             [];
 
+
+        /* =================================================
+           STATE
+        ================================================= */
 
         this.enabled =
             false;
@@ -126,8 +180,24 @@ export class PickupManager {
             null;
 
 
+        this.zoneSpawn =
+            new THREE.Vector3();
+
+
         /* =================================================
-           RAYCAST
+           REWARDS
+        ================================================= */
+
+        this.waveRewardsSpawned =
+            new Set();
+
+
+        this.medkitsSpawned =
+            0;
+
+
+        /* =================================================
+           RAYCASTERS
         ================================================= */
 
         this.floorRaycaster =
@@ -158,6 +228,10 @@ export class PickupManager {
             new THREE.Vector3();
 
 
+        this.tempTarget =
+            new THREE.Vector3();
+
+
         this.floorNormal =
             new THREE.Vector3();
 
@@ -166,16 +240,20 @@ export class PickupManager {
             new THREE.Matrix3();
 
 
+        this.downDirection =
+            new THREE.Vector3(
+                0,
+                -1,
+                0
+            );
+
+
         /* =================================================
-           PROMPT
+           UI / INPUT
         ================================================= */
 
         this.createPrompt();
 
-
-        /* =================================================
-           INPUT
-        ================================================= */
 
         this.setupInput();
 
@@ -194,8 +272,8 @@ export class PickupManager {
             environment;
 
 
-        this.environmentMeshes =
-            [];
+        this.environmentMeshes.length =
+            0;
 
 
         environment.updateMatrixWorld(
@@ -232,7 +310,7 @@ export class PickupManager {
 
         console.log(
 
-            `[PickupManager] Environment: ${this.environmentMeshes.length} meshes`
+            `[Pickup] Environment · ${this.environmentMeshes.length} meshes`
 
         );
 
@@ -267,7 +345,7 @@ export class PickupManager {
 
 
     /* =====================================================
-       PROMPT UI
+       PROMPT
     ====================================================== */
 
     createPrompt() {
@@ -310,7 +388,7 @@ export class PickupManager {
                     "5px",
 
                 background:
-                    "rgba(0,0,0,.70)",
+                    "rgba(0,0,0,.72)",
 
                 backdropFilter:
                     "blur(5px)",
@@ -329,9 +407,6 @@ export class PickupManager {
 
                 letterSpacing:
                     "1.2px",
-
-                textAlign:
-                    "center",
 
                 pointerEvents:
                     "none",
@@ -357,41 +432,160 @@ export class PickupManager {
     }
 
 
-    showPrompt(
-        pickup
-    ) {
-
-        const name =
-            this.weaponManager
-                .getWeaponDisplayName(
-                    pickup.weaponKey
-                );
-
-
-        this.prompt.innerHTML = `
-
-            <span style="
-                color:#ff5750;
-                margin-right:7px;
-            ">
-                E
-            </span>
-
-            RECOGER ${name}
-
-        `;
-
-
-        this.prompt.style.display =
-            "block";
-
-    }
-
-
     hidePrompt() {
 
         this.prompt.style.display =
             "none";
+
+    }
+
+
+    showPrompt(
+        pickup
+    ) {
+
+        let text =
+            "";
+
+
+        let enabled =
+            true;
+
+
+        /* =================================================
+           WEAPON
+        ================================================= */
+
+        if (
+            pickup.type ===
+            "weapon"
+        ) {
+
+            text =
+                `RECOGER ${this.weaponManager.getWeaponDisplayName(pickup.weaponKey)}`;
+
+        }
+
+
+        /* =================================================
+           AMMO
+        ================================================= */
+
+        else if (
+            pickup.type ===
+            "ammo"
+        ) {
+
+            if (
+                !this.weaponManager
+                    .isWeaponUnlocked(
+                        pickup.weaponKey
+                    )
+            ) {
+
+                text =
+                    `REQUIERE ${this.weaponManager.getWeaponDisplayName(pickup.weaponKey)}`;
+
+
+                enabled =
+                    false;
+
+            }
+
+            else if (
+                pickup.weaponKey ===
+                "smg"
+            ) {
+
+                text =
+                    `RECOGER MUNICIÓN SMG +${pickup.amount}`;
+
+            }
+
+            else {
+
+                text =
+                    `RECOGER CARTUCHOS +${pickup.amount}`;
+
+            }
+
+        }
+
+
+        /* =================================================
+           MEDKIT
+        ================================================= */
+
+        else if (
+            pickup.type ===
+            "medkit"
+        ) {
+
+            if (
+                !this.playerHealth
+                    .canHeal()
+            ) {
+
+                text =
+                    "SALUD COMPLETA";
+
+
+                enabled =
+                    false;
+
+            }
+
+            else {
+
+                text =
+                    `USAR BOTIQUÍN +${pickup.amount} HP`;
+
+            }
+
+        }
+
+
+        this.prompt.innerHTML = `
+
+            ${
+                enabled
+
+                    ?
+
+                    `
+                    <span style="
+                        color:#ff5750;
+                        margin-right:7px;
+                    ">
+                        E
+                    </span>
+                    `
+
+                    :
+
+                    ""
+            }
+
+            ${text}
+
+        `;
+
+
+        this.prompt.style.opacity =
+
+            enabled
+
+                ?
+
+                "1"
+
+                :
+
+                "0.55";
+
+
+        this.prompt.style.display =
+            "block";
 
     }
 
@@ -442,7 +636,7 @@ export class PickupManager {
 
 
     /* =====================================================
-       FLOOR TEST
+       FLOOR
     ====================================================== */
 
     sampleFloorAt(
@@ -454,15 +648,6 @@ export class PickupManager {
         referenceY
 
     ) {
-
-        if (
-            !this.environment
-        ) {
-
-            return null;
-
-        }
-
 
         this.tempOrigin.set(
 
@@ -480,11 +665,7 @@ export class PickupManager {
 
             this.tempOrigin,
 
-            new THREE.Vector3(
-                0,
-                -1,
-                0
-            )
+            this.downDirection
 
         );
 
@@ -513,6 +694,10 @@ export class PickupManager {
             of hits
         ) {
 
+            /* =================================================
+               SAME FLOOR
+            ================================================= */
+
             if (
                 Math.abs(
 
@@ -527,6 +712,10 @@ export class PickupManager {
 
             }
 
+
+            /* =================================================
+               FLOOR NORMAL
+            ================================================= */
 
             if (
                 hit.face
@@ -674,46 +863,50 @@ export class PickupManager {
 
 
     /* =====================================================
-       DIRECT ACCESS FROM SPAWN
+       DIRECT ACCESS
+
+       Esta comprobación solo intenta evitar que un objeto
+       termine al otro lado de una pared enorme.
+
+       No se usa como navegación avanzada.
     ====================================================== */
 
     hasDirectAccess(
 
         position,
 
-        spawnPosition
+        reference
 
     ) {
 
         this.tempOrigin.set(
 
-            spawnPosition.x,
+            reference.x,
 
-            spawnPosition.y +
+            reference.y +
             0.90,
 
-            spawnPosition.z
+            reference.z
 
         );
 
 
-        const target =
-            new THREE.Vector3(
+        this.tempTarget.set(
 
-                position.x,
+            position.x,
 
-                position.y +
-                0.90,
+            position.y +
+            0.90,
 
-                position.z
+            position.z
 
-            );
+        );
 
 
         this.tempDirection
             .subVectors(
 
-                target,
+                this.tempTarget,
 
                 this.tempOrigin
 
@@ -721,8 +914,7 @@ export class PickupManager {
 
 
         const distance =
-            this.tempDirection
-                .length();
+            this.tempDirection.length();
 
 
         if (
@@ -781,7 +973,7 @@ export class PickupManager {
 
 
     /* =====================================================
-       CHECK PICKUP SEPARATION
+       PICKUP SEPARATION
     ====================================================== */
 
     isSeparatedFromOtherPickups(
@@ -792,6 +984,15 @@ export class PickupManager {
             const pickup
             of this.pickups
         ) {
+
+            if (
+                pickup.collected
+            ) {
+
+                continue;
+
+            }
+
 
             const distance =
                 Math.hypot(
@@ -807,7 +1008,7 @@ export class PickupManager {
 
             if (
                 distance <
-                3.5
+                2.6
             ) {
 
                 return false;
@@ -825,19 +1026,15 @@ export class PickupManager {
     /* =====================================================
        FIND SAFE POSITION
 
-       Busca alrededor del spawn del jugador.
-
-       Primero exige línea directa.
-
-       Si no encuentra nada, hace fallback solamente
-       con piso válido y espacio.
+       Este es nuevamente el algoritmo estable original.
     ====================================================== */
 
     findSafePosition(
 
-        spawnPosition,
+        reference,
 
-        angleOffset = 0
+        angleOffset =
+            0
 
     ) {
 
@@ -852,7 +1049,8 @@ export class PickupManager {
 
             for (
                 let i = 0;
-                i < PICKUP_CONFIG.searchSteps;
+                i <
+                PICKUP_CONFIG.searchSteps;
                 i++
             ) {
 
@@ -875,7 +1073,7 @@ export class PickupManager {
 
                 const x =
 
-                    spawnPosition.x
+                    reference.x
 
                     +
 
@@ -890,7 +1088,7 @@ export class PickupManager {
 
                 const z =
 
-                    spawnPosition.z
+                    reference.z
 
                     +
 
@@ -910,7 +1108,7 @@ export class PickupManager {
 
                         z,
 
-                        spawnPosition.y
+                        reference.y
 
                     );
 
@@ -940,7 +1138,7 @@ export class PickupManager {
 
                         floor,
 
-                        spawnPosition
+                        reference
 
                     )
                 ) {
@@ -969,10 +1167,15 @@ export class PickupManager {
 
 
         /* =================================================
-           FALLBACK SEARCH
+           RELAXED SEARCH
 
-           Si el pasillo tiene mucha geometría,
-           relajamos solamente la línea visual.
+           Si no encontró uno con línea directa,
+           quitamos solo esa restricción.
+
+           Seguimos exigiendo:
+           - piso
+           - espacio
+           - separación
         ================================================= */
 
         for (
@@ -982,7 +1185,8 @@ export class PickupManager {
 
             for (
                 let i = 0;
-                i < PICKUP_CONFIG.searchSteps;
+                i <
+                PICKUP_CONFIG.searchSteps;
                 i++
             ) {
 
@@ -1005,7 +1209,7 @@ export class PickupManager {
 
                 const x =
 
-                    spawnPosition.x
+                    reference.x
 
                     +
 
@@ -1020,7 +1224,7 @@ export class PickupManager {
 
                 const z =
 
-                    spawnPosition.z
+                    reference.z
 
                     +
 
@@ -1040,7 +1244,7 @@ export class PickupManager {
 
                         z,
 
-                        spawnPosition.y
+                        reference.y
 
                     );
 
@@ -1083,132 +1287,29 @@ export class PickupManager {
         }
 
 
+        /*
+         * Igual que la primera versión:
+         * fallback cerca del área jugable conocida.
+         */
         console.warn(
 
-            "[PickupManager] No se encontró posición segura."
+            "[Pickup] Safe search fallback."
 
         );
 
 
-        return spawnPosition
-            .clone()
-            .add(
-
-                new THREE.Vector3(
-                    2.5,
-                    0,
-                    0
-                )
-
-            );
+        return reference.clone();
 
     }
 
 
     /* =====================================================
-       CREATE WEAPON PICKUP
+       RING
     ====================================================== */
 
-    createWeaponPickup({
-
-        weaponKey,
-
-        position,
-
-        rotationY = 0
-
-    }) {
-
-        const visual =
-            this.weaponManager
-                .getPickupVisual(
-                    weaponKey
-                );
-
-
-        if (
-            !visual
-        ) {
-
-            console.error(
-
-                `[PickupManager] No hay visual para ${weaponKey}.`
-
-            );
-
-
-            return null;
-
-        }
-
-
-        const root =
-            new THREE.Group();
-
-
-        root.name =
-            `WorldPickup_${weaponKey}`;
-
-
-        root.position.copy(
-            position
-        );
-
-
-        this.scene.add(
-            root
-        );
-
-
-        /* =================================================
-           WEAPON VISUAL
-        ================================================= */
-
-        const visualRoot =
-            new THREE.Group();
-
-
-        visualRoot.rotation.y =
-            rotationY;
-
-
-        visualRoot.add(
-            visual
-        );
-
-
-        root.add(
-            visualRoot
-        );
-
-
-        /*
-         * Ajustamos el arma exactamente sobre el piso.
-         */
-        visualRoot.updateMatrixWorld(
-            true
-        );
-
-
-        const box =
-            new THREE.Box3()
-                .setFromObject(
-                    visualRoot
-                );
-
-
-        visualRoot.position.y +=
-
-            -box.min.y
-
-            +
-
-            PICKUP_CONFIG.visualGroundOffset;
-
-
-        /* =================================================
-           PICKUP RING
-        ================================================= */
+    createRing(
+        color
+    ) {
 
         const ring =
             new THREE.Mesh(
@@ -1220,23 +1321,13 @@ export class PickupManager {
 
                     PICKUP_CONFIG.ringRadius,
 
-                    32
+                    24
 
                 ),
 
                 new THREE.MeshBasicMaterial({
 
-                    color:
-                        weaponKey ===
-                        "smg"
-
-                            ?
-
-                            0x50b9ff
-
-                            :
-
-                            0xff8b42,
+                    color,
 
                     transparent:
                         true,
@@ -1267,24 +1358,127 @@ export class PickupManager {
             0.015;
 
 
+        return ring;
+
+    }
+
+
+    /* =====================================================
+       WEAPON
+    ====================================================== */
+
+    createWeaponPickup({
+
+        weaponKey,
+
+        position,
+
+        rotationY =
+            0
+
+    }) {
+
+        const visual =
+            this.weaponManager
+                .getPickupVisual(
+                    weaponKey
+                );
+
+
+        if (
+            !visual
+        ) {
+
+            return null;
+
+        }
+
+
+        const root =
+            new THREE.Group();
+
+
+        root.position.copy(
+            position
+        );
+
+
+        const visualRoot =
+            new THREE.Group();
+
+
+        visualRoot.rotation.y =
+            rotationY;
+
+
+        visualRoot.add(
+            visual
+        );
+
+
+        root.add(
+            visualRoot
+        );
+
+
+        this.scene.add(
+            root
+        );
+
+
+        visualRoot.updateMatrixWorld(
+            true
+        );
+
+
+        const box =
+            new THREE.Box3()
+                .setFromObject(
+                    visualRoot
+                );
+
+
+        visualRoot.position.y +=
+
+            -box.min.y
+
+            +
+
+            PICKUP_CONFIG.visualGroundOffset;
+
+
+        const ring =
+            this.createRing(
+
+                weaponKey ===
+                "smg"
+
+                    ?
+
+                    0x50b9ff
+
+                    :
+
+                    0xff8b42
+
+            );
+
+
         root.add(
             ring
         );
 
 
-        /* =================================================
-           PICKUP
-        ================================================= */
-
         const pickup = {
+
+            type:
+                "weapon",
 
             weaponKey,
 
             root,
 
             visualRoot,
-
-            visual,
 
             ring,
 
@@ -1304,12 +1498,290 @@ export class PickupManager {
         );
 
 
-        console.log(
+        return pickup;
 
-            `[PickupManager] ${weaponKey}:`,
+    }
 
+
+    /* =====================================================
+       AMMO VISUAL
+    ====================================================== */
+
+    createAmmoVisual(
+        weaponKey
+    ) {
+
+        const group =
+            new THREE.Group();
+
+
+        const primaryColor =
+
+            weaponKey ===
+            "smg"
+
+                ?
+
+                0x238bd9
+
+                :
+
+                0xd96725;
+
+
+        const box =
+            new THREE.Mesh(
+
+                new THREE.BoxGeometry(
+                    0.48,
+                    0.22,
+                    0.34
+                ),
+
+                new THREE.MeshStandardMaterial({
+
+                    color:
+                        primaryColor,
+
+                    roughness:
+                        0.62,
+
+                    metalness:
+                        0.25
+
+                })
+
+            );
+
+
+        box.position.y =
+            0.11;
+
+
+        group.add(
+            box
+        );
+
+
+        const lid =
+            new THREE.Mesh(
+
+                new THREE.BoxGeometry(
+                    0.40,
+                    0.035,
+                    0.28
+                ),
+
+                new THREE.MeshStandardMaterial({
+
+                    color:
+                        0x20252b,
+
+                    roughness:
+                        0.50,
+
+                    metalness:
+                        0.60
+
+                })
+
+            );
+
+
+        lid.position.y =
+            0.235;
+
+
+        group.add(
+            lid
+        );
+
+
+        /* =================================================
+           SHOTGUN SHELLS
+        ================================================= */
+
+        if (
+            weaponKey ===
+            "shotgun"
+        ) {
+
+            for (
+                let i = -1;
+                i <= 1;
+                i++
+            ) {
+
+                const shell =
+                    new THREE.Mesh(
+
+                        new THREE.CylinderGeometry(
+
+                            0.025,
+
+                            0.025,
+
+                            0.19,
+
+                            8
+
+                        ),
+
+                        new THREE.MeshStandardMaterial({
+
+                            color:
+                                0xc82d28,
+
+                            roughness:
+                                0.60
+
+                        })
+
+                    );
+
+
+                shell.rotation.z =
+                    Math.PI /
+                    2;
+
+
+                shell.position.set(
+
+                    i *
+                    0.09,
+
+                    0.28,
+
+                    0
+
+                );
+
+
+                group.add(
+                    shell
+                );
+
+            }
+
+        }
+
+
+        group.traverse(
+
+            object => {
+
+                if (
+                    object.isMesh
+                ) {
+
+                    object.castShadow =
+                        false;
+
+
+                    object.receiveShadow =
+                        true;
+
+                }
+
+            }
+
+        );
+
+
+        return group;
+
+    }
+
+
+    /* =====================================================
+       AMMO PICKUP
+    ====================================================== */
+
+    createAmmoPickup({
+
+        weaponKey,
+
+        amount,
+
+        position
+
+    }) {
+
+        const root =
+            new THREE.Group();
+
+
+        root.position.copy(
             position
+        );
 
+
+        const visualRoot =
+            this.createAmmoVisual(
+                weaponKey
+            );
+
+
+        root.add(
+            visualRoot
+        );
+
+
+        const ring =
+            this.createRing(
+
+                weaponKey ===
+                "smg"
+
+                    ?
+
+                    0x41b6ff
+
+                    :
+
+                    0xff8a40
+
+            );
+
+
+        root.add(
+            ring
+        );
+
+
+        this.scene.add(
+            root
+        );
+
+
+        const pickup = {
+
+            type:
+                "ammo",
+
+            weaponKey,
+
+            amount,
+
+            root,
+
+            visualRoot,
+
+            ring,
+
+            collected:
+                false,
+
+            pulseTime:
+                Math.random() *
+                Math.PI *
+                2
+
+        };
+
+
+        this.pickups.push(
+            pickup
         );
 
 
@@ -1319,43 +1791,227 @@ export class PickupManager {
 
 
     /* =====================================================
-       CREATE ZONE A PICKUPS
+       MEDKIT VISUAL
     ====================================================== */
 
-    createZoneAWeaponPickups(
+    createMedkitVisual() {
+
+        const group =
+            new THREE.Group();
+
+
+        const caseMesh =
+            new THREE.Mesh(
+
+                new THREE.BoxGeometry(
+                    0.50,
+                    0.20,
+                    0.38
+                ),
+
+                new THREE.MeshStandardMaterial({
+
+                    color:
+                        0xf0f2f2,
+
+                    roughness:
+                        0.70,
+
+                    metalness:
+                        0.05
+
+                })
+
+            );
+
+
+        caseMesh.position.y =
+            0.10;
+
+
+        group.add(
+            caseMesh
+        );
+
+
+        const crossMaterial =
+            new THREE.MeshBasicMaterial({
+
+                color:
+                    0xd72d2a
+
+            });
+
+
+        const vertical =
+            new THREE.Mesh(
+
+                new THREE.BoxGeometry(
+                    0.09,
+                    0.025,
+                    0.25
+                ),
+
+                crossMaterial
+
+            );
+
+
+        vertical.position.y =
+            0.212;
+
+
+        group.add(
+            vertical
+        );
+
+
+        const horizontal =
+            new THREE.Mesh(
+
+                new THREE.BoxGeometry(
+                    0.24,
+                    0.025,
+                    0.09
+                ),
+
+                crossMaterial
+
+            );
+
+
+        horizontal.position.y =
+            0.213;
+
+
+        group.add(
+            horizontal
+        );
+
+
+        return group;
+
+    }
+
+
+    /* =====================================================
+       MEDKIT
+    ====================================================== */
+
+    createMedkitPickup({
+
+        amount =
+            PICKUP_CONFIG.medkitHealth,
+
+        position
+
+    }) {
+
+        if (
+            this.medkitsSpawned >=
+            PICKUP_CONFIG.maxMedkits
+        ) {
+
+            return null;
+
+        }
+
+
+        const root =
+            new THREE.Group();
+
+
+        root.position.copy(
+            position
+        );
+
+
+        const visualRoot =
+            this.createMedkitVisual();
+
+
+        root.add(
+            visualRoot
+        );
+
+
+        const ring =
+            this.createRing(
+                0x55ff91
+            );
+
+
+        root.add(
+            ring
+        );
+
+
+        this.scene.add(
+            root
+        );
+
+
+        const pickup = {
+
+            type:
+                "medkit",
+
+            amount,
+
+            root,
+
+            visualRoot,
+
+            ring,
+
+            collected:
+                false,
+
+            pulseTime:
+                Math.random() *
+                Math.PI *
+                2
+
+        };
+
+
+        this.pickups.push(
+            pickup
+        );
+
+
+        this.medkitsSpawned++;
+
+
+        return pickup;
+
+    }
+
+
+    /* =====================================================
+       INITIAL ZONE A PICKUPS
+
+       REGRESAMOS A LOS OFFSETS DE LA VERSIÓN ESTABLE.
+    ====================================================== */
+
+    createZoneAPickups(
         playerSpawn
     ) {
 
-        if (
-            !this.environment
-        ) {
-
-            throw new Error(
-
-                "PickupManager requiere environment."
-
-            );
-
-        }
+        this.zoneSpawn.copy(
+            playerSpawn
+        );
 
 
-        if (
-            !this.weaponManager.loaded
-        ) {
+        this.medkitsSpawned =
+            0;
 
-            throw new Error(
 
-                "WeaponManager debe cargarse antes de crear pickups."
-
-            );
-
-        }
+        this.waveRewardsSpawned.clear();
 
 
         /* =================================================
            SMG
-
-           Aproximadamente hacia un lado del corredor.
         ================================================= */
 
         const smgPosition =
@@ -1386,9 +2042,6 @@ export class PickupManager {
 
         /* =================================================
            SHOTGUN
-
-           Buscamos en dirección diferente para que
-           no aparezcan juntas.
         ================================================= */
 
         const shotgunPosition =
@@ -1417,11 +2070,363 @@ export class PickupManager {
         });
 
 
+        /* =================================================
+           SMG AMMO
+        ================================================= */
+
+        const smgAmmoPosition =
+            this.findSafePosition(
+
+                playerSpawn,
+
+                Math.PI *
+                0.60
+
+            );
+
+
+        this.createAmmoPickup({
+
+            weaponKey:
+                "smg",
+
+            amount:
+                PICKUP_CONFIG.smgAmmo,
+
+            position:
+                smgAmmoPosition
+
+        });
+
+
+        /* =================================================
+           SHOTGUN AMMO
+        ================================================= */
+
+        const shotgunAmmoPosition =
+            this.findSafePosition(
+
+                playerSpawn,
+
+                Math.PI *
+                1.55
+
+            );
+
+
+        this.createAmmoPickup({
+
+            weaponKey:
+                "shotgun",
+
+            amount:
+                PICKUP_CONFIG.shotgunAmmo,
+
+            position:
+                shotgunAmmoPosition
+
+        });
+
+
+        /* =================================================
+           INITIAL MEDKIT
+
+           Solo uno.
+        ================================================= */
+
+        const medkitPosition =
+            this.findSafePosition(
+
+                playerSpawn,
+
+                Math.PI *
+                0.90
+
+            );
+
+
+        this.createMedkitPickup({
+
+            amount:
+                PICKUP_CONFIG.medkitHealth,
+
+            position:
+                medkitPosition
+
+        });
+
+
         console.log(
 
-            "[PickupManager] Zone A weapon pickups ONLINE"
+            "[Pickup] Stable Pre-Alpha layout ONLINE"
 
         );
+
+    }
+
+
+    /* =====================================================
+       WAVE REWARDS
+
+       Igual que la primera arquitectura:
+       posiciones alrededor de un área conocida y válida.
+
+       No hacemos búsqueda global.
+    ====================================================== */
+
+    spawnWaveRewards(
+        wave
+    ) {
+
+        if (
+            this.waveRewardsSpawned.has(
+                wave
+            )
+        ) {
+
+            return;
+
+        }
+
+
+        this.waveRewardsSpawned.add(
+            wave
+        );
+
+
+        this.playerController
+            .getObject()
+            .getWorldPosition(
+                this.playerPosition
+            );
+
+
+        const base =
+            this.playerPosition.clone();
+
+
+        /* =================================================
+           WAVE 1
+        ================================================= */
+
+        if (
+            wave ===
+            1
+        ) {
+
+            this.createAmmoPickup({
+
+                weaponKey:
+                    "smg",
+
+                amount:
+                    PICKUP_CONFIG.smgAmmo,
+
+                position:
+                    this.findSafePosition(
+
+                        base,
+
+                        0.35
+
+                    )
+
+            });
+
+
+            this.emitMessage(
+
+                "SUMINISTROS DESPLEGADOS · MUNICIÓN SMG"
+
+            );
+
+
+            return;
+
+        }
+
+
+        /* =================================================
+           WAVE 2
+
+           Sin botiquín.
+        ================================================= */
+
+        if (
+            wave ===
+            2
+        ) {
+
+            this.createAmmoPickup({
+
+                weaponKey:
+                    "shotgun",
+
+                amount:
+                    PICKUP_CONFIG.shotgunAmmo,
+
+                position:
+                    this.findSafePosition(
+
+                        base,
+
+                        1.30
+
+                    )
+
+            });
+
+
+            this.emitMessage(
+
+                "SUMINISTROS DESPLEGADOS · CARTUCHOS"
+
+            );
+
+
+            return;
+
+        }
+
+
+        /* =================================================
+           WAVE 3
+
+           Munición de ambas.
+        ================================================= */
+
+        if (
+            wave ===
+            3
+        ) {
+
+            this.createAmmoPickup({
+
+                weaponKey:
+                    "smg",
+
+                amount:
+                    PICKUP_CONFIG.smgAmmo,
+
+                position:
+                    this.findSafePosition(
+
+                        base,
+
+                        0.55
+
+                    )
+
+            });
+
+
+            this.createAmmoPickup({
+
+                weaponKey:
+                    "shotgun",
+
+                amount:
+                    PICKUP_CONFIG.shotgunAmmo,
+
+                position:
+                    this.findSafePosition(
+
+                        base,
+
+                        2.50
+
+                    )
+
+            });
+
+
+            this.emitMessage(
+
+                "SUMINISTROS DESPLEGADOS · MUNICIÓN"
+
+            );
+
+
+            return;
+
+        }
+
+
+        /* =================================================
+           WAVE 4
+
+           Segundo y último botiquín.
+        ================================================= */
+
+        if (
+            wave ===
+            4
+        ) {
+
+            this.createAmmoPickup({
+
+                weaponKey:
+                    "smg",
+
+                amount:
+                    60,
+
+                position:
+                    this.findSafePosition(
+
+                        base,
+
+                        0.20
+
+                    )
+
+            });
+
+
+            this.createAmmoPickup({
+
+                weaponKey:
+                    "shotgun",
+
+                amount:
+                    12,
+
+                position:
+                    this.findSafePosition(
+
+                        base,
+
+                        2.30
+
+                    )
+
+            });
+
+
+            this.createMedkitPickup({
+
+                amount:
+                    25,
+
+                position:
+                    this.findSafePosition(
+
+                        base,
+
+                        4.25
+
+                    )
+
+            });
+
+
+            this.emitMessage(
+
+                "REABASTECIMIENTO FINAL DESPLEGADO"
+
+            );
+
+        }
 
     }
 
@@ -1447,25 +2452,184 @@ export class PickupManager {
         }
 
 
-        const acquired =
-            this.weaponManager
-                .acquireWeapon(
-
-                    pickup.weaponKey,
-
-                    true
-
-                );
-
+        /* =================================================
+           WEAPON
+        ================================================= */
 
         if (
-            !acquired
+            pickup.type ===
+            "weapon"
         ) {
 
-            return false;
+            const acquired =
+                this.weaponManager
+                    .acquireWeapon(
+
+                        pickup.weaponKey,
+
+                        true
+
+                    );
+
+
+            if (
+                !acquired
+            ) {
+
+                return false;
+
+            }
+
+
+            const name =
+                this.weaponManager
+                    .getWeaponDisplayName(
+                        pickup.weaponKey
+                    );
+
+
+            this.removePickup(
+                pickup
+            );
+
+
+            this.emitMessage(
+
+                `${name} ADQUIRIDA · RUEDA PARA CAMBIAR`
+
+            );
+
+
+            return true;
 
         }
 
+
+        /* =================================================
+           AMMO
+        ================================================= */
+
+        if (
+            pickup.type ===
+            "ammo"
+        ) {
+
+            if (
+                !this.weaponManager
+                    .isWeaponUnlocked(
+                        pickup.weaponKey
+                    )
+            ) {
+
+                return false;
+
+            }
+
+
+            const success =
+                this.weaponManager
+                    .addReserveAmmo(
+
+                        pickup.weaponKey,
+
+                        pickup.amount
+
+                    );
+
+
+            if (
+                !success
+            ) {
+
+                return false;
+
+            }
+
+
+            const text =
+
+                pickup.weaponKey ===
+                "smg"
+
+                    ?
+
+                    `MUNICIÓN SMG +${pickup.amount}`
+
+                    :
+
+                    `CARTUCHOS SHOTGUN +${pickup.amount}`;
+
+
+            this.removePickup(
+                pickup
+            );
+
+
+            this.emitMessage(
+                text
+            );
+
+
+            return true;
+
+        }
+
+
+        /* =================================================
+           MEDKIT
+        ================================================= */
+
+        if (
+            pickup.type ===
+            "medkit"
+        ) {
+
+            const healed =
+                this.playerHealth
+                    .heal(
+                        pickup.amount
+                    );
+
+
+            if (
+                healed <=
+                0
+            ) {
+
+                return false;
+
+            }
+
+
+            this.removePickup(
+                pickup
+            );
+
+
+            this.emitMessage(
+
+                `SALUD +${Math.round(healed)} HP`
+
+            );
+
+
+            return true;
+
+        }
+
+
+        return false;
+
+    }
+
+
+    /* =====================================================
+       REMOVE
+    ====================================================== */
+
+    removePickup(
+        pickup
+    ) {
 
         pickup.collected =
             true;
@@ -1482,13 +2646,16 @@ export class PickupManager {
 
         this.hidePrompt();
 
+    }
 
-        const name =
-            this.weaponManager
-                .getWeaponDisplayName(
-                    pickup.weaponKey
-                );
 
+    /* =====================================================
+       MESSAGE
+    ====================================================== */
+
+    emitMessage(
+        message
+    ) {
 
         if (
             typeof this.onPickup ===
@@ -1497,24 +2664,11 @@ export class PickupManager {
 
             this.onPickup({
 
-                weaponKey:
-                    pickup.weaponKey,
-
-                name
+                message
 
             });
 
         }
-
-
-        console.log(
-
-            `[PickupManager] Recogida: ${name}`
-
-        );
-
-
-        return true;
 
     }
 
@@ -1569,20 +2723,20 @@ export class PickupManager {
 
 
             /* =================================================
-               SUBTLE RING EFFECT
-
-               El arma NO flota ni gira.
-               Permanece tirada en el suelo.
+               VISUAL PULSE
             ================================================= */
 
             pickup.pulseTime +=
+
                 deltaTime *
                 2.1;
 
 
-            const pulse =
+            pickup.ring
+                .material
+                .opacity =
 
-                0.30
+                0.28
 
                 +
 
@@ -1592,7 +2746,6 @@ export class PickupManager {
                     )
 
                     *
-
                     0.5
 
                     +
@@ -1602,14 +2755,11 @@ export class PickupManager {
 
                 *
 
-                0.28;
-
-
-            pickup.ring.material.opacity =
-                pulse;
+                0.25;
 
 
             pickup.ring.rotation.z +=
+
                 deltaTime *
                 0.15;
 

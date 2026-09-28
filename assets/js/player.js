@@ -1,9 +1,7 @@
 /* =========================================================
    NOVA CATALYST
    Player Controller
-
-   Build v0.11.3
-
+   Build v0.11.4 · STABLE MOTION
    - Full body locomotion
    - RightHand detection
    - Stable combat pose
@@ -11,6 +9,7 @@
    - Reload priority
    - Hit / Death
    - TPS / FPS
+   - Stable aim / movement anti-jitter
 ========================================================= */
 
 import * as THREE from "three";
@@ -28,7 +27,43 @@ const PLAYER_CONFIG = {
 
     runSpeed: 5.2,
 
-    rotationSpeed: 14,
+    /*
+     * Menor que antes para evitar microcorrecciones
+     * visibles cuando la dirección de cámara cambia
+     * ligeramente entre frames.
+     */
+    rotationSpeed: 10,
+
+    /*
+     * Si la diferencia angular es menor a este valor,
+     * no tocamos la rotación. Evita vibración de yaw.
+     */
+    rotationDeadZone:
+        THREE.MathUtils.degToRad(
+            0.20
+        ),
+
+    /*
+     * Suavizado de la dirección de apuntado.
+     */
+    aimDirectionSpeed: 18,
+
+    aimDirectionDeadZone:
+        THREE.MathUtils.degToRad(
+            0.12
+        ),
+
+    /*
+     * PhysicsManager usa como máximo 1/30 por step.
+     *
+     * Evitamos que un bajón momentáneo de FPS provoque
+     * un salto grande del personaje.
+     */
+    maxFrameDelta:
+        1 / 30,
+
+    minFrameDelta:
+        0,
 
     modelRotationOffset: 0,
 
@@ -82,6 +117,10 @@ export class PlayerController {
             new FBXLoader();
 
 
+        /* =================================================
+           ROOT
+        ================================================= */
+
         this.root =
             new THREE.Group();
 
@@ -99,6 +138,10 @@ export class PlayerController {
             null;
 
 
+        /* =================================================
+           BONES
+        ================================================= */
+
         this.rightHandBone =
             null;
 
@@ -106,6 +149,10 @@ export class PlayerController {
         this.headBone =
             null;
 
+
+        /* =================================================
+           ANIMATION
+        ================================================= */
 
         this.mixer =
             null;
@@ -163,6 +210,10 @@ export class PlayerController {
             null;
 
 
+        /* =================================================
+           COMBAT POSE
+        ================================================= */
+
         this.combatPoseAction =
             null;
 
@@ -170,6 +221,10 @@ export class PlayerController {
         this.combatPoseActive =
             false;
 
+
+        /* =================================================
+           STATE
+        ================================================= */
 
         this.enabled =
             false;
@@ -195,6 +250,10 @@ export class PlayerController {
             false;
 
 
+        /* =================================================
+           AIM
+        ================================================= */
+
         this.aimDirection =
             new THREE.Vector3(
                 0,
@@ -202,6 +261,32 @@ export class PlayerController {
                 -1
             );
 
+
+        /*
+         * Dirección recibida desde cámara/arma.
+         *
+         * No se usa directamente para girar al jugador.
+         * Primero se suaviza.
+         */
+        this.targetAimDirection =
+            new THREE.Vector3(
+                0,
+                0,
+                -1
+            );
+
+
+        this.worldUp =
+            new THREE.Vector3(
+                0,
+                1,
+                0
+            );
+
+
+        /* =================================================
+           INPUT
+        ================================================= */
 
         this.keys = {
 
@@ -217,6 +302,10 @@ export class PlayerController {
 
         };
 
+
+        /* =================================================
+           MOVEMENT
+        ================================================= */
 
         this.moveDirection =
             new THREE.Vector3();
@@ -234,6 +323,11 @@ export class PlayerController {
             new THREE.Vector3();
 
 
+        /*
+         * Se mantiene por compatibilidad con la estructura
+         * anterior aunque la nueva rotación estable ya no
+         * depende del slerp de este quaternion.
+         */
         this.targetQuaternion =
             new THREE.Quaternion();
 
@@ -738,17 +832,20 @@ export class PlayerController {
             track => {
 
                 const name =
+
                     track.name
                         .toLowerCase();
 
 
                 const isPosition =
+
                     name.endsWith(
                         ".position"
                     );
 
 
                 const isRoot =
+
                     name.includes(
                         "hips"
                     )
@@ -952,11 +1049,13 @@ export class PlayerController {
     ) {
 
         const tracks =
+
             sourceClip.tracks
 
                 .filter(
 
                     track =>
+
                         filterFunction.call(
 
                             this,
@@ -986,6 +1085,7 @@ export class PlayerController {
 
 
         const clip =
+
             new THREE.AnimationClip(
 
                 clipName,
@@ -1020,6 +1120,7 @@ export class PlayerController {
     ) {
 
         const sampleTime =
+
             THREE.MathUtils.clamp(
 
                 sourceClip.duration *
@@ -1050,7 +1151,9 @@ export class PlayerController {
 
             if (
                 !this.isUpperBodyTrack(
+
                     sourceTrack.name
+
                 )
             ) {
 
@@ -1060,17 +1163,20 @@ export class PlayerController {
 
 
             const valueSize =
+
                 sourceTrack
                     .getValueSize();
 
 
             const result =
+
                 new Float32Array(
                     valueSize
                 );
 
 
             const interpolant =
+
                 sourceTrack
                     .createInterpolant(
                         result
@@ -1083,6 +1189,7 @@ export class PlayerController {
 
 
             const values =
+
                 new Float32Array(
 
                     valueSize *
@@ -1111,11 +1218,13 @@ export class PlayerController {
 
 
             const TrackClass =
+
                 sourceTrack
                     .constructor;
 
 
             const staticTrack =
+
                 new TrackClass(
 
                     sourceTrack.name,
@@ -1235,6 +1344,7 @@ export class PlayerController {
 
 
                     const fullAction =
+
                         this.mixer
                             .clipAction(
                                 fullClip
@@ -1260,6 +1370,7 @@ export class PlayerController {
 
 
                     const lowerClip =
+
                         this.createFilteredClip(
 
                             clip,
@@ -1276,6 +1387,7 @@ export class PlayerController {
                     ) {
 
                         const lowerAction =
+
                             this.mixer
                                 .clipAction(
                                     lowerClip
@@ -1324,6 +1436,7 @@ export class PlayerController {
                 ) {
 
                     const upperClip =
+
                         this.createFilteredClip(
 
                             clip,
@@ -1340,6 +1453,7 @@ export class PlayerController {
                     ) {
 
                         const action =
+
                             this.mixer
                                 .clipAction(
                                     upperClip
@@ -1376,6 +1490,7 @@ export class PlayerController {
                     ) {
 
                         const staticPose =
+
                             this.createStaticPoseClip(
 
                                 clip,
@@ -1393,6 +1508,7 @@ export class PlayerController {
                         ) {
 
                             this.combatPoseAction =
+
                                 this.mixer
                                     .clipAction(
                                         staticPose
@@ -1428,6 +1544,7 @@ export class PlayerController {
 
 
                     this.deathAction =
+
                         this.mixer
                             .clipAction(
                                 clip
@@ -1646,6 +1763,7 @@ export class PlayerController {
 
 
         const nextAction =
+
             this.fullLocomotionActions
                 .get(
                     name
@@ -1681,25 +1799,55 @@ export class PlayerController {
         }
 
 
-        let previousTime =
+        /*
+         * Conservamos la fase NORMALIZADA.
+         *
+         * Antes se copiaba el tiempo absoluto entre
+         * Walk y Run. Como ambos clips pueden tener
+         * distinta duración eso podía crear un salto
+         * de piernas al pulsar Shift.
+         */
+        let previousPhase =
             0;
 
 
-        if (
+        const previousAction =
+
             this.currentLowerAction
+
+            ||
+
+            this.currentFullAction;
+
+
+        if (
+            previousAction
         ) {
 
-            previousTime =
-                this.currentLowerAction.time;
+            const previousDuration =
 
-        }
+                previousAction
+                    .getClip()
+                    .duration;
 
-        else if (
-            this.currentFullAction
-        ) {
 
-            previousTime =
-                this.currentFullAction.time;
+            if (
+                previousDuration >
+                0
+            ) {
+
+                previousPhase =
+
+                    (
+                        previousAction.time %
+                        previousDuration
+                    )
+
+                    /
+
+                    previousDuration;
+
+            }
 
         }
 
@@ -1737,6 +1885,7 @@ export class PlayerController {
 
 
         const duration =
+
             nextAction
                 .getClip()
                 .duration;
@@ -1748,7 +1897,8 @@ export class PlayerController {
         ) {
 
             nextAction.time =
-                previousTime %
+
+                previousPhase *
                 duration;
 
         }
@@ -1813,6 +1963,7 @@ export class PlayerController {
 
 
         const nextAction =
+
             this.lowerLocomotionActions
                 .get(
                     name
@@ -1848,25 +1999,57 @@ export class PlayerController {
         }
 
 
-        let previousTime =
+        /*
+         * Conservamos la misma fase al pasar de:
+         *
+         * locomoción completa
+         *          ↕
+         * locomoción de piernas + arma
+         *
+         * Así apuntar mientras corres no reinicia
+         * bruscamente la posición de las piernas.
+         */
+        let previousPhase =
             0;
 
 
-        if (
+        const previousAction =
+
             this.currentFullAction
+
+            ||
+
+            this.currentLowerAction;
+
+
+        if (
+            previousAction
         ) {
 
-            previousTime =
-                this.currentFullAction.time;
+            const previousDuration =
 
-        }
+                previousAction
+                    .getClip()
+                    .duration;
 
-        else if (
-            this.currentLowerAction
-        ) {
 
-            previousTime =
-                this.currentLowerAction.time;
+            if (
+                previousDuration >
+                0
+            ) {
+
+                previousPhase =
+
+                    (
+                        previousAction.time %
+                        previousDuration
+                    )
+
+                    /
+
+                    previousDuration;
+
+            }
 
         }
 
@@ -1904,6 +2087,7 @@ export class PlayerController {
 
 
         const duration =
+
             nextAction
                 .getClip()
                 .duration;
@@ -1915,7 +2099,8 @@ export class PlayerController {
         ) {
 
             nextAction.time =
-                previousTime %
+
+                previousPhase *
                 duration;
 
         }
@@ -1986,6 +2171,10 @@ export class PlayerController {
     }
 
 
+    /* =====================================================
+       UPDATE LOCOMOTION
+    ====================================================== */
+
     updateLocomotionAnimation() {
 
         if (
@@ -2044,6 +2233,7 @@ export class PlayerController {
 
     /* =====================================================
        UPPER BODY ACTION
+
        PRIORITY:
        Death > Reload > Hit > Shoot
     ====================================================== */
@@ -2074,6 +2264,7 @@ export class PlayerController {
 
 
         const action =
+
             this.upperActions
                 .get(
                     name
@@ -2117,8 +2308,8 @@ export class PlayerController {
 
 
             /*
-             * Una nueva recarga tiene prioridad sobre
-             * Shoot y Hit.
+             * Una nueva recarga tiene prioridad
+             * sobre Shoot y Hit.
              */
             if (
                 name ===
@@ -2483,6 +2674,7 @@ export class PlayerController {
 
 
         const changed =
+
             aiming !==
             this.aiming;
 
@@ -2495,22 +2687,48 @@ export class PlayerController {
             direction
         ) {
 
-            this.aimDirection.copy(
+            /*
+             * Guardamos primero la dirección OBJETIVO.
+             *
+             * Antes aimDirection recibía directamente cada
+             * pequeña variación de la cámara.
+             */
+            this.targetAimDirection.copy(
                 direction
             );
 
 
-            this.aimDirection.y =
+            this.targetAimDirection.y =
                 0;
 
 
             if (
-                this.aimDirection
+                this.targetAimDirection
                     .lengthSq() >
                 0.0001
             ) {
 
-                this.aimDirection.normalize();
+                this.targetAimDirection.normalize();
+
+
+                /*
+                 * Al empezar a apuntar copiamos inmediatamente
+                 * la dirección una sola vez para que no exista
+                 * retraso perceptible.
+                 */
+                if (
+                    changed
+
+                    &&
+
+                    aiming
+                ) {
+
+                    this.aimDirection.copy(
+                        this.targetAimDirection
+                    );
+
+                }
 
             }
 
@@ -2641,7 +2859,178 @@ export class PlayerController {
 
 
     /* =====================================================
+       AIM DIRECTION SMOOTHING
+    ====================================================== */
+
+    updateAimDirection(
+        deltaTime
+    ) {
+
+        if (
+            this.targetAimDirection
+                .lengthSq() <
+            0.0001
+        ) {
+
+            return;
+
+        }
+
+
+        if (
+            this.aimDirection
+                .lengthSq() <
+            0.0001
+        ) {
+
+            this.aimDirection.copy(
+                this.targetAimDirection
+            );
+
+
+            return;
+
+        }
+
+
+        const currentAngle =
+
+            Math.atan2(
+
+                this.aimDirection.x,
+
+                this.aimDirection.z
+
+            );
+
+
+        const targetAngle =
+
+            Math.atan2(
+
+                this.targetAimDirection.x,
+
+                this.targetAimDirection.z
+
+            );
+
+
+        /*
+         * Diferencia angular normalizada a [-PI, PI].
+         *
+         * Esto evita el giro largo al cruzar ±180°.
+         */
+        const difference =
+
+            Math.atan2(
+
+                Math.sin(
+
+                    targetAngle -
+                    currentAngle
+
+                ),
+
+                Math.cos(
+
+                    targetAngle -
+                    currentAngle
+
+                )
+
+            );
+
+
+        /*
+         * Los cambios microscópicos producidos por la
+         * cámara se ignoran.
+         */
+        if (
+            Math.abs(
+                difference
+            ) <
+            PLAYER_CONFIG
+                .aimDirectionDeadZone
+        ) {
+
+            return;
+
+        }
+
+
+        const safeDelta =
+
+            THREE.MathUtils.clamp(
+
+                deltaTime,
+
+                0,
+
+                PLAYER_CONFIG
+                    .maxFrameDelta
+
+            );
+
+
+        const alpha =
+
+            1
+
+            -
+
+            Math.exp(
+
+                -PLAYER_CONFIG
+                    .aimDirectionSpeed
+
+                *
+
+                safeDelta
+
+            );
+
+
+        const nextAngle =
+
+            currentAngle
+
+            +
+
+            difference *
+            alpha;
+
+
+        this.aimDirection.set(
+
+            Math.sin(
+                nextAngle
+            ),
+
+            0,
+
+            Math.cos(
+                nextAngle
+            )
+
+        );
+
+    }
+
+
+    /* =====================================================
        ROTATION
+
+       Stable yaw rotation.
+
+       Ya no hacemos slerp permanentemente contra
+       microcambios de cámara.
+
+       Ahora usamos:
+       - yaw actual
+       - yaw objetivo
+       - shortest angle
+       - dead zone
+       - damping independiente del framerate
     ====================================================== */
 
     rotateTowardDirection(
@@ -2666,7 +3055,12 @@ export class PlayerController {
         }
 
 
-        const angle =
+        /* =================================================
+           TARGET ANGLE
+        ================================================= */
+
+        const targetAngle =
+
             Math.atan2(
 
                 direction.x,
@@ -2676,24 +3070,115 @@ export class PlayerController {
             );
 
 
-        this.rotationEuler.set(
+        /* =================================================
+           CURRENT YAW
+        ================================================= */
 
-            0,
-
-            angle,
-
-            0
-
-        );
+        const quaternion =
+            this.root.quaternion;
 
 
-        this.targetQuaternion
-            .setFromEuler(
-                this.rotationEuler
+        const currentAngle =
+
+            Math.atan2(
+
+                2 *
+
+                (
+                    quaternion.w *
+                    quaternion.y
+
+                    +
+
+                    quaternion.x *
+                    quaternion.z
+                ),
+
+                1
+
+                -
+
+                2 *
+
+                (
+                    quaternion.y *
+                    quaternion.y
+
+                    +
+
+                    quaternion.z *
+                    quaternion.z
+                )
+
             );
 
 
+        /* =================================================
+           SHORTEST ANGLE
+        ================================================= */
+
+        const difference =
+
+            Math.atan2(
+
+                Math.sin(
+
+                    targetAngle -
+                    currentAngle
+
+                ),
+
+                Math.cos(
+
+                    targetAngle -
+                    currentAngle
+
+                )
+
+            );
+
+
+        /* =================================================
+           MICRO-JITTER DEAD ZONE
+        ================================================= */
+
+        if (
+            Math.abs(
+                difference
+            ) <
+            PLAYER_CONFIG
+                .rotationDeadZone
+        ) {
+
+            return;
+
+        }
+
+
+        /* =================================================
+           SAFE DELTA
+        ================================================= */
+
+        const safeDelta =
+
+            THREE.MathUtils.clamp(
+
+                deltaTime,
+
+                0,
+
+                PLAYER_CONFIG
+                    .maxFrameDelta
+
+            );
+
+
+        /* =================================================
+           FRAME-RATE INDEPENDENT DAMPING
+        ================================================= */
+
         const alpha =
+
             1
 
             -
@@ -2701,18 +3186,40 @@ export class PlayerController {
             Math.exp(
 
                 -PLAYER_CONFIG.rotationSpeed *
-                deltaTime
+                safeDelta
 
             );
 
 
-        this.root.quaternion.slerp(
+        const nextAngle =
 
-            this.targetQuaternion,
+            currentAngle
 
-            alpha
+            +
+
+            difference *
+            alpha;
+
+
+        /* =================================================
+           APPLY YAW ONLY
+        ================================================= */
+
+        this.rotationEuler.set(
+
+            0,
+
+            nextAngle,
+
+            0
 
         );
+
+
+        this.root.quaternion
+            .setFromEuler(
+                this.rotationEuler
+            );
 
     }
 
@@ -2891,6 +3398,7 @@ export class PlayerController {
     ) {
 
         this.enabled =
+
             enabled
 
             &&
@@ -2938,6 +3446,14 @@ export class PlayerController {
 
     /* =====================================================
        MOVEMENT
+
+       STABLE MOTION v0.11.4
+       -----------------------------------------------------
+       - delta limitado
+       - forward estable
+       - right a 90° exactos
+       - sin microcorrecciones
+       - aim direction suavizada
     ====================================================== */
 
     updateMovement(
@@ -2980,6 +3496,31 @@ export class PlayerController {
             return;
 
         }
+
+
+        /*
+         * Antes un frame lento podía producir:
+         *
+         * speed * 0.07
+         *
+         * mientras Rapier estaba trabajando con un step
+         * máximo cercano a 0.033.
+         *
+         * Eso podía verse como pequeños saltos.
+         */
+        const safeDeltaTime =
+
+            THREE.MathUtils.clamp(
+
+                deltaTime,
+
+                PLAYER_CONFIG
+                    .minFrameDelta,
+
+                PLAYER_CONFIG
+                    .maxFrameDelta
+
+            );
 
 
         let forwardInput =
@@ -3031,6 +3572,7 @@ export class PlayerController {
 
 
         const hasMovement =
+
             forwardInput !==
             0
 
@@ -3040,17 +3582,20 @@ export class PlayerController {
             0;
 
 
+        /* =================================================
+           STABLE CAMERA BASIS
+        ================================================= */
+
         if (
-            hasMovement
+            cameraForward
         ) {
 
+            /*
+             * Usamos solamente el forward horizontal como
+             * base estable.
+             */
             this.forwardVector.copy(
                 cameraForward
-            );
-
-
-            this.rightVector.copy(
-                cameraRight
             );
 
 
@@ -3058,15 +3603,88 @@ export class PlayerController {
                 0;
 
 
-            this.rightVector.y =
-                0;
+            if (
+                this.forwardVector
+                    .lengthSq() >
+                0.000001
+            ) {
+
+                this.forwardVector.normalize();
+
+            }
+
+            else {
+
+                /*
+                 * Fallback si la cámara mira casi totalmente
+                 * hacia arriba o abajo.
+                 */
+                this.forwardVector.set(
+                    0,
+                    0,
+                    1
+                );
 
 
-            this.forwardVector.normalize();
+                this.forwardVector
+                    .applyQuaternion(
+                        this.root.quaternion
+                    );
 
 
-            this.rightVector.normalize();
+                this.forwardVector.y =
+                    0;
 
+
+                this.forwardVector.normalize();
+
+            }
+
+
+            /*
+             * No copiamos cameraRight.
+             *
+             * Lo calculamos matemáticamente a 90 grados del
+             * forward para evitar que ambos vectores tengan
+             * pequeñas diferencias frame a frame.
+             */
+            this.rightVector
+                .crossVectors(
+
+                    this.forwardVector,
+
+                    this.worldUp
+
+                );
+
+
+            if (
+                this.rightVector
+                    .lengthSq() >
+                0.000001
+            ) {
+
+                this.rightVector.normalize();
+
+            }
+
+        }
+
+
+        /*
+         * Conservamos cameraRight como parámetro para que
+         * main.js no tenga que cambiar absolutamente nada.
+         */
+        void cameraRight;
+
+
+        /* =================================================
+           MOVEMENT VECTOR
+        ================================================= */
+
+        if (
+            hasMovement
+        ) {
 
             this.moveDirection.set(
 
@@ -3099,10 +3717,19 @@ export class PlayerController {
                 );
 
 
-            this.moveDirection.normalize();
+            if (
+                this.moveDirection
+                    .lengthSq() >
+                0.000001
+            ) {
+
+                this.moveDirection.normalize();
+
+            }
 
 
             const speed =
+
                 this.keys.run
 
                     ?
@@ -3121,22 +3748,39 @@ export class PlayerController {
                 .multiplyScalar(
 
                     speed *
-                    deltaTime
+                    safeDeltaTime
 
                 );
 
         }
 
 
+        /* =================================================
+           AIM SMOOTHING
+        ================================================= */
+
+        this.updateAimDirection(
+            safeDeltaTime
+        );
+
+
+        /* =================================================
+           ROTATION
+        ================================================= */
+
         if (
             this.isCombatPose()
         ) {
 
+            /*
+             * Al apuntar el personaje mira hacia la cámara,
+             * pero ahora mediante una dirección filtrada.
+             */
             this.rotateTowardDirection(
 
                 this.aimDirection,
 
-                deltaTime
+                safeDeltaTime
 
             );
 
@@ -3146,11 +3790,14 @@ export class PlayerController {
             hasMovement
         ) {
 
+            /*
+             * Sin apuntar gira en la dirección de movimiento.
+             */
             this.rotateTowardDirection(
 
                 this.moveDirection,
 
-                deltaTime
+                safeDeltaTime
 
             );
 
@@ -3338,6 +3985,7 @@ export class PlayerController {
     ) {
 
         this.deathFinishedHandler =
+
             typeof handler ===
             "function"
 
@@ -3361,6 +4009,7 @@ export class PlayerController {
     ) {
 
         this.reloadFinishedHandler =
+
             typeof handler ===
             "function"
 
@@ -3418,8 +4067,27 @@ export class PlayerController {
         }
 
 
+        /*
+         * Si durante una explosión/escopeta existe un frame
+         * excepcionalmente lento, no hacemos que la animación
+         * salte de golpe una gran cantidad de tiempo.
+         */
+        const safeDeltaTime =
+
+            THREE.MathUtils.clamp(
+
+                deltaTime,
+
+                0,
+
+                PLAYER_CONFIG
+                    .maxFrameDelta
+
+            );
+
+
         this.mixer.update(
-            deltaTime
+            safeDeltaTime
         );
 
     }
@@ -3448,12 +4116,36 @@ export class PlayerController {
         }
 
 
+        /*
+         * El mismo delta se usa para:
+         *
+         * - animación
+         * - movimiento
+         * - rotación
+         *
+         * Esto hace que el personaje se sienta mucho más
+         * consistente cuando los FPS fluctúan.
+         */
+        const safeDeltaTime =
+
+            THREE.MathUtils.clamp(
+
+                deltaTime,
+
+                0,
+
+                PLAYER_CONFIG
+                    .maxFrameDelta
+
+            );
+
+
         if (
             this.mixer
         ) {
 
             this.mixer.update(
-                deltaTime
+                safeDeltaTime
             );
 
         }
@@ -3461,7 +4153,7 @@ export class PlayerController {
 
         this.updateMovement(
 
-            deltaTime,
+            safeDeltaTime,
 
             cameraForward,
 
