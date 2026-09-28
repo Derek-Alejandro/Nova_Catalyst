@@ -1,22 +1,19 @@
 /* =========================================================
    NOVA CATALYST
    Enemy System
+   Build v0.11.2
 
-   Build v0.10.0
-
-   ---------------------------------------------------------
-   - FBX enemy
-   - Red spawn anomaly
-   - Rapier enemy physics
-   - CharacterController
-   - Wall sliding
-   - Snap-to-ground
-   - Anti-stuck steering
-   - Player pursuit
-   - Attack damage
-   - Animation-synchronized hit
-   - Hit / Death
-   - Health bar
+   - Multiple enemies
+   - Rapier physics
+   - Chase / Run / Walk
+   - Attack 01 / Attack 02
+   - Hit
+   - Death
+   - Health bars
+   - Spawn FX
+   - Optimized animations
+   - No dynamic enemy shadows
+   - Cached hit meshes
 ========================================================= */
 
 import * as THREE from "three";
@@ -79,10 +76,6 @@ const ENEMY_CONFIG = {
         100,
 
 
-    /* =====================================================
-       AI
-    ====================================================== */
-
     detectionDistance:
         45,
 
@@ -92,18 +85,9 @@ const ENEMY_CONFIG = {
     attackDistance:
         1.55,
 
-
-    /*
-     * El jugador debe seguir a esta distancia
-     * cuando llegue el frame de impacto.
-     */
     damageDistance:
         1.82,
 
-
-    /* =====================================================
-       MOVEMENT
-    ====================================================== */
 
     walkSpeed:
         1.35,
@@ -112,12 +96,8 @@ const ENEMY_CONFIG = {
         3.15,
 
     rotationSpeed:
-        9.0,
+        9,
 
-
-    /* =====================================================
-       PHYSICS
-    ====================================================== */
 
     physicsRadius:
         0.31,
@@ -126,22 +106,12 @@ const ENEMY_CONFIG = {
         68,
 
 
-    /* =====================================================
-       COMBAT
-    ====================================================== */
-
     attackDamage:
         10,
 
     attackCooldown:
         1.30,
 
-
-    /*
-     * Momento de impacto dentro de cada animación.
-     *
-     * 0.50 = 50% de la duración.
-     */
     attackImpactRatio01:
         0.48,
 
@@ -149,17 +119,9 @@ const ENEMY_CONFIG = {
         0.53,
 
 
-    /* =====================================================
-       AI REFRESH
-    ====================================================== */
-
     aiInterval:
         0.08,
 
-
-    /* =====================================================
-       ANTI-STUCK
-    ====================================================== */
 
     stuckTime:
         0.28,
@@ -171,29 +133,36 @@ const ENEMY_CONFIG = {
         0.82,
 
 
-    /* =====================================================
-       SPAWN
-    ====================================================== */
-
     spawnDuration:
         1.15,
 
+
+    /*
+     * Antes: 18.
+     *
+     * Ahora: 10 para reducir costo en waves.
+     */
     spawnParticles:
-        18,
+        10,
 
-
-    /* =====================================================
-       HUD
-    ====================================================== */
 
     healthBarHeight:
-        2.16
+        2.16,
+
+
+    /*
+     * Enemigos cerca actualizan animación más rápido.
+     */
+    nearAnimationDistance:
+        7
 
 };
 
 
 /* =========================================================
    SPAWN EFFECT
+
+   Ya NO crea PointLight individual.
 ========================================================= */
 
 class EnemySpawnEffect {
@@ -242,7 +211,7 @@ class EnemySpawnEffect {
 
                     0.38,
 
-                    24
+                    20
 
                 ),
 
@@ -272,7 +241,8 @@ class EnemySpawnEffect {
 
 
         this.ring.rotation.x =
-            -Math.PI / 2;
+            -Math.PI /
+            2;
 
 
         this.ring.position.y =
@@ -299,7 +269,7 @@ class EnemySpawnEffect {
 
                     1.9,
 
-                    10,
+                    8,
 
                     1,
 
@@ -365,34 +335,44 @@ class EnemySpawnEffect {
         ) {
 
             const angle =
-
                 Math.random() *
                 Math.PI *
                 2;
 
 
             const radius =
-
                 0.12 +
                 Math.random() *
                 0.5;
 
 
-            positions[i * 3] =
-
-                Math.cos(angle) *
+            positions[
+                i *
+                3
+            ] =
+                Math.cos(
+                    angle
+                ) *
                 radius;
 
 
-            positions[i * 3 + 1] =
-
+            positions[
+                i *
+                3 +
+                1
+            ] =
                 Math.random() *
                 1.5;
 
 
-            positions[i * 3 + 2] =
-
-                Math.sin(angle) *
+            positions[
+                i *
+                3 +
+                2
+            ] =
+                Math.sin(
+                    angle
+                ) *
                 radius;
 
 
@@ -470,37 +450,6 @@ class EnemySpawnEffect {
             this.particles
         );
 
-
-        /* =================================================
-           LIGHT
-        ================================================= */
-
-        this.light =
-            new THREE.PointLight(
-
-                0xff1818,
-
-                16,
-
-                4.5,
-
-                2
-
-            );
-
-
-        this.light.position.y =
-            0.9;
-
-
-        this.light.castShadow =
-            false;
-
-
-        this.group.add(
-            this.light
-        );
-
     }
 
 
@@ -522,7 +471,6 @@ class EnemySpawnEffect {
 
 
         const progress =
-
             THREE.MathUtils.clamp(
 
                 this.elapsed /
@@ -545,14 +493,14 @@ class EnemySpawnEffect {
 
 
         this.ring.rotation.z +=
-
             deltaTime *
             1.8;
 
 
         const pulse =
+            0.5
 
-            0.5 +
+            +
 
             Math.sin(
 
@@ -567,21 +515,12 @@ class EnemySpawnEffect {
 
 
         this.column.material.opacity =
-
             0.05 +
             pulse *
             0.08;
 
 
-        this.light.intensity =
-
-            10 +
-            pulse *
-            8;
-
-
         const attribute =
-
             this.particles
                 .geometry
                 .attributes
@@ -603,19 +542,19 @@ class EnemySpawnEffect {
 
 
             data.angle +=
-
                 data.speed *
                 deltaTime;
 
 
             let y =
                 array[
-                    i * 3 + 1
+                    i *
+                    3 +
+                    1
                 ];
 
 
             y +=
-
                 data.rise *
                 deltaTime;
 
@@ -631,29 +570,32 @@ class EnemySpawnEffect {
             }
 
 
-            array[i * 3] =
-
+            array[
+                i *
+                3
+            ] =
                 Math.cos(
                     data.angle
-                )
-
-                *
-
+                ) *
                 data.radius;
 
 
-            array[i * 3 + 1] =
+            array[
+                i *
+                3 +
+                1
+            ] =
                 y;
 
 
-            array[i * 3 + 2] =
-
+            array[
+                i *
+                3 +
+                2
+            ] =
                 Math.sin(
                     data.angle
-                )
-
-                *
-
+                ) *
                 data.radius;
 
         }
@@ -669,8 +611,9 @@ class EnemySpawnEffect {
         ) {
 
             const fade =
+                1
 
-                1 -
+                -
 
                 (
                     progress -
@@ -683,7 +626,6 @@ class EnemySpawnEffect {
 
 
             this.ring.material.opacity =
-
                 0.88 *
                 fade;
 
@@ -693,10 +635,6 @@ class EnemySpawnEffect {
 
 
             this.particles.material.opacity =
-                fade;
-
-
-            this.light.intensity *=
                 fade;
 
         }
@@ -801,7 +739,9 @@ export class Enemy {
 
         camera,
 
-        playerHealth
+        playerHealth,
+
+        options = {}
 
     }) {
 
@@ -826,6 +766,58 @@ export class Enemy {
 
 
         /* =================================================
+           INSTANCE CONFIG
+        ================================================= */
+
+        this.maxHealth =
+            options.maxHealth
+
+            ??
+
+            ENEMY_CONFIG.maxHealth;
+
+
+        this.attackDamage =
+            options.attackDamage
+
+            ??
+
+            ENEMY_CONFIG.attackDamage;
+
+
+        this.walkSpeed =
+            options.walkSpeed
+
+            ??
+
+            ENEMY_CONFIG.walkSpeed;
+
+
+        this.runSpeed =
+            options.runSpeed
+
+            ??
+
+            ENEMY_CONFIG.runSpeed;
+
+
+        this.attackCooldownDuration =
+            options.attackCooldown
+
+            ??
+
+            ENEMY_CONFIG.attackCooldown;
+
+
+        this.label =
+            options.label
+
+            ??
+
+            "Infected";
+
+
+        /* =================================================
            ROOT
         ================================================= */
 
@@ -834,7 +826,7 @@ export class Enemy {
 
 
         this.root.name =
-            "NovaCatalyst_BaseEnemy";
+            `NovaCatalyst_Enemy_${this.label}`;
 
 
         this.root.position.copy(
@@ -853,9 +845,7 @@ export class Enemy {
 
         this.model =
             SkeletonUtils.clone(
-
                 modelSource
-
             );
 
 
@@ -872,15 +862,15 @@ export class Enemy {
            STATE
         ================================================= */
 
-        this.maxHealth =
-            ENEMY_CONFIG.maxHealth;
-
-
         this.health =
             this.maxHealth;
 
 
         this.dead =
+            false;
+
+
+        this.deathAnimationFinished =
             false;
 
 
@@ -917,7 +907,7 @@ export class Enemy {
 
 
         /* =================================================
-           SPAWN EFFECT
+           SPAWN FX
         ================================================= */
 
         this.spawnEffect =
@@ -944,9 +934,7 @@ export class Enemy {
 
         this.mixer =
             new THREE.AnimationMixer(
-
                 this.model
-
             );
 
 
@@ -960,6 +948,18 @@ export class Enemy {
 
         this.currentActionName =
             null;
+
+
+        this.animationAccumulator =
+            0;
+
+
+        /* =================================================
+           HIT MESH CACHE
+        ================================================= */
+
+        this.hitMeshes =
+            [];
 
 
         /* =================================================
@@ -1001,14 +1001,10 @@ export class Enemy {
 
 
         /* =================================================
-           VECTORS
+           TEMP
         ================================================= */
 
         this.playerPosition =
-            new THREE.Vector3();
-
-
-        this.enemyPosition =
             new THREE.Vector3();
 
 
@@ -1098,8 +1094,16 @@ export class Enemy {
                 }
 
 
+                /*
+                 * IMPORTANTE:
+                 *
+                 * Los infectados ya NO proyectan sombras
+                 * dinámicas.
+                 *
+                 * SkinnedMesh + shadows x9 era muy caro.
+                 */
                 object.castShadow =
-                    true;
+                    false;
 
 
                 object.receiveShadow =
@@ -1188,10 +1192,14 @@ export class Enemy {
 
 
     /* =====================================================
-       HIT MESHES
+       HIT MESH CACHE
     ====================================================== */
 
     markMeshes() {
+
+        this.hitMeshes.length =
+            0;
+
 
         this.model.traverse(
 
@@ -1213,9 +1221,32 @@ export class Enemy {
                 object.userData.enemy =
                     this;
 
+
+                this.hitMeshes.push(
+                    object
+                );
+
             }
 
         );
+
+    }
+
+
+    getHitMeshes() {
+
+        if (
+            this.dead
+            ||
+            this.spawning
+        ) {
+
+            return [];
+
+        }
+
+
+        return this.hitMeshes;
 
     }
 
@@ -1250,7 +1281,6 @@ export class Enemy {
 
 
             if (
-
                 !name.includes(
                     "hips"
                 )
@@ -1260,7 +1290,6 @@ export class Enemy {
                 !name.includes(
                     "root"
                 )
-
             ) {
 
                 continue;
@@ -1300,7 +1329,10 @@ export class Enemy {
                     x;
 
 
-                values[i + 2] =
+                values[
+                    i +
+                    2
+                ] =
                     z;
 
             }
@@ -1317,7 +1349,7 @@ export class Enemy {
 
 
     /* =====================================================
-       ANIMATIONS
+       ACTIONS
     ====================================================== */
 
     createActions(
@@ -1333,7 +1365,6 @@ export class Enemy {
         ) {
 
             const clip =
-
                 this.removeRootMotion(
 
                     source.clone()
@@ -1342,7 +1373,6 @@ export class Enemy {
 
 
             const action =
-
                 this.mixer
                     .clipAction(
                         clip
@@ -1354,7 +1384,6 @@ export class Enemy {
 
 
             if (
-
                 name ===
                 "Attack_01"
 
@@ -1372,7 +1401,6 @@ export class Enemy {
 
                 name ===
                 "Death"
-
             ) {
 
                 action.setLoop(
@@ -1421,6 +1449,28 @@ export class Enemy {
                         ?._novaName;
 
 
+                /* =========================================
+                   DEATH TERMINÓ
+                ========================================= */
+
+                if (
+                    name ===
+                    "Death"
+                ) {
+
+                    this.deathAnimationFinished =
+                        true;
+
+
+                    return;
+
+                }
+
+
+                /* =========================================
+                   HIT TERMINÓ
+                ========================================= */
+
                 if (
                     name ===
                     "Hit"
@@ -1450,8 +1500,11 @@ export class Enemy {
                 }
 
 
-                if (
+                /* =========================================
+                   ATTACK TERMINÓ
+                ========================================= */
 
+                if (
                     name ===
                     "Attack_01"
 
@@ -1459,7 +1512,6 @@ export class Enemy {
 
                     name ===
                     "Attack_02"
-
                 ) {
 
                     this.isAttacking =
@@ -1494,11 +1546,8 @@ export class Enemy {
 
 
     playAnimation(
-
         name,
-
         fade = 0.12
-
     ) {
 
         const next =
@@ -1508,14 +1557,10 @@ export class Enemy {
 
 
         if (
-
             !next
-
             ||
-
             next ===
             this.currentAction
-
         ) {
 
             return;
@@ -1577,7 +1622,6 @@ export class Enemy {
 
 
         if (
-
             this.state ===
             state
 
@@ -1585,7 +1629,6 @@ export class Enemy {
 
             this.currentActionName ===
             state
-
         ) {
 
             return;
@@ -1627,7 +1670,7 @@ export class Enemy {
             new THREE.Mesh(
 
                 new THREE.PlaneGeometry(
-                    1.0,
+                    1,
                     0.10
                 ),
 
@@ -1715,13 +1758,9 @@ export class Enemy {
     ) {
 
         if (
-
             this.dead
-
             ||
-
             this.spawning
-
         ) {
 
             this.healthBar.visible =
@@ -1743,7 +1782,6 @@ export class Enemy {
 
 
         const percent =
-
             THREE.MathUtils.clamp(
 
                 this.health /
@@ -1761,7 +1799,6 @@ export class Enemy {
 
 
         this.healthFill.position.x =
-
             -0.47 *
             (
                 1 -
@@ -1772,7 +1809,7 @@ export class Enemy {
 
 
     /* =====================================================
-       PHYSICS CHARACTER
+       PHYSICS
     ====================================================== */
 
     createPhysicsCharacter() {
@@ -1787,7 +1824,6 @@ export class Enemy {
 
 
         this.physicsHandle =
-
             this.physicsManager
                 .createEnemyCharacter({
 
@@ -1876,7 +1912,7 @@ export class Enemy {
 
 
     /* =====================================================
-       PLAYER DISTANCE
+       DISTANCE
     ====================================================== */
 
     getHorizontalDistanceToPlayer() {
@@ -1888,37 +1924,26 @@ export class Enemy {
             );
 
 
-        const dx =
+        return Math.hypot(
 
             this.playerPosition.x -
-            this.root.position.x;
-
-
-        const dz =
+            this.root.position.x,
 
             this.playerPosition.z -
-            this.root.position.z;
+            this.root.position.z
 
-
-        return Math.hypot(
-            dx,
-            dz
         );
 
     }
 
 
     /* =====================================================
-       ATTACK IMPACT
-
-       El daño NO ocurre al iniciar la animación.
-       Ocurre cerca del frame real del golpe.
+       ATTACK DAMAGE
     ====================================================== */
 
     updateAttackDamage() {
 
         if (
-
             !this.isAttacking
 
             ||
@@ -1940,7 +1965,6 @@ export class Enemy {
             ||
 
             this.playerHealth.isDead()
-
         ) {
 
             return;
@@ -1953,7 +1977,6 @@ export class Enemy {
 
 
         if (
-
             animationName !==
             "Attack_01"
 
@@ -1961,7 +1984,6 @@ export class Enemy {
 
             animationName !==
             "Attack_02"
-
         ) {
 
             return;
@@ -1970,14 +1992,13 @@ export class Enemy {
 
 
         const clip =
-            this.currentAction.getClip();
+            this.currentAction
+                .getClip();
 
 
         if (
             !clip
-
             ||
-
             clip.duration <=
             0
         ) {
@@ -1987,7 +2008,7 @@ export class Enemy {
         }
 
 
-        const impactRatio =
+        const ratio =
 
             animationName ===
             "Attack_01"
@@ -2002,9 +2023,8 @@ export class Enemy {
 
 
         const impactTime =
-
             clip.duration *
-            impactRatio;
+            ratio;
 
 
         if (
@@ -2017,21 +2037,15 @@ export class Enemy {
         }
 
 
-        /*
-         * Aunque falle, este ataque ya consumió
-         * su único intento de daño.
-         */
         this.attackHasDealtDamage =
             true;
 
 
         const distance =
-
             this.getHorizontalDistanceToPlayer();
 
 
         const verticalDistance =
-
             Math.abs(
 
                 this.playerPosition.y -
@@ -2041,7 +2055,6 @@ export class Enemy {
 
 
         if (
-
             distance >
             ENEMY_CONFIG.damageDistance
 
@@ -2049,48 +2062,25 @@ export class Enemy {
 
             verticalDistance >
             1.7
-
         ) {
-
-            console.log(
-
-                "[Enemy] Golpe fallido."
-
-            );
-
 
             return;
 
         }
 
 
-        const damaged =
+        this.playerHealth.takeDamage(
 
-            this.playerHealth.takeDamage(
+            this.attackDamage,
 
-                ENEMY_CONFIG.attackDamage,
+            {
 
-                {
+                source:
+                    this
 
-                    source:
-                        this
+            }
 
-                }
-
-            );
-
-
-        if (
-            damaged
-        ) {
-
-            console.log(
-
-                `[Enemy] Impacto confirmado · -${ENEMY_CONFIG.attackDamage} HP`
-
-            );
-
-        }
+        );
 
     }
 
@@ -2102,13 +2092,11 @@ export class Enemy {
     updateAIState() {
 
         if (
-
             this.playerHealth
 
             &&
 
             this.playerHealth.isDead()
-
         ) {
 
             this.desiredSpeed =
@@ -2130,13 +2118,11 @@ export class Enemy {
 
 
         if (
-
             this.isHit
 
             ||
 
             this.isAttacking
-
         ) {
 
             this.desiredSpeed =
@@ -2190,7 +2176,7 @@ export class Enemy {
         ) {
 
             this.desiredSpeed =
-                ENEMY_CONFIG.runSpeed;
+                this.runSpeed;
 
 
             this.changeState(
@@ -2202,7 +2188,7 @@ export class Enemy {
         else {
 
             this.desiredSpeed =
-                ENEMY_CONFIG.walkSpeed;
+                this.walkSpeed;
 
 
             this.changeState(
@@ -2215,7 +2201,7 @@ export class Enemy {
 
 
     /* =====================================================
-       MOVE DIRECTION
+       MOVEMENT
     ====================================================== */
 
     buildMovementDirection() {
@@ -2310,14 +2296,12 @@ export class Enemy {
     ) {
 
         if (
-
             !direction
 
             ||
 
             direction.lengthSq() <
             0.000001
-
         ) {
 
             return;
@@ -2348,7 +2332,6 @@ export class Enemy {
 
 
         const angle =
-
             Math.atan2(
 
                 this.faceDirection.x,
@@ -2376,8 +2359,9 @@ export class Enemy {
 
 
         const alpha =
+            1
 
-            1 -
+            -
 
             Math.exp(
 
@@ -2405,7 +2389,6 @@ export class Enemy {
     attackPlayer() {
 
         if (
-
             this.dead
 
             ||
@@ -2434,7 +2417,6 @@ export class Enemy {
 
                 this.playerHealth.isDead()
             )
-
         ) {
 
             return;
@@ -2451,7 +2433,7 @@ export class Enemy {
 
 
         this.attackTimer =
-            ENEMY_CONFIG.attackCooldown;
+            this.attackCooldownDuration;
 
 
         const animation =
@@ -2492,13 +2474,9 @@ export class Enemy {
     ) {
 
         if (
-
             this.dead
-
             ||
-
             this.spawning
-
         ) {
 
             return false;
@@ -2507,7 +2485,6 @@ export class Enemy {
 
 
         this.health =
-
             Math.max(
 
                 0,
@@ -2524,6 +2501,7 @@ export class Enemy {
         ) {
 
             this.die();
+
 
             return true;
 
@@ -2583,6 +2561,10 @@ export class Enemy {
             true;
 
 
+        this.deathAnimationFinished =
+            false;
+
+
         this.desiredSpeed =
             0;
 
@@ -2640,21 +2622,12 @@ export class Enemy {
         deltaTime
     ) {
 
-        /*
-         * Animación a FPS completos.
-         */
-        this.mixer.update(
-            deltaTime
-        );
-
-
         /* =================================================
-           IMPORTANT:
-           Revisamos daño DESPUÉS de avanzar AnimationMixer.
+           SPAWN
+
+           Mientras no se ve el modelo no actualizamos
+           AnimationMixer.
         ================================================= */
-
-        this.updateAttackDamage();
-
 
         if (
             this.updateSpawn(
@@ -2663,6 +2636,89 @@ export class Enemy {
         ) {
 
             return;
+
+        }
+
+
+        /* =================================================
+           CADÁVER COMPLETAMENTE ANIMADO
+
+           Una vez terminó Death no seguimos actualizando
+           su skeleton.
+        ================================================= */
+
+        if (
+            this.dead
+
+            &&
+
+            this.deathAnimationFinished
+        ) {
+
+            return;
+
+        }
+
+
+        /* =================================================
+           ANIMATION THROTTLING
+        ================================================= */
+
+        this.animationAccumulator +=
+            deltaTime;
+
+
+        const distanceToPlayer =
+            this.getHorizontalDistanceToPlayer();
+
+
+        const animationStep =
+
+            distanceToPlayer <
+            ENEMY_CONFIG.nearAnimationDistance
+
+                ?
+
+                1 /
+                60
+
+                :
+
+                1 /
+                30;
+
+
+        if (
+            this.animationAccumulator >=
+            animationStep
+        ) {
+
+            const animationDelta =
+                Math.min(
+
+                    this.animationAccumulator,
+
+                    0.08
+
+                );
+
+
+            this.animationAccumulator =
+                0;
+
+
+            this.mixer.update(
+                animationDelta
+            );
+
+
+            if (
+                !this.dead
+            ) {
+
+                this.updateAttackDamage();
+
+            }
 
         }
 
@@ -2676,8 +2732,11 @@ export class Enemy {
         }
 
 
-        this.attackTimer =
+        /* =================================================
+           TIMERS
+        ================================================= */
 
+        this.attackTimer =
             Math.max(
 
                 0,
@@ -2689,7 +2748,6 @@ export class Enemy {
 
 
         this.steerTimer =
-
             Math.max(
 
                 0,
@@ -2718,6 +2776,10 @@ export class Enemy {
         }
 
 
+        /* =================================================
+           TARGET DIRECTION
+        ================================================= */
+
         this.playerController
             .getObject()
             .getWorldPosition(
@@ -2739,12 +2801,7 @@ export class Enemy {
             0;
 
 
-        /* =================================================
-           STOP MOVEMENT
-        ================================================= */
-
         if (
-
             this.isHit
 
             ||
@@ -2765,7 +2822,6 @@ export class Enemy {
 
                 this.playerHealth.isDead()
             )
-
         ) {
 
             this.moveDirection.set(
@@ -2795,10 +2851,6 @@ export class Enemy {
 
         }
 
-        /* =================================================
-           CHASE
-        ================================================= */
-
         else {
 
             this.buildMovementDirection();
@@ -2817,11 +2869,6 @@ export class Enemy {
 
         /* =================================================
            RAPIER
-
-           Aun parado:
-           - gravity
-           - snap
-           - floor
         ================================================= */
 
         if (
@@ -2855,7 +2902,6 @@ export class Enemy {
     ) {
 
         if (
-
             this.dead
 
             ||
@@ -2865,7 +2911,6 @@ export class Enemy {
             ||
 
             !this.physicsHandle
-
         ) {
 
             return;
@@ -2888,19 +2933,16 @@ export class Enemy {
         ================================================= */
 
         const dx =
-
             this.root.position.x -
             this.lastSyncedPosition.x;
 
 
         const dz =
-
             this.root.position.z -
             this.lastSyncedPosition.z;
 
 
         const moved =
-
             Math.hypot(
                 dx,
                 dz
@@ -2908,7 +2950,6 @@ export class Enemy {
 
 
         const wantsToMove =
-
             this.desiredSpeed >
             0
 
@@ -2926,15 +2967,12 @@ export class Enemy {
         ) {
 
             const expected =
-
                 this.desiredSpeed *
                 deltaTime;
 
 
             if (
-
                 moved <
-
                 Math.max(
 
                     0.0015,
@@ -2943,7 +2981,6 @@ export class Enemy {
                     0.12
 
                 )
-
             ) {
 
                 this.stuckTimer +=
@@ -2991,10 +3028,51 @@ export class Enemy {
             this.root.position
         );
 
+    }
 
-        this.root.updateMatrixWorld(
-            true
-        );
+
+    /* =====================================================
+       DESTROY VISUAL
+    ====================================================== */
+
+    destroyVisual() {
+
+        if (
+            this.spawnEffect
+
+            &&
+
+            !this.spawnEffect.finished
+        ) {
+
+            this.spawnEffect.dispose();
+
+        }
+
+
+        this.mixer.stopAllAction();
+
+
+        if (
+            this.model
+        ) {
+
+            this.mixer.uncacheRoot(
+                this.model
+            );
+
+        }
+
+
+        if (
+            this.root.parent
+        ) {
+
+            this.root.parent.remove(
+                this.root
+            );
+
+        }
 
     }
 
@@ -3106,6 +3184,10 @@ export class EnemyManager {
         this.enabled =
             true;
 
+
+        /* =================================================
+           LEGACY TEST SPAWN
+        ================================================= */
 
         this.tempPlayerPosition =
             new THREE.Vector3();
@@ -3260,7 +3342,9 @@ export class EnemyManager {
 
 
                 console.log(
+
                     `[EnemyManager] ${name} OK`
+
                 );
 
             }
@@ -3287,14 +3371,83 @@ export class EnemyManager {
 
 
         console.log(
-            "[EnemyManager] ONLINE"
+            "[EnemyManager] MULTI-ENEMY ONLINE"
         );
 
     }
 
 
     /* =====================================================
+       SPAWN
+    ====================================================== */
+
+    spawnEnemy(
+
+        spawnPosition,
+
+        options = {}
+
+    ) {
+
+        if (
+            !this.loaded
+
+            ||
+
+            !spawnPosition
+        ) {
+
+            return null;
+
+        }
+
+
+        const enemy =
+            new Enemy({
+
+                scene:
+                    this.scene,
+
+                modelSource:
+                    this.baseModel,
+
+                animationClips:
+                    this.animationClips,
+
+                spawnPosition:
+                    spawnPosition.clone(),
+
+                playerController:
+                    this.playerController,
+
+                physicsManager:
+                    this.physicsManager,
+
+                camera:
+                    this.camera,
+
+                playerHealth:
+                    this.playerHealth,
+
+                options
+
+            });
+
+
+        this.enemies.push(
+            enemy
+        );
+
+
+        return enemy;
+
+    }
+
+
+    /* =====================================================
        TEST SPAWN
+
+       Se mantiene por compatibilidad.
     ====================================================== */
 
     spawnTestEnemy(
@@ -3354,7 +3507,6 @@ export class EnemyManager {
 
 
         let radius =
-
             Math.hypot(
 
                 this.tempPlayerPosition.x,
@@ -3385,42 +3537,9 @@ export class EnemyManager {
             floorY;
 
 
-        const enemy =
-            new Enemy({
-
-                scene:
-                    this.scene,
-
-                modelSource:
-                    this.baseModel,
-
-                animationClips:
-                    this.animationClips,
-
-                spawnPosition:
-                    this.spawnDirection,
-
-                playerController:
-                    this.playerController,
-
-                physicsManager:
-                    this.physicsManager,
-
-                camera:
-                    this.camera,
-
-                playerHealth:
-                    this.playerHealth
-
-            });
-
-
-        this.enemies.push(
-            enemy
+        return this.spawnEnemy(
+            this.spawnDirection
         );
-
-
-        return enemy;
 
     }
 
@@ -3523,13 +3642,11 @@ export class EnemyManager {
         ) {
 
             if (
-
                 enemy.isDead()
 
                 ||
 
                 enemy.isSpawning()
-
             ) {
 
                 continue;
@@ -3537,24 +3654,11 @@ export class EnemyManager {
             }
 
 
-            enemy.getModel()
-                .traverse(
+            meshes.push(
 
-                    object => {
+                ...enemy.getHitMeshes()
 
-                        if (
-                            object.isMesh
-                        ) {
-
-                            meshes.push(
-                                object
-                            );
-
-                        }
-
-                    }
-
-                );
+            );
 
         }
 
@@ -3563,6 +3667,99 @@ export class EnemyManager {
 
     }
 
+
+    /* =====================================================
+       CORPSE CLEANUP
+    ====================================================== */
+
+    pruneDeadEnemies(
+        maximumCorpses = 4
+    ) {
+
+        const deadEnemies =
+            this.enemies.filter(
+
+                enemy =>
+                    enemy.isDead()
+
+            );
+
+
+        const removeAmount =
+            Math.max(
+
+                0,
+
+                deadEnemies.length -
+                maximumCorpses
+
+            );
+
+
+        if (
+            removeAmount <=
+            0
+        ) {
+
+            return;
+
+        }
+
+
+        const toRemove =
+            deadEnemies.slice(
+
+                0,
+
+                removeAmount
+
+            );
+
+
+        for (
+            const enemy
+            of toRemove
+        ) {
+
+            enemy.destroyVisual();
+
+
+            const index =
+                this.enemies.indexOf(
+                    enemy
+                );
+
+
+            if (
+                index !==
+                -1
+            ) {
+
+                this.enemies.splice(
+
+                    index,
+
+                    1
+
+                );
+
+            }
+
+        }
+
+
+        console.log(
+
+            `[EnemyManager] Cadáveres eliminados: ${removeAmount}`
+
+        );
+
+    }
+
+
+    /* =====================================================
+       GETTERS
+    ====================================================== */
 
     getEnemies() {
 

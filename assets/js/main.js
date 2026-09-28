@@ -1,21 +1,18 @@
 /* =========================================================
    NOVA CATALYST
    Project Nova
-   Survival Build v0.10.2
+   Survival Build v0.11.2
 
-   ---------------------------------------------------------
-   - Performance mode
-   - FPS counter
-   - Lightweight lighting / shadows
-   - TPS / FPS camera
-   - Rapier player + enemy physics
-   - Handgun combat
-   - Player Hit / Death animations
+   - Rapier Player / Enemy
+   - FPS / TPS
+   - Weapon system
    - Player health
-   - Enemy damage
-   - Game Over
-   - Retry
-   - Flee to menu
+   - Hit / Death
+   - Game Over / Retry
+   - Wave system
+   - Safe spawn cache
+   - Staggered enemies
+   - Barrel enemy damage
 ========================================================= */
 
 import * as THREE from "three";
@@ -63,6 +60,16 @@ import {
 
 
 import {
+    WaveManager
+} from "./waveManager.js";
+
+
+import {
+    installBarrelEnemyDamage
+} from "./barrelCombatBridge.js";
+
+
+import {
     PauseMenu
 } from "./pause.js";
 
@@ -101,7 +108,6 @@ const PERFORMANCE = {
 
 
 let currentPixelRatio =
-
     Math.min(
 
         window.devicePixelRatio ||
@@ -392,7 +398,6 @@ scene.background =
 ========================================================= */
 
 const camera =
-
     new THREE.PerspectiveCamera(
 
         60,
@@ -424,7 +429,6 @@ scene.add(
 ========================================================= */
 
 const renderer =
-
     new THREE.WebGLRenderer({
 
         antialias:
@@ -512,10 +516,11 @@ function createStarField(
 ) {
 
     const positions =
-
         new Float32Array(
+
             count *
             3
+
         );
 
 
@@ -531,38 +536,35 @@ function createStarField(
 
 
         positions[index] =
-
             (
                 Math.random() -
                 0.5
             )
-
             *
-
             radius;
 
 
-        positions[index + 1] =
-
+        positions[
+            index +
+            1
+        ] =
             (
                 Math.random() -
                 0.5
             )
-
             *
-
             radius;
 
 
-        positions[index + 2] =
-
+        positions[
+            index +
+            2
+        ] =
             (
                 Math.random() -
                 0.5
             )
-
             *
-
             radius;
 
     }
@@ -588,7 +590,6 @@ function createStarField(
 
 
     const material =
-
         new THREE.PointsMaterial({
 
             color,
@@ -607,7 +608,6 @@ function createStarField(
 
 
     const field =
-
         new THREE.Points(
 
             geometry,
@@ -632,7 +632,6 @@ function createStarField(
 
 
 const stars =
-
     createStarField(
 
         650,
@@ -679,7 +678,6 @@ const playerController =
 
 
 const objectManager =
-
     new ObjectManager(
 
         scene,
@@ -690,7 +688,6 @@ const objectManager =
 
 
 const weaponManager =
-
     new WeaponManager({
 
         scene,
@@ -713,7 +710,6 @@ const weaponManager =
 ========================================================= */
 
 const playerHealth =
-
     new PlayerHealthManager({
 
         maxHealth:
@@ -722,10 +718,6 @@ const playerHealth =
         invulnerabilityTime:
             0.30,
 
-
-        /* =============================================
-           NORMAL DAMAGE
-        ============================================= */
 
         onDamage:
 
@@ -736,10 +728,6 @@ const playerHealth =
             },
 
 
-        /* =============================================
-           DEATH
-        ============================================= */
-
         onDeath:
 
             () => {
@@ -749,13 +737,6 @@ const playerHealth =
             },
 
 
-        /* =============================================
-           RETRY
-
-           Reinicia TODO y vuelve directamente
-           a Zona A.
-        ============================================= */
-
         onRetry:
 
             () => {
@@ -764,12 +745,6 @@ const playerHealth =
 
             },
 
-
-        /* =============================================
-           FLEE
-
-           Regresa al menú principal.
-        ============================================= */
 
         onFlee:
 
@@ -787,7 +762,6 @@ const playerHealth =
 ========================================================= */
 
 const enemyManager =
-
     new EnemyManager({
 
         scene,
@@ -806,6 +780,89 @@ const enemyManager =
 
 
 /* =========================================================
+   WAVE MANAGER
+========================================================= */
+
+const waveManager =
+    new WaveManager({
+
+        enemyManager,
+
+        playerController,
+
+
+        onNotification:
+
+            message => {
+
+                showNotification(
+                    message
+                );
+
+            },
+
+
+        onWaveStarted:
+
+            data => {
+
+                console.log(
+
+                    `[Nova] Wave ${data.wave} iniciada · ${data.amount} hostiles`
+
+                );
+
+            },
+
+
+        onWaveCleared:
+
+            data => {
+
+                console.log(
+
+                    `[Nova] Wave ${data.wave} eliminada.`
+
+                );
+
+            },
+
+
+        /*
+         * Todavía no usamos BossManager real.
+         */
+        onBossStarted:
+
+            data => {
+
+                console.log(
+
+                    "[Nova] Boss solicitado:",
+
+                    data.position
+
+                );
+
+
+                return null;
+
+            },
+
+
+        onMissionComplete:
+
+            () => {
+
+                console.log(
+                    "[Nova] ZONE A SECURED."
+                );
+
+            }
+
+    });
+
+
+/* =========================================================
    WEAPON -> ENEMY
 ========================================================= */
 
@@ -815,26 +872,47 @@ weaponManager.setEnemyManager(
 
 
 /* =========================================================
-   FPS ENEMY CAMERA COLLISION
+   BARREL -> ENEMY
+
+   weapons.js permanece intacto.
+========================================================= */
+
+installBarrelEnemyDamage({
+
+    weaponManager,
+
+    enemyManager,
+
+    radius:
+        5.5,
+
+    maxDamage:
+        120,
+
+    minDamage:
+        25
+
+});
+
+
+/* =========================================================
+   CAMERA -> ENEMY
 ========================================================= */
 
 cameraManager.setDynamicBlockersProvider(
 
     () =>
-
         enemyManager
             .getAliveEnemies()
             .filter(
 
                 enemy =>
-
                     !enemy.isSpawning()
 
             )
             .map(
 
                 enemy =>
-
                     enemy.getObject()
 
             )
@@ -849,7 +927,6 @@ cameraManager.setDynamicBlockersProvider(
 cameraManager.setADSAnchorProvider(
 
     () =>
-
         weaponManager
             .getADSAnchor()
 
@@ -857,7 +934,7 @@ cameraManager.setADSAnchorProvider(
 
 
 /* =========================================================
-   DEATH CALLBACK
+   PLAYER DEATH CALLBACK
 ========================================================= */
 
 let deathFallbackTimer =
@@ -880,7 +957,6 @@ playerController.setDeathFinishedHandler(
 ========================================================= */
 
 const pauseMenu =
-
     new PauseMenu({
 
         onResume:
@@ -891,14 +967,11 @@ const pauseMenu =
 
             },
 
+
         onExit:
 
             () => {
 
-                /*
-                 * Salir desde pausa también
-                 * debe llevar al menú.
-                 */
                 fleeToMenu();
 
             }
@@ -939,7 +1012,6 @@ let cachedFirstPerson =
 ========================================================= */
 
 const ambientLight =
-
     new THREE.AmbientLight(
 
         0xb9c8d2,
@@ -955,7 +1027,6 @@ scene.add(
 
 
 const hemisphereLight =
-
     new THREE.HemisphereLight(
 
         0xd9efff,
@@ -973,11 +1044,10 @@ scene.add(
 
 
 /* =========================================================
-   MAIN DIRECTIONAL LIGHT
+   MAIN LIGHT
 ========================================================= */
 
 const mainLight =
-
     new THREE.DirectionalLight(
 
         0xe8f5ff,
@@ -1053,7 +1123,6 @@ scene.add(
 ========================================================= */
 
 const emergencyLight =
-
     new THREE.PointLight(
 
         0xff3029,
@@ -1088,14 +1157,13 @@ scene.add(
 ========================================================= */
 
 const playerLight =
-
     new THREE.PointLight(
 
         0xc6ecff,
 
         3.5,
 
-        5.0,
+        5,
 
         2
 
@@ -1112,7 +1180,7 @@ scene.add(
 
 
 /* =========================================================
-   SHADOW HELPER
+   PLAYER SHADOW
 ========================================================= */
 
 function configureDynamicShadowCaster(
@@ -1156,7 +1224,7 @@ function configureDynamicShadowCaster(
 
 
 /* =========================================================
-   DYNAMIC OBJECT LIGHTING
+   OBJECT LIGHTING
 ========================================================= */
 
 function configureDynamicObjectLighting() {
@@ -1173,7 +1241,6 @@ function configureDynamicObjectLighting() {
 
 
     const objects =
-
         objectManager
             .getDynamicObjects();
 
@@ -1222,7 +1289,7 @@ function configureDynamicObjectLighting() {
 
 
 /* =========================================================
-   STATIC ENVIRONMENT OPTIMIZATION
+   ENVIRONMENT OPTIMIZATION
 ========================================================= */
 
 function optimizeStaticEnvironment(
@@ -1354,10 +1421,6 @@ function hideMainScreens() {
 
 }
 
-
-/* =========================================================
-   SHOW SCREEN
-========================================================= */
 
 function showScreen(
     target
@@ -1498,57 +1561,53 @@ btnSurvive?.addEventListener(
    POINTER LOCK
 ========================================================= */
 
-cameraManager
-    .setPointerLockChangeHandler(
+cameraManager.setPointerLockChangeHandler(
 
-        locked => {
+    locked => {
 
-            /*
-             * Durante Death y Game Over
-             * liberar el mouse NO pausa.
-             */
-            if (
-                currentState ===
-                GAME_STATE.DYING
+        if (
+            currentState ===
+            GAME_STATE.DYING
 
-                ||
+            ||
 
-                currentState ===
-                GAME_STATE.GAME_OVER
-            ) {
+            currentState ===
+            GAME_STATE.GAME_OVER
+        ) {
 
-                return;
-
-            }
-
-
-            pauseMenu
-                .setCaptureHintVisible(
-
-                    currentState ===
-                    GAME_STATE.PLAYING
-
-                    &&
-
-                    !locked
-
-                );
-
-
-            if (
-                !locked
-                &&
-                currentState ===
-                GAME_STATE.PLAYING
-            ) {
-
-                pauseGame();
-
-            }
+            return;
 
         }
 
-    );
+
+        pauseMenu.setCaptureHintVisible(
+
+            currentState ===
+            GAME_STATE.PLAYING
+
+            &&
+
+            !locked
+
+        );
+
+
+        if (
+            !locked
+
+            &&
+
+            currentState ===
+            GAME_STATE.PLAYING
+        ) {
+
+            pauseGame();
+
+        }
+
+    }
+
+);
 
 
 /* =========================================================
@@ -1645,10 +1704,14 @@ function pauseGame() {
     );
 
 
-    pauseMenu
-        .setCaptureHintVisible(
-            false
-        );
+    waveManager.setEnabled(
+        false
+    );
+
+
+    pauseMenu.setCaptureHintVisible(
+        false
+    );
 
 
     pauseMenu.setVisible(
@@ -1703,8 +1766,12 @@ function resumeGame() {
     );
 
 
-    cameraManager
-        .requestPointerLock();
+    waveManager.setEnabled(
+        true
+    );
+
+
+    cameraManager.requestPointerLock();
 
 }
 
@@ -1739,36 +1806,23 @@ function beginPlayerDeath() {
     );
 
 
-    /* =====================================================
-       WEAPON OFF
-    ====================================================== */
-
     weaponManager.setPaused(
         true
     );
 
-
-    /* =====================================================
-       ENEMY AI OFF
-    ====================================================== */
 
     enemyManager.setEnabled(
         false
     );
 
 
-    /* =====================================================
-       CANCEL AIM
-    ====================================================== */
+    waveManager.setEnabled(
+        false
+    );
+
 
     cameraManager.cancelAim();
 
-
-    /* =====================================================
-       FPS -> TPS
-
-       Permite ver Death.
-    ====================================================== */
 
     if (
         cameraManager.getMode() ===
@@ -1780,10 +1834,6 @@ function beginPlayerDeath() {
     }
 
 
-    /* =====================================================
-       FREE CURSOR
-    ====================================================== */
-
     cameraManager.releasePointerLock();
 
 
@@ -1792,18 +1842,12 @@ function beginPlayerDeath() {
     );
 
 
-    pauseMenu
-        .setCaptureHintVisible(
-            false
-        );
+    pauseMenu.setCaptureHintVisible(
+        false
+    );
 
-
-    /* =====================================================
-       PLAY DEATH
-    ====================================================== */
 
     const started =
-
         playerController.die();
 
 
@@ -1819,15 +1863,7 @@ function beginPlayerDeath() {
     }
 
 
-    /* =====================================================
-       FALLBACK
-
-       Normalmente AnimationMixer ejecutará
-       finishPlayerDeath().
-    ====================================================== */
-
     const duration =
-
         playerController
             .getDeathDuration();
 
@@ -1844,7 +1880,6 @@ function beginPlayerDeath() {
 
 
     deathFallbackTimer =
-
         setTimeout(
 
             () => {
@@ -1872,7 +1907,7 @@ function beginPlayerDeath() {
 
 
 /* =========================================================
-   FINISH PLAYER DEATH
+   GAME OVER
 ========================================================= */
 
 function finishPlayerDeath() {
@@ -1921,9 +1956,10 @@ function finishPlayerDeath() {
     );
 
 
-    /* =====================================================
-       SHOW GAME OVER
-    ====================================================== */
+    waveManager.setEnabled(
+        false
+    );
+
 
     playerHealth.showGameOver();
 
@@ -1936,20 +1972,7 @@ function finishPlayerDeath() {
 
 
 /* =========================================================
-   RETRY GAME
-
-   REINTENTAR hace un reload limpio, pero guardamos
-   una bandera para volver directamente a Zona A.
-
-   Esto reinicia automáticamente:
-   - Rapier
-   - Player
-   - HP
-   - Animations
-   - Weapon / Ammo
-   - Enemies
-   - Props
-   - Explosive barrels
+   RETRY
 ========================================================= */
 
 function retryGame() {
@@ -1959,9 +1982,6 @@ function retryGame() {
     );
 
 
-    /*
-     * sessionStorage solo se conserva en esta pestaña.
-     */
     sessionStorage.setItem(
 
         "nova_retry_zone_a",
@@ -1977,13 +1997,7 @@ function retryGame() {
 
 
 /* =========================================================
-   FLEE TO MENU
-
-   HUIR limpia cualquier bandera de Retry y
-   recarga normalmente.
-
-   Resultado:
-   menú principal.
+   FLEE
 ========================================================= */
 
 function fleeToMenu() {
@@ -2043,9 +2057,6 @@ function setLoading(
 
 async function enterZoneA() {
 
-    /*
-     * Protección contra doble clic o doble llamada.
-     */
     if (
         currentState ===
         GAME_STATE.LOADING
@@ -2106,7 +2117,6 @@ async function enterZoneA() {
         ================================================= */
 
         const zoneA =
-
             await environmentManager
                 .activateEnvironment(
 
@@ -2115,7 +2125,6 @@ async function enterZoneA() {
                     percent => {
 
                         const value =
-
                             Math.round(
 
                                 percent *
@@ -2137,18 +2146,10 @@ async function enterZoneA() {
                 );
 
 
-        /* =================================================
-           OPTIMIZATION
-        ================================================= */
-
         optimizeStaticEnvironment(
             zoneA
         );
 
-
-        /* =================================================
-           CAMERA ENVIRONMENT
-        ================================================= */
 
         cameraManager.setEnvironment(
             zoneA
@@ -2170,10 +2171,6 @@ async function enterZoneA() {
 
         await physicsManager.init();
 
-
-        /* =================================================
-           ENVIRONMENT COLLIDERS
-        ================================================= */
 
         setLoading(
 
@@ -2204,7 +2201,6 @@ async function enterZoneA() {
 
 
         const playerSpawn =
-
             calculateZoneASpawn(
                 zoneA
             );
@@ -2256,7 +2252,7 @@ async function enterZoneA() {
 
 
         /* =================================================
-           PLAYER HEALTH
+           HEALTH
         ================================================= */
 
         playerHealth.reset();
@@ -2289,7 +2285,7 @@ async function enterZoneA() {
 
 
         /* =================================================
-           OBJECTS
+           PHYSICAL OBJECTS
         ================================================= */
 
         setLoading(
@@ -2314,24 +2310,20 @@ async function enterZoneA() {
         configureDynamicObjectLighting();
 
 
-        /* =================================================
-           WEAPON ENVIRONMENT
-        ================================================= */
-
         weaponManager.setEnvironment(
             zoneA
         );
 
 
         /* =================================================
-           ENEMY
+           ENEMY ASSETS
         ================================================= */
 
         setLoading(
 
-            90,
+            89,
 
-            "Analizando actividad biológica..."
+            "Cargando amenazas biológicas..."
 
         );
 
@@ -2350,57 +2342,64 @@ async function enterZoneA() {
 
 
         /* =================================================
-           TEST ENEMY
+           WAVE ENVIRONMENT
+        ================================================= */
+
+        waveManager.setEnvironment(
+            zoneA
+        );
+
+
+        /* =================================================
+           PRECALCULATE SAFE SPAWNS
+
+           ESTA ES LA PARTE IMPORTANTE.
+
+           Los raycasts ya no se hacen cuando inicia Wave.
         ================================================= */
 
         setLoading(
 
-            95,
+            94,
 
-            "Actividad hostil detectada..."
+            "Analizando zonas jugables para hostiles..."
 
         );
 
 
-        const testEnemy =
+        const validSpawnCount =
+            await waveManager
+                .prepareSpawnPool();
 
-            enemyManager
-                .spawnTestEnemy(
-                    playerSpawn.y
-                );
+
+        console.log(
+
+            `[Nova] Spawns jugables encontrados: ${validSpawnCount}`
+
+        );
 
 
         if (
-            testEnemy
-            &&
-            typeof testEnemy
-                .getModel ===
-            "function"
+            validSpawnCount ===
+            0
         ) {
 
-            configureDynamicShadowCaster(
+            throw new Error(
 
-                testEnemy.getModel()
+                "No se encontraron puntos válidos de aparición para enemigos."
 
             );
 
         }
 
 
-        /* =================================================
-           REFRESH WEAPON ENEMY TARGETS
-        ================================================= */
+        setLoading(
 
-        if (
-            typeof weaponManager
-                .refreshEnemyTargets ===
-            "function"
-        ) {
+            98,
 
-            weaponManager
-                .refreshEnemyTargets();
+            "Inicializando protocolo de supervivencia..."
 
-        }
+        );
 
 
         /* =================================================
@@ -2447,10 +2446,6 @@ async function enterZoneA() {
             "TPS"
         );
 
-
-        /* =================================================
-           CACHE
-        ================================================= */
 
         cachedCameraMode =
             "TPS";
@@ -2505,9 +2500,12 @@ async function enterZoneA() {
                     );
 
 
+                waveManager.start();
+
+
                 showNotification(
 
-                    "ALERTA · ACTIVIDAD BIOLÓGICA DETECTADA"
+                    "PREPÁRATE · PRIMERA OLEADA EN 20 SEGUNDOS"
 
                 );
 
@@ -2524,9 +2522,7 @@ async function enterZoneA() {
 
         environmentManager
             .preloadEnvironment(
-
                 ENVIRONMENTS.BOSS_ARENA
-
             );
 
     }
@@ -2563,7 +2559,7 @@ async function enterZoneA() {
 
 
 /* =========================================================
-   CALCULATE ZONE A SPAWN
+   PLAYER SPAWN
 ========================================================= */
 
 function calculateZoneASpawn(
@@ -2571,7 +2567,6 @@ function calculateZoneASpawn(
 ) {
 
     const box =
-
         new THREE.Box3()
             .setFromObject(
                 environment
@@ -2596,7 +2591,6 @@ function calculateZoneASpawn(
 
 
     const raycaster =
-
         new THREE.Raycaster(
 
             new THREE.Vector3(
@@ -2611,13 +2605,9 @@ function calculateZoneASpawn(
             ),
 
             new THREE.Vector3(
-
                 0,
-
                 -1,
-
                 0
-
             )
 
         );
@@ -2649,7 +2639,6 @@ function calculateZoneASpawn(
 
 
     const intersections =
-
         raycaster.intersectObjects(
 
             meshes,
@@ -2753,7 +2742,6 @@ function showNotification(
 
 
     notificationTimeout =
-
         setTimeout(
 
             () => {
@@ -2790,8 +2778,7 @@ function updateFPSCounter(
 
     if (
         fpsTimer <
-        PERFORMANCE
-            .fpsCounterInterval
+        PERFORMANCE.fpsCounterInterval
     ) {
 
         return;
@@ -2800,13 +2787,11 @@ function updateFPSCounter(
 
 
     const currentFPS =
-
         fpsFrames /
         fpsTimer;
 
 
     displayedFPS =
-
         displayedFPS *
         0.60
 
@@ -2817,7 +2802,6 @@ function updateFPSCounter(
 
 
     const fps =
-
         Math.round(
             displayedFPS
         );
@@ -2874,8 +2858,7 @@ function updateAdaptiveQuality(
 ) {
 
     if (
-        !PERFORMANCE
-            .adaptiveResolution
+        !PERFORMANCE.adaptiveResolution
 
         ||
 
@@ -2897,8 +2880,7 @@ function updateAdaptiveQuality(
 
     if (
         qualityTimer <
-        PERFORMANCE
-            .qualityCheckInterval
+        PERFORMANCE.qualityCheckInterval
     ) {
 
         return;
@@ -2907,7 +2889,6 @@ function updateAdaptiveQuality(
 
 
     const fps =
-
         qualityFrames /
         qualityTimer;
 
@@ -2918,16 +2899,13 @@ function updateAdaptiveQuality(
 
     if (
         fps <
-        PERFORMANCE
-            .lowFPSThreshold
+        PERFORMANCE.lowFPSThreshold
     ) {
 
         newRatio =
-
             Math.max(
 
-                PERFORMANCE
-                    .minPixelRatio,
+                PERFORMANCE.minPixelRatio,
 
                 currentPixelRatio -
                 0.06
@@ -2938,16 +2916,13 @@ function updateAdaptiveQuality(
 
     else if (
         fps >
-        PERFORMANCE
-            .highFPSThreshold
+        PERFORMANCE.highFPSThreshold
     ) {
 
         newRatio =
-
             Math.min(
 
-                PERFORMANCE
-                    .maxPixelRatio,
+                PERFORMANCE.maxPixelRatio,
 
                 currentPixelRatio +
                 0.03
@@ -3006,7 +2981,6 @@ function updateAdaptiveQuality(
 function handleResize() {
 
     camera.aspect =
-
         window.innerWidth /
         window.innerHeight;
 
@@ -3066,7 +3040,7 @@ function update(
 
 
     /* =====================================================
-       PLAYER HEALTH
+       HEALTH
     ====================================================== */
 
     playerHealth.update(
@@ -3114,13 +3088,12 @@ function update(
 
 
         const firstPerson =
-
             cameraMode ===
             "FPS";
 
 
         /* =================================================
-           PLAYER VIEW MODE
+           PLAYER VIEW
         ================================================= */
 
         if (
@@ -3141,7 +3114,7 @@ function update(
 
 
         /* =================================================
-           WEAPON VIEW MODE
+           WEAPON VIEW
         ================================================= */
 
         if (
@@ -3182,17 +3155,11 @@ function update(
         }
 
 
-        /* =================================================
-           PLAYER AIM
-        ================================================= */
-
         playerController
             .setAimState(
 
                 firstPerson
-
                 ||
-
                 aiming,
 
                 cameraAimDirection
@@ -3216,7 +3183,7 @@ function update(
 
 
         /* =================================================
-           PLAYER PHYSICS REQUEST
+           PRE PHYSICS
         ================================================= */
 
         physicsManager
@@ -3230,10 +3197,6 @@ function update(
             );
 
 
-        /* =================================================
-           ENEMY PHYSICS REQUEST
-        ================================================= */
-
         enemyManager
             .prePhysicsUpdate(
                 deltaTime
@@ -3241,7 +3204,7 @@ function update(
 
 
         /* =================================================
-           SINGLE RAPIER STEP
+           ONE RAPIER STEP
         ================================================= */
 
         physicsManager.step(
@@ -3250,7 +3213,7 @@ function update(
 
 
         /* =================================================
-           PLAYER SYNC
+           SYNC
         ================================================= */
 
         physicsManager
@@ -3261,10 +3224,6 @@ function update(
 
             );
 
-
-        /* =================================================
-           ENEMY SYNC
-        ================================================= */
 
         enemyManager
             .postPhysicsUpdate(
@@ -3278,10 +3237,6 @@ function update(
 
         objectManager.update();
 
-
-        /* =================================================
-           PLAYER MATRIX
-        ================================================= */
 
         playerController
             .getObject()
@@ -3300,11 +3255,10 @@ function update(
 
 
         /* =================================================
-           ENEMY VISUALS
+           ENEMIES
         ================================================= */
 
-        enemyManager
-            .updateVisuals();
+        enemyManager.updateVisuals();
 
 
         /* =================================================
@@ -3317,11 +3271,19 @@ function update(
 
 
         /* =================================================
+           WAVES
+        ================================================= */
+
+        waveManager.update(
+            deltaTime
+        );
+
+
+        /* =================================================
            PLAYER LIGHT
         ================================================= */
 
         const playerPosition =
-
             playerController
                 .getPosition();
 
@@ -3340,7 +3302,7 @@ function update(
 
 
         /* =================================================
-           DEBUG HUD
+           DEBUG
         ================================================= */
 
         debugTimer +=
@@ -3353,8 +3315,7 @@ function update(
             &&
 
             debugTimer >=
-            PERFORMANCE
-                .debugInterval
+            PERFORMANCE.debugInterval
         ) {
 
             debugTimer =
@@ -3382,8 +3343,7 @@ function update(
                 +
 
                 (
-                    physicsManager
-                        .isGrounded()
+                    physicsManager.isGrounded()
 
                         ?
 
@@ -3396,15 +3356,15 @@ function update(
 
                 +
 
-                ` · HP ${Math.ceil(
-                    playerHealth
-                        .getHealth()
-                )}`
+                ` · HP ${Math.ceil(playerHealth.getHealth())}`
 
                 +
 
-                ` · HOSTILES ${enemyManager
-                    .getAliveCount()}`;
+                ` · WAVE ${waveManager.getWave()}/5`
+
+                +
+
+                ` · HOSTILES ${enemyManager.getAliveCount()}`;
 
         }
 
@@ -3413,19 +3373,12 @@ function update(
 
     /* =====================================================
        DYING
-
-       El gameplay queda bloqueado, pero Death.fbx
-       continúa reproduciéndose.
     ====================================================== */
 
     else if (
         currentState ===
         GAME_STATE.DYING
     ) {
-
-        /* =================================================
-           PLAYER DEATH ANIMATION
-        ================================================= */
 
         playerController
             .updateAnimationOnly(
@@ -3440,26 +3393,13 @@ function update(
             );
 
 
-        /* =================================================
-           CAMERA FOLLOWS PLAYER
-        ================================================= */
-
         cameraManager.update(
             deltaTime
         );
 
 
-        /* =================================================
-           ENEMY VISUALS
-        ================================================= */
+        enemyManager.updateVisuals();
 
-        enemyManager
-            .updateVisuals();
-
-
-        /* =================================================
-           OBJECT VISUALS
-        ================================================= */
 
         objectManager.update();
 
@@ -3467,21 +3407,15 @@ function update(
 
 
     /* =====================================================
-       STARS
+       BACKGROUND
     ====================================================== */
 
     stars.rotation.y +=
-
         deltaTime *
         0.00030;
 
 
-    /* =====================================================
-       EMERGENCY LIGHT
-    ====================================================== */
-
     emergencyLight.intensity =
-
         34
 
         +
@@ -3512,7 +3446,6 @@ function animate() {
 
 
     const deltaTime =
-
         Math.min(
 
             clock.getDelta(),
@@ -3543,17 +3476,10 @@ function animate() {
 
 
 /* =========================================================
-   AUTO RETRY SYSTEM
-
-   Si la página fue recargada mediante REINTENTAR,
-   sessionStorage contiene esta bandera.
-
-   Se elimina ANTES de iniciar Zona A para evitar
-   un loop de reinicios.
+   AUTO RETRY
 ========================================================= */
 
 const autoRetryZoneA =
-
     sessionStorage.getItem(
         "nova_retry_zone_a"
     )
@@ -3572,27 +3498,13 @@ if (
     );
 
 
-    /* =====================================================
-       CONSUME FLAG
-    ====================================================== */
-
     sessionStorage.removeItem(
         "nova_retry_zone_a"
     );
 
 
-    /* =====================================================
-       HIDE MENU IMMEDIATELY
-
-       Evita que el menú parpadee antes de cargar.
-    ====================================================== */
-
     hideMainScreens();
 
-
-    /* =====================================================
-       START NEW GAME NEXT FRAME
-    ====================================================== */
 
     requestAnimationFrame(
 
@@ -3613,7 +3525,7 @@ if (
 
 
 /* =========================================================
-   START LOOP
+   START
 ========================================================= */
 
 animate();
@@ -3634,7 +3546,7 @@ console.log(
 
 console.log(
 
-    "%cSurvival Build v0.10.2",
+    "%cWave Build v0.11.2",
 
     "color:#8effa8;"
 
@@ -3643,7 +3555,7 @@ console.log(
 
 console.log(
 
-    "%cPLAYER HIT / DEATH · ONLINE",
+    "%cSAFE SPAWN CACHE · ONLINE",
 
     "color:#55ff99;"
 
@@ -3652,7 +3564,7 @@ console.log(
 
 console.log(
 
-    "%cFPS ENEMY SEPARATION · ONLINE",
+    "%cMAX 5 ACTIVE ENEMIES · ONLINE",
 
     "color:#55ff99;"
 
@@ -3661,7 +3573,7 @@ console.log(
 
 console.log(
 
-    "%cRETRY SYSTEM · ONLINE",
+    "%cBARREL ENEMY DAMAGE · ONLINE",
 
     "color:#55ff99;"
 
