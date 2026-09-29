@@ -22,7 +22,7 @@ const AUDIO_FILES = {
     boss: {
         path: "./assets/sounds/music/boss.mp3",
         category: "music",
-        volume: 0.620
+        volume: 0.75
     },
 
     pistolFire: {
@@ -34,7 +34,7 @@ const AUDIO_FILES = {
     smgFire: {
         path: "./assets/sounds/weapons/smg_fire.mp3",
         category: "sfx",
-        volume: 0.52
+        volume: 0.70
     },
 
     shotgunFire: {
