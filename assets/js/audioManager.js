@@ -10,7 +10,7 @@ const AUDIO_FILES = {
     menu: {
         path: "./assets/sounds/music/menu.mp3",
         category: "music",
-        volume: 0.95
+        volume: 1.20
     },
 
     zoneA: {
@@ -70,7 +70,7 @@ const AUDIO_FILES = {
     pickup: {
         path: "./assets/sounds/pickups/pickup.mp3",
         category: "sfx",
-        volume: 0.10
+        volume: 0.18
     },
 
     barrelExplosion: {
@@ -94,7 +94,7 @@ const AUDIO_FILES = {
     siren: {
         path: "./assets/sounds/ambient/siren.mp3",
         category: "ambient",
-        volume: 0.50
+        volume: 0.60
     }
 };
 
