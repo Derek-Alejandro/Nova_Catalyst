@@ -2,18 +2,20 @@
    NOVA CATALYST
    Main Controller
 
-   Build v0.23.0 · BOSS PERFORMANCE
+   Build v0.24.0 · PRE-ALPHA STORY FLOW
    ---------------------------------------------------------
+   - Intro cinematic
+   - "Todos están muertos..."
+   - Intro blink / flash
+   - Waves start AFTER intro
    - Waves 1-5
-   - Boss Arena
-   - Central spawn
+   - Boss transition
+   - Boss Arena performance mode
+   - Emergency red siren
    - F9 Boss Debug
-   - Boss performance mode
-   - Reduced Boss pixel ratio
-   - Shadows disabled during Boss Arena
-   - Lightweight emergency siren
-   - Simplified spawn calculations
-   - Reintentar / Huir Game Over localization
+   - Game Over Spanish buttons
+   - Final cinematic
+   - Zona B Próximamente
 ========================================================= */
 
 import * as THREE from "three";
@@ -114,12 +116,6 @@ const PERFORMANCE = {
     shadowFocusInterval:
         0.14,
 
-    /*
-     * Sirena a 20 FPS internos.
-     *
-     * El juego sigue a 60 FPS,
-     * pero la luz no necesita recalcularse cada frame.
-     */
     sirenUpdateInterval:
         0.05
 };
@@ -173,7 +169,7 @@ let shadowFocusTimer =
 
 
 /* =========================================================
-   GAME STATE
+   GAME STATES
 ========================================================= */
 
 const GAME_STATE = {
@@ -189,6 +185,9 @@ const GAME_STATE = {
 
     LOADING:
         "loading",
+
+    INTRO:
+        "intro",
 
     PLAYING:
         "playing",
@@ -229,8 +228,16 @@ let bossTransitionFailed =
     false;
 
 
+let introPlaying =
+    false;
+
+
+let endingSequenceStarted =
+    false;
+
+
 /* =========================================================
-   PLAYER SPAWN ZONE A
+   PLAYER SPAWN · ZONE A
 ========================================================= */
 
 const PLAYER_SPAWN_ZONE_A = {
@@ -247,20 +254,11 @@ const PLAYER_SPAWN_ZONE_A = {
 
 
 /* =========================================================
-   BOSS SPAWN
-
-   Mucho más barato que la versión anterior.
+   BOSS ARENA SPAWN
 ========================================================= */
 
 const BOSS_ARENA_SPAWN_CONFIG = {
 
-    /*
-     * Antes:
-     * 17 x 17 = 289 posiciones.
-     *
-     * Ahora:
-     * 9 x 9 = 81.
-     */
     gridSteps:
         9,
 
@@ -389,11 +387,6 @@ const btnSurvive =
 
 /* =========================================================
    GAME OVER TRANSLATION
-
-   No necesitamos modificar playerHealth.js.
-
-   Conserva iconos/spans porque solamente cambia
-   nodos de texto.
 ========================================================= */
 
 function localizeGameOverButtons() {
@@ -902,18 +895,13 @@ playerHealth.setVisible(
 );
 
 
-/*
- * El manager normalmente crea su UI desde
- * el constructor, así que intentamos traducir
- * inmediatamente.
- */
 queueMicrotask(
     localizeGameOverButtons
 );
 
 
 /* =========================================================
-   ENEMY
+   ENEMIES
 ========================================================= */
 
 const enemyManager =
@@ -1191,7 +1179,7 @@ let cachedFirstPerson =
 
 
 /* =========================================================
-   NORMAL LIGHTING
+   LIGHTING
 ========================================================= */
 
 const ambientLight =
@@ -1376,13 +1364,6 @@ scene.add(
 
 /* =========================================================
    LIGHTWEIGHT BOSS SIREN
-
-   Solo:
-   - 1 SpotLight
-   - 1 PointLight
-   - 2 MeshBasic beacons
-
-   Sin sombras.
 ========================================================= */
 
 const bossSiren = {
@@ -1481,12 +1462,6 @@ scene.add(
 );
 
 
-/* =========================================================
-   BEACONS
-
-   Visuales baratos.
-========================================================= */
-
 const beaconGeometry =
     new THREE.SphereGeometry(
         0.16,
@@ -1539,6 +1514,1575 @@ bossBeaconB.visible =
 scene.add(
     bossBeaconB
 );
+
+
+/* =========================================================
+   INTRO CINEMATIC UI
+========================================================= */
+
+const introOverlay =
+    document.createElement(
+        "div"
+    );
+
+
+Object.assign(
+
+    introOverlay.style,
+
+    {
+
+        position:
+            "fixed",
+
+        inset:
+            "0",
+
+        zIndex:
+            "60000",
+
+        background:
+            "#000",
+
+        display:
+            "flex",
+
+        alignItems:
+            "center",
+
+        justifyContent:
+            "center",
+
+        visibility:
+            "hidden",
+
+        opacity:
+            "0",
+
+        transition:
+            "opacity .45s ease",
+
+        pointerEvents:
+            "none"
+    }
+
+);
+
+
+document.body.appendChild(
+    introOverlay
+);
+
+
+const introText =
+    document.createElement(
+        "div"
+    );
+
+
+Object.assign(
+
+    introText.style,
+
+    {
+
+        position:
+            "relative",
+
+        zIndex:
+            "2",
+
+        width:
+            "min(1000px,90vw)",
+
+        padding:
+            "30px",
+
+        textAlign:
+            "center",
+
+        fontFamily:
+            "Orbitron,Consolas,monospace",
+
+        fontWeight:
+            "900",
+
+        fontSize:
+            "clamp(22px,4.2vw,58px)",
+
+        letterSpacing:
+            "6px",
+
+        lineHeight:
+            "1.25",
+
+        color:
+            "#eeeeee",
+
+        textShadow:
+            "0 0 24px rgba(255,255,255,.12)",
+
+        opacity:
+            "0",
+
+        transform:
+            "scale(.97)",
+
+        transition:
+            "opacity .30s ease, transform .40s ease"
+    }
+
+);
+
+
+introOverlay.appendChild(
+    introText
+);
+
+
+const introFlash =
+    document.createElement(
+        "div"
+    );
+
+
+Object.assign(
+
+    introFlash.style,
+
+    {
+
+        position:
+            "absolute",
+
+        inset:
+            "0",
+
+        background:
+            "#ff281c",
+
+        opacity:
+            "0",
+
+        zIndex:
+            "3",
+
+        pointerEvents:
+            "none",
+
+        transition:
+            "opacity .045s linear"
+    }
+
+);
+
+
+introOverlay.appendChild(
+    introFlash
+);
+
+
+/* =========================================================
+   INTRO HELPERS
+========================================================= */
+
+function showIntroOverlay() {
+
+    introOverlay.style.visibility =
+        "visible";
+
+
+    introOverlay.style.opacity =
+        "1";
+}
+
+
+function hideIntroOverlay() {
+
+    introText.style.opacity =
+        "0";
+
+
+    introOverlay.style.opacity =
+        "0";
+
+
+    setTimeout(
+
+        () => {
+
+            introOverlay.style.visibility =
+                "hidden";
+        },
+
+        500
+
+    );
+}
+
+
+async function showIntroText(
+
+    text,
+
+    duration = 900,
+
+    {
+        color = "#eeeeee",
+
+        size = null,
+
+        glow = null
+    } = {}
+
+) {
+
+    introText.style.transition =
+        "none";
+
+
+    introText.style.opacity =
+        "0";
+
+
+    introText.style.transform =
+        "scale(.96)";
+
+
+    introText.textContent =
+        text;
+
+
+    introText.style.color =
+        color;
+
+
+    introText.style.fontSize =
+
+        size
+
+            ?
+
+            size
+
+            :
+
+            "clamp(22px,4.2vw,58px)";
+
+
+    introText.style.textShadow =
+
+        glow
+
+            ?
+
+            glow
+
+            :
+
+            "0 0 24px rgba(255,255,255,.12)";
+
+
+    await nextFrame();
+
+
+    introText.style.transition =
+        "opacity .28s ease, transform .40s ease";
+
+
+    introText.style.opacity =
+        "1";
+
+
+    introText.style.transform =
+        "scale(1)";
+
+
+    await sleep(
+        duration
+    );
+
+
+    introText.style.opacity =
+        "0";
+
+
+    introText.style.transform =
+        "scale(1.025)";
+
+
+    await sleep(
+        260
+    );
+}
+
+
+/* =========================================================
+   INTRO FLASH
+========================================================= */
+
+async function playIntroFlash() {
+
+    /*
+     * Primer destello.
+     */
+    introFlash.style.background =
+        "#8b0b07";
+
+
+    introFlash.style.opacity =
+        "0.65";
+
+
+    await sleep(
+        45
+    );
+
+
+    introFlash.style.opacity =
+        "0";
+
+
+    await sleep(
+        75
+    );
+
+
+    /*
+     * Segundo destello.
+     */
+    introFlash.style.background =
+        "#ffffff";
+
+
+    introFlash.style.opacity =
+        "0.88";
+
+
+    await sleep(
+        38
+    );
+
+
+    introFlash.style.opacity =
+        "0";
+
+
+    await sleep(
+        65
+    );
+
+
+    /*
+     * Destello rojo final.
+     */
+    introFlash.style.background =
+        "#ff2118";
+
+
+    introFlash.style.opacity =
+        "0.48";
+
+
+    await sleep(
+        55
+    );
+
+
+    introFlash.style.opacity =
+        "0";
+}
+
+
+/* =========================================================
+   RUN INTRO CINEMATIC
+========================================================= */
+
+async function runIntroSequence() {
+
+    if (
+        introPlaying
+    ) {
+
+        return;
+    }
+
+
+    introPlaying =
+        true;
+
+
+    currentState =
+        GAME_STATE.INTRO;
+
+
+    /* =====================================================
+       LOCK EVERYTHING
+    ====================================================== */
+
+    playerController.setEnabled(
+        false
+    );
+
+
+    weaponManager.setPaused(
+        true
+    );
+
+
+    enemyManager.setEnabled(
+        false
+    );
+
+
+    waveManager.setEnabled(
+        false
+    );
+
+
+    waveManager.setVisible(
+        false
+    );
+
+
+    pickupManager.setEnabled(
+        false
+    );
+
+
+    cameraManager.setPaused(
+        true
+    );
+
+
+    cameraManager
+        .releasePointerLock();
+
+
+    playerHealth.setVisible(
+        false
+    );
+
+
+    inspectionUI
+        ?.classList
+        .add(
+            "hidden-interface"
+        );
+
+
+    /* =====================================================
+       BLACK
+    ====================================================== */
+
+    showIntroOverlay();
+
+
+    await sleep(
+        450
+    );
+
+
+    /* =====================================================
+       TEXT 1
+    ====================================================== */
+
+    await showIntroText(
+
+        "TODOS ESTÁN MUERTOS.",
+
+        900
+
+    );
+
+
+    await sleep(
+        180
+    );
+
+
+    /* =====================================================
+       TEXT 2
+    ====================================================== */
+
+    await showIntroText(
+
+        "NADIE RESPONDE.",
+
+        800,
+
+        {
+            color:
+                "#bbbbbb"
+        }
+
+    );
+
+
+    await sleep(
+        180
+    );
+
+
+    /* =====================================================
+       TEXT 3
+    ====================================================== */
+
+    await showIntroText(
+
+        "AHORA SOLO QUEDAS TÚ.",
+
+        1050,
+
+        {
+            color:
+                "#f4f4f4",
+
+            glow:
+                "0 0 30px rgba(255,55,45,.18)"
+        }
+
+    );
+
+
+    await sleep(
+        300
+    );
+
+
+    /* =====================================================
+       SURVIVE
+    ====================================================== */
+
+    introText.style.transition =
+        "none";
+
+
+    introText.style.opacity =
+        "0";
+
+
+    introText.style.transform =
+        "scale(.82)";
+
+
+    introText.textContent =
+        "SOBREVIVE";
+
+
+    introText.style.color =
+        "#ff4035";
+
+
+    introText.style.fontSize =
+        "clamp(38px,8vw,105px)";
+
+
+    introText.style.textShadow =
+        "0 0 38px rgba(255,35,25,.72)";
+
+
+    await nextFrame();
+
+
+    introText.style.transition =
+        "opacity .13s ease, transform .30s cubic-bezier(.2,.8,.2,1)";
+
+
+    introText.style.opacity =
+        "1";
+
+
+    introText.style.transform =
+        "scale(1)";
+
+
+    await sleep(
+        720
+    );
+
+
+    /* =====================================================
+       BLINK
+    ====================================================== */
+
+    await playIntroFlash();
+
+
+    introText.style.opacity =
+        "0";
+
+
+    await sleep(
+        100
+    );
+
+
+    hideIntroOverlay();
+
+
+    /*
+     * Un pequeño margen para que el escenario
+     * aparezca debajo del fade.
+     */
+    await sleep(
+        320
+    );
+
+
+    introPlaying =
+        false;
+
+
+    startZoneAGameplay();
+}
+
+
+/* =========================================================
+   FINAL CINEMATIC UI
+========================================================= */
+
+const endingOverlay =
+    document.createElement(
+        "div"
+    );
+
+
+Object.assign(
+
+    endingOverlay.style,
+
+    {
+
+        position:
+            "fixed",
+
+        inset:
+            "0",
+
+        zIndex:
+            "65000",
+
+        background:
+            "#000",
+
+        display:
+            "flex",
+
+        flexDirection:
+            "column",
+
+        alignItems:
+            "center",
+
+        justifyContent:
+            "center",
+
+        visibility:
+            "hidden",
+
+        opacity:
+            "0",
+
+        transition:
+            "opacity .75s ease",
+
+        pointerEvents:
+            "none",
+
+        fontFamily:
+            "Orbitron,Consolas,monospace"
+    }
+
+);
+
+
+document.body.appendChild(
+    endingOverlay
+);
+
+
+const endingEyebrow =
+    document.createElement(
+        "div"
+    );
+
+
+Object.assign(
+
+    endingEyebrow.style,
+
+    {
+
+        fontSize:
+            "clamp(8px,1vw,11px)",
+
+        letterSpacing:
+            "5px",
+
+        color:
+            "#d33630",
+
+        marginBottom:
+            "18px",
+
+        opacity:
+            "0",
+
+        transition:
+            "opacity .35s ease"
+    }
+
+);
+
+
+endingOverlay.appendChild(
+    endingEyebrow
+);
+
+
+const endingTitle =
+    document.createElement(
+        "div"
+    );
+
+
+Object.assign(
+
+    endingTitle.style,
+
+    {
+
+        width:
+            "min(1050px,90vw)",
+
+        textAlign:
+            "center",
+
+        fontSize:
+            "clamp(28px,5vw,70px)",
+
+        fontWeight:
+            "900",
+
+        letterSpacing:
+            "6px",
+
+        lineHeight:
+            "1.15",
+
+        color:
+            "#f1f1f1",
+
+        opacity:
+            "0",
+
+        transform:
+            "scale(.96)",
+
+        transition:
+            "opacity .40s ease, transform .55s ease",
+
+        textShadow:
+            "0 0 30px rgba(255,40,30,.20)"
+    }
+
+);
+
+
+endingOverlay.appendChild(
+    endingTitle
+);
+
+
+const endingSubtitle =
+    document.createElement(
+        "div"
+    );
+
+
+Object.assign(
+
+    endingSubtitle.style,
+
+    {
+
+        width:
+            "min(800px,85vw)",
+
+        marginTop:
+            "18px",
+
+        textAlign:
+            "center",
+
+        fontSize:
+            "clamp(10px,1.7vw,18px)",
+
+        letterSpacing:
+            "3px",
+
+        lineHeight:
+            "1.7",
+
+        color:
+            "rgba(255,255,255,.55)",
+
+        opacity:
+            "0",
+
+        transition:
+            "opacity .40s ease"
+    }
+
+);
+
+
+endingOverlay.appendChild(
+    endingSubtitle
+);
+
+
+const endingButton =
+    document.createElement(
+        "button"
+    );
+
+
+Object.assign(
+
+    endingButton.style,
+
+    {
+
+        marginTop:
+            "34px",
+
+        minWidth:
+            "250px",
+
+        padding:
+            "14px 26px",
+
+        border:
+            "1px solid rgba(255,75,60,.55)",
+
+        borderRadius:
+            "4px",
+
+        background:
+            "rgba(120,14,10,.18)",
+
+        color:
+            "#ffffff",
+
+        fontFamily:
+            "Orbitron,Consolas,monospace",
+
+        fontWeight:
+            "800",
+
+        fontSize:
+            "11px",
+
+        letterSpacing:
+            "3px",
+
+        cursor:
+            "pointer",
+
+        opacity:
+            "0",
+
+        transform:
+            "translateY(8px)",
+
+        transition:
+            "opacity .35s ease, transform .35s ease, background .2s ease",
+
+        pointerEvents:
+            "none"
+    }
+
+);
+
+
+endingButton.addEventListener(
+
+    "mouseenter",
+
+    () => {
+
+        endingButton.style.background =
+            "rgba(160,20,15,.35)";
+    }
+
+);
+
+
+endingButton.addEventListener(
+
+    "mouseleave",
+
+    () => {
+
+        endingButton.style.background =
+            "rgba(120,14,10,.18)";
+    }
+
+);
+
+
+endingOverlay.appendChild(
+    endingButton
+);
+
+
+const endingFlash =
+    document.createElement(
+        "div"
+    );
+
+
+Object.assign(
+
+    endingFlash.style,
+
+    {
+
+        position:
+            "absolute",
+
+        inset:
+            "0",
+
+        zIndex:
+            "10",
+
+        background:
+            "#ffffff",
+
+        opacity:
+            "0",
+
+        pointerEvents:
+            "none",
+
+        transition:
+            "opacity .05s linear"
+    }
+
+);
+
+
+endingOverlay.appendChild(
+    endingFlash
+);
+
+
+/* =========================================================
+   ENDING HELPERS
+========================================================= */
+
+function showEndingOverlay() {
+
+    endingOverlay.style.visibility =
+        "visible";
+
+
+    endingOverlay.style.pointerEvents =
+        "auto";
+
+
+    endingOverlay.style.opacity =
+        "1";
+}
+
+
+function hideEndingContent() {
+
+    endingEyebrow.style.opacity =
+        "0";
+
+
+    endingTitle.style.opacity =
+        "0";
+
+
+    endingTitle.style.transform =
+        "scale(1.03)";
+
+
+    endingSubtitle.style.opacity =
+        "0";
+
+
+    endingButton.style.opacity =
+        "0";
+
+
+    endingButton.style.transform =
+        "translateY(8px)";
+
+
+    endingButton.style.pointerEvents =
+        "none";
+}
+
+
+/* =========================================================
+   ENDING TEXT
+========================================================= */
+
+async function showEndingText(
+
+    title,
+
+    {
+        eyebrow = "",
+        subtitle = "",
+        duration = 1200,
+        color = "#f1f1f1",
+        fontSize = "clamp(28px,5vw,70px)"
+    } = {}
+
+) {
+
+    hideEndingContent();
+
+
+    endingEyebrow.textContent =
+        eyebrow;
+
+
+    endingTitle.textContent =
+        title;
+
+
+    endingSubtitle.textContent =
+        subtitle;
+
+
+    endingTitle.style.color =
+        color;
+
+
+    endingTitle.style.fontSize =
+        fontSize;
+
+
+    endingTitle.style.transform =
+        "scale(.96)";
+
+
+    await nextFrame();
+
+
+    endingEyebrow.style.opacity =
+        eyebrow
+            ?
+            "1"
+            :
+            "0";
+
+
+    endingTitle.style.opacity =
+        "1";
+
+
+    endingTitle.style.transform =
+        "scale(1)";
+
+
+    endingSubtitle.style.opacity =
+        subtitle
+            ?
+            "1"
+            :
+            "0";
+
+
+    await sleep(
+        duration
+    );
+
+
+    hideEndingContent();
+
+
+    await sleep(
+        320
+    );
+}
+
+
+/* =========================================================
+   WAIT FOR ENDING BUTTON
+========================================================= */
+
+function waitForEndingButton(
+    label
+) {
+
+    return new Promise(
+
+        resolve => {
+
+            endingButton.textContent =
+                label;
+
+
+            endingButton.style.pointerEvents =
+                "auto";
+
+
+            requestAnimationFrame(
+
+                () => {
+
+                    endingButton.style.opacity =
+                        "1";
+
+
+                    endingButton.style.transform =
+                        "translateY(0)";
+                }
+
+            );
+
+
+            const handler =
+                () => {
+
+                    endingButton.removeEventListener(
+                        "click",
+                        handler
+                    );
+
+
+                    endingButton.style.pointerEvents =
+                        "none";
+
+
+                    resolve();
+                };
+
+
+            endingButton.addEventListener(
+                "click",
+                handler
+            );
+        }
+
+    );
+}
+
+
+/* =========================================================
+   ENDING FLASH
+========================================================= */
+
+async function playEndingFlash() {
+
+    endingFlash.style.background =
+        "#ffffff";
+
+
+    endingFlash.style.opacity =
+        "0.82";
+
+
+    await sleep(
+        55
+    );
+
+
+    endingFlash.style.opacity =
+        "0";
+
+
+    await sleep(
+        90
+    );
+
+
+    endingFlash.style.background =
+        "#a40d08";
+
+
+    endingFlash.style.opacity =
+        "0.65";
+
+
+    await sleep(
+        65
+    );
+
+
+    endingFlash.style.opacity =
+        "0";
+
+
+    await sleep(
+        110
+    );
+
+
+    endingFlash.style.background =
+        "#ffffff";
+
+
+    endingFlash.style.opacity =
+        "0.40";
+
+
+    await sleep(
+        35
+    );
+
+
+    endingFlash.style.opacity =
+        "0";
+}
+
+
+/* =========================================================
+   RUN ENDING CINEMATIC
+========================================================= */
+
+async function runEndingSequence() {
+
+    if (
+        endingSequenceStarted
+    ) {
+
+        return;
+    }
+
+
+    endingSequenceStarted =
+        true;
+
+
+    currentState =
+        GAME_STATE.VICTORY;
+
+
+    /* =====================================================
+       DISABLE GAMEPLAY
+    ====================================================== */
+
+    playerController.setEnabled(
+        false
+    );
+
+
+    weaponManager.setPaused(
+        true
+    );
+
+
+    enemyManager.setEnabled(
+        false
+    );
+
+
+    bossManager.setEnabled(
+        false
+    );
+
+
+    waveManager.setEnabled(
+        false
+    );
+
+
+    waveManager.setVisible(
+        false
+    );
+
+
+    pickupManager.setEnabled(
+        false
+    );
+
+
+    cameraManager.cancelAim();
+
+
+    cameraManager
+        .releasePointerLock();
+
+
+    playerHealth.setVisible(
+        false
+    );
+
+
+    inspectionUI
+        ?.classList
+        .add(
+            "hidden-interface"
+        );
+
+
+    /* =====================================================
+       SHORT PAUSE AFTER BOSS DEATH
+    ====================================================== */
+
+    await sleep(
+        650
+    );
+
+
+    /* =====================================================
+       FADE TO BLACK
+    ====================================================== */
+
+    showEndingOverlay();
+
+
+    await sleep(
+        850
+    );
+
+
+    /*
+     * Ya no necesitamos recalcular la sirena.
+     */
+    bossSiren.active =
+        false;
+
+
+    bossSirenLight.visible =
+        false;
+
+
+    bossRedGlow.visible =
+        false;
+
+
+    bossBeaconA.visible =
+        false;
+
+
+    bossBeaconB.visible =
+        false;
+
+
+    /* =====================================================
+       ESCAPASTE...
+    ====================================================== */
+
+    await showEndingText(
+
+        "ESCAPASTE DE ELLOS...",
+
+        {
+            eyebrow:
+                "NOVA ATLAS · SECTOR CORE",
+
+            duration:
+                1450
+        }
+
+    );
+
+
+    /* =====================================================
+       POR AHORA
+    ====================================================== */
+
+    await showEndingText(
+
+        "POR AHORA.",
+
+        {
+            duration:
+                1500,
+
+            color:
+                "#ff4439",
+
+            fontSize:
+                "clamp(38px,7vw,95px)"
+        }
+
+    );
+
+
+    /* =====================================================
+       QUESTION
+    ====================================================== */
+
+    hideEndingContent();
+
+
+    endingEyebrow.textContent =
+        "TRANSMISIÓN INTERRUMPIDA";
+
+
+    endingTitle.textContent =
+        "PERO, ¿PODRÁS ESCAPAR DE LA BASE?";
+
+
+    endingTitle.style.color =
+        "#f3f3f3";
+
+
+    endingTitle.style.fontSize =
+        "clamp(24px,4.3vw,61px)";
+
+
+    endingSubtitle.textContent =
+        "La señal de Nova Atlas continúa activa.";
+
+
+    endingTitle.style.transform =
+        "scale(.96)";
+
+
+    await nextFrame();
+
+
+    endingEyebrow.style.opacity =
+        "1";
+
+
+    endingTitle.style.opacity =
+        "1";
+
+
+    endingTitle.style.transform =
+        "scale(1)";
+
+
+    endingSubtitle.style.opacity =
+        "1";
+
+
+    await sleep(
+        550
+    );
+
+
+    await waitForEndingButton(
+        "ESTOY LISTO"
+    );
+
+
+    /* =====================================================
+       HIDE QUESTION
+    ====================================================== */
+
+    hideEndingContent();
+
+
+    await sleep(
+        300
+    );
+
+
+    /* =====================================================
+       FLASH
+    ====================================================== */
+
+    await playEndingFlash();
+
+
+    await sleep(
+        300
+    );
+
+
+    /* =====================================================
+       ZONE B TEASER
+    ====================================================== */
+
+    endingEyebrow.textContent =
+        "NOVA CATALYST";
+
+
+    endingTitle.textContent =
+        "ZONA B";
+
+
+    endingSubtitle.textContent =
+        "PRÓXIMAMENTE";
+
+
+    endingTitle.style.color =
+        "#ff4338";
+
+
+    endingTitle.style.fontSize =
+        "clamp(55px,11vw,150px)";
+
+
+    endingTitle.style.transform =
+        "scale(.88)";
+
+
+    await nextFrame();
+
+
+    endingEyebrow.style.opacity =
+        "1";
+
+
+    endingTitle.style.opacity =
+        "1";
+
+
+    endingTitle.style.transform =
+        "scale(1)";
+
+
+    endingSubtitle.style.opacity =
+        "1";
+
+
+    await sleep(
+        750
+    );
+
+
+    /*
+     * El botón ahora funciona como regreso definitivo
+     * al menú.
+     */
+    endingButton.textContent =
+        "VOLVER AL INICIO";
+
+
+    endingButton.style.opacity =
+        "1";
+
+
+    endingButton.style.transform =
+        "translateY(0)";
+
+
+    endingButton.style.pointerEvents =
+        "auto";
+
+
+    endingButton.addEventListener(
+
+        "click",
+
+        () => {
+
+            fleeToMenu();
+        },
+
+        {
+            once:
+                true
+        }
+
+    );
+}
 
 
 /* =========================================================
@@ -1661,12 +3205,6 @@ function activateBossPerformanceMode() {
         true;
 
 
-    /*
-     * Sombra direccional desactivada solamente
-     * en Boss Arena.
-     *
-     * Es uno de los ahorros más grandes.
-     */
     mainLight.castShadow =
         false;
 
@@ -1675,11 +3213,6 @@ function activateBossPerformanceMode() {
         false;
 
 
-    /*
-     * Reduce moderadamente la resolución interna.
-     *
-     * HUD/HTML siguen nítidos.
-     */
     currentPixelRatio =
         Math.min(
 
@@ -1706,9 +3239,6 @@ function activateBossPerformanceMode() {
     );
 
 
-    /*
-     * No necesitamos estrellas detrás del escenario.
-     */
     stars.visible =
         false;
 
@@ -1722,7 +3252,7 @@ function activateBossPerformanceMode() {
 
 
 /* =========================================================
-   BOSS LIGHTING
+   BOSS EMERGENCY LIGHTING
 ========================================================= */
 
 function activateBossEmergencyLighting(
@@ -1839,7 +3369,7 @@ function activateBossEmergencyLighting(
 
 
     /* =====================================================
-       DARKER ARENA
+       DARKER BOSS ARENA
     ====================================================== */
 
     ambientLight.intensity =
@@ -1873,10 +3403,6 @@ function activateBossEmergencyLighting(
     scene.fog.density =
         0.0062;
 
-
-    /* =====================================================
-       SIREN
-    ====================================================== */
 
     bossSirenLight.position.set(
 
@@ -1939,18 +3465,11 @@ function activateBossEmergencyLighting(
 
     bossBeaconB.visible =
         true;
-
-
-    console.log(
-        "[Boss Arena] Emergency lighting optimized."
-    );
 }
 
 
 /* =========================================================
    UPDATE SIREN
-
-   20 Hz
 ========================================================= */
 
 function updateBossEmergencyLighting(
@@ -1991,7 +3510,8 @@ function updateBossEmergencyLighting(
 
 
     bossSiren.angle +=
-        dt * 1.65;
+        dt *
+        1.65;
 
 
     bossSirenTarget.position.set(
@@ -2032,7 +3552,8 @@ function updateBossEmergencyLighting(
 
         0.5 *
         Math.sin(
-            elapsedTime * 8.3
+            elapsedTime *
+            8.3
         );
 
 
@@ -2061,25 +3582,30 @@ function updateBossEmergencyLighting(
         8;
 
 
-    const scaleA =
-        0.8 +
-        hardPulse * 1.3;
-
-
-    const scaleB =
-        0.8 +
-        (
-            1 - hardPulse
-        ) * 1.3;
-
-
     bossBeaconA.scale.setScalar(
-        scaleA
+
+        0.8
+
+        +
+
+        hardPulse *
+        1.3
+
     );
 
 
     bossBeaconB.scale.setScalar(
-        scaleB
+
+        0.8
+
+        +
+
+        (
+            1 -
+            hardPulse
+        ) *
+        1.3
+
     );
 }
 
@@ -2128,7 +3654,6 @@ function optimizeStaticEnvironment(
                 object.geometry
                     .computeBoundingSphere();
             }
-
         }
 
     );
@@ -2136,7 +3661,7 @@ function optimizeStaticEnvironment(
 
 
 /* =========================================================
-   PLAYER SHADOW
+   PLAYER SHADOWS
 ========================================================= */
 
 function configurePlayerShadows(
@@ -2161,7 +3686,6 @@ function configurePlayerShadows(
 
             object.receiveShadow =
                 false;
-
         }
 
     );
@@ -2218,7 +3742,7 @@ function configureDynamicObjectShadows() {
 
 
 /* =========================================================
-   BOSS OVERLAY
+   BOSS TRANSITION OVERLAY
 ========================================================= */
 
 const bossOverlay =
@@ -2274,10 +3798,6 @@ document.body.appendChild(
     bossOverlay
 );
 
-
-/* =========================================================
-   CINEMATIC TEXT
-========================================================= */
 
 const bossCinematicText =
     document.createElement(
@@ -2341,10 +3861,6 @@ bossOverlay.appendChild(
     bossCinematicText
 );
 
-
-/* =========================================================
-   LOADING PANEL
-========================================================= */
 
 const bossLoadingPanel =
     document.createElement(
@@ -2714,7 +4230,7 @@ bossLoadingPanel.append(
 
 
 /* =========================================================
-   OVERLAY HELPERS
+   BOSS OVERLAY HELPERS
 ========================================================= */
 
 function setBossLoading(
@@ -2858,6 +4374,10 @@ function hideBossOverlay() {
 }
 
 
+/* =========================================================
+   ASYNC HELPERS
+========================================================= */
+
 function sleep(
     milliseconds
 ) {
@@ -2892,150 +4412,7 @@ function nextFrame() {
 
 
 /* =========================================================
-   VICTORY UI
-========================================================= */
-
-const victoryOverlay =
-    document.createElement(
-        "div"
-    );
-
-
-Object.assign(
-
-    victoryOverlay.style,
-
-    {
-
-        position:
-            "fixed",
-
-        inset:
-            "0",
-
-        zIndex:
-            "51000",
-
-        display:
-            "none",
-
-        alignItems:
-            "center",
-
-        justifyContent:
-            "center",
-
-        background:
-            "rgba(0,0,0,.86)",
-
-        fontFamily:
-            "Orbitron,Consolas,monospace",
-
-        color:
-            "#fff"
-    }
-
-);
-
-
-victoryOverlay.innerHTML = `
-
-<div style="
-    width:min(520px,88vw);
-    text-align:center;
-    padding:34px;
-    border:1px solid rgba(255,255,255,.14);
-    background:rgba(7,9,12,.90);
-    border-radius:8px;
-">
-
-    <div style="
-        font-size:10px;
-        letter-spacing:4px;
-        color:#ff554c;
-        margin-bottom:12px;
-    ">
-        SECTOR CORE
-    </div>
-
-    <div style="
-        font-size:clamp(25px,4vw,44px);
-        font-weight:900;
-        letter-spacing:4px;
-        margin-bottom:10px;
-    ">
-        ANOMALÍA NEUTRALIZADA
-    </div>
-
-    <div style="
-        font-size:9px;
-        letter-spacing:2px;
-        color:rgba(255,255,255,.55);
-        margin-bottom:28px;
-    ">
-        OPERACIÓN COMPLETADA
-    </div>
-
-    <button
-        id="nova-victory-retry"
-        style="
-            width:100%;
-            padding:13px;
-            margin-bottom:10px;
-            background:#15191d;
-            border:1px solid rgba(255,255,255,.16);
-            color:white;
-            cursor:pointer;
-        "
-    >
-        REINICIAR OPERACIÓN
-    </button>
-
-    <button
-        id="nova-victory-menu"
-        style="
-            width:100%;
-            padding:13px;
-            background:#0b0d10;
-            border:1px solid rgba(255,255,255,.12);
-            color:white;
-            cursor:pointer;
-        "
-    >
-        VOLVER AL MENÚ
-    </button>
-
-</div>
-`;
-
-
-document.body.appendChild(
-    victoryOverlay
-);
-
-
-victoryOverlay
-    .querySelector(
-        "#nova-victory-retry"
-    )
-    ?.addEventListener(
-        "click",
-        retryGame
-    );
-
-
-victoryOverlay
-    .querySelector(
-        "#nova-victory-menu"
-    )
-    ?.addEventListener(
-        "click",
-        fleeToMenu
-    );
-
-
-/* =========================================================
-   STATE
+   STATE HELPERS
 ========================================================= */
 
 function isGameplayState() {
@@ -3250,6 +4627,11 @@ cameraManager
                 ||
 
                 currentState ===
+                GAME_STATE.INTRO
+
+                ||
+
+                currentState ===
                 GAME_STATE.VICTORY
             ) {
 
@@ -3279,7 +4661,6 @@ cameraManager
 
                 pauseGame();
             }
-
         }
 
     );
@@ -3612,14 +4993,8 @@ function finishPlayerDeath() {
     playerHealth.showGameOver();
 
 
-    /*
-     * Por si playerHealth crea la UI
-     * justo al mostrar Game Over.
-     */
     requestAnimationFrame(
-
         localizeGameOverButtons
-
     );
 }
 
@@ -3732,6 +5107,97 @@ function preloadBossEncounter() {
 
 
 /* =========================================================
+   START ZONE A GAMEPLAY
+
+   IMPORTANT:
+   waveManager.start() ONLY happens here.
+========================================================= */
+
+function startZoneAGameplay() {
+
+    currentState =
+        GAME_STATE.PLAYING;
+
+
+    cameraManager.setPaused(
+        false
+    );
+
+
+    playerController.setEnabled(
+        true
+    );
+
+
+    weaponManager.setPaused(
+        false
+    );
+
+
+    weaponManager.setEnabled(
+        true
+    );
+
+
+    enemyManager.setEnabled(
+        true
+    );
+
+
+    pickupManager.setEnabled(
+        true
+    );
+
+
+    playerHealth.setVisible(
+        true
+    );
+
+
+    inspectionUI
+        ?.classList
+        .remove(
+            "hidden-interface"
+        );
+
+
+    /*
+     * AHORA comienza el countdown inicial.
+     */
+    waveManager.start();
+
+
+    showNotification(
+
+        "PREPÁRATE · YA VIENEN"
+
+    );
+
+
+    /*
+     * Intentamos recuperar mouse.
+     */
+    setTimeout(
+
+        () => {
+
+            if (
+                currentState ===
+                GAME_STATE.PLAYING
+            ) {
+
+                cameraManager
+                    .requestPointerLock();
+            }
+        },
+
+        180
+
+    );
+}
+
+
+/* =========================================================
    ENTER ZONE A
 ========================================================= */
 
@@ -3740,6 +5206,11 @@ async function enterZoneA() {
     if (
         currentState ===
         GAME_STATE.LOADING
+
+        ||
+
+        currentState ===
+        GAME_STATE.INTRO
     ) {
 
         return;
@@ -3758,6 +5229,14 @@ async function enterZoneA() {
 
 
     bossTransitionFailed =
+        false;
+
+
+    endingSequenceStarted =
+        false;
+
+
+    introPlaying =
         false;
 
 
@@ -3849,7 +5328,7 @@ async function enterZoneA() {
 
 
         /* =================================================
-           PLAYER SPAWN
+           PLAYER
         ================================================= */
 
         const playerSpawn =
@@ -3883,7 +5362,10 @@ async function enterZoneA() {
 
 
         configurePlayerShadows(
-            playerController.getObject()
+
+            playerController
+                .getObject()
+
         );
 
 
@@ -3991,8 +5473,12 @@ async function enterZoneA() {
         );
 
 
+        /*
+         * IMPORTANTE:
+         * todavía NO pueden moverse.
+         */
         enemyManager.setEnabled(
-            true
+            false
         );
 
 
@@ -4002,6 +5488,16 @@ async function enterZoneA() {
 
         waveManager.setEnvironment(
             zoneA
+        );
+
+
+        waveManager.setEnabled(
+            false
+        );
+
+
+        waveManager.setVisible(
+            false
         );
 
 
@@ -4031,11 +5527,11 @@ async function enterZoneA() {
 
 
         /* =================================================
-           READY
+           CAMERA
         ================================================= */
 
         playerController.setEnabled(
-            true
+            false
         );
 
 
@@ -4052,13 +5548,22 @@ async function enterZoneA() {
         cameraManager.enable();
 
 
+        cameraManager.setPaused(
+            true
+        );
+
+
+        /* =================================================
+           WEAPON
+        ================================================= */
+
         weaponManager.setEnabled(
             true
         );
 
 
         weaponManager.setPaused(
-            false
+            true
         );
 
 
@@ -4068,7 +5573,7 @@ async function enterZoneA() {
 
 
         pickupManager.setEnabled(
-            true
+            false
         );
 
 
@@ -4084,6 +5589,14 @@ async function enterZoneA() {
             false;
 
 
+        renderer.shadowMap.needsUpdate =
+            true;
+
+
+        /* =================================================
+           COMPLETE LOADING
+        ================================================= */
+
         setLoading(
 
             100,
@@ -4093,9 +5606,16 @@ async function enterZoneA() {
         );
 
 
+        /*
+         * Ya arrancamos preload de la Boss Arena
+         * mientras vemos la introducción y jugamos.
+         */
+        preloadBossEncounter();
+
+
         setTimeout(
 
-            () => {
+            async () => {
 
                 loadingScreen
                     ?.classList
@@ -4104,44 +5624,13 @@ async function enterZoneA() {
                     );
 
 
-                inspectionUI
-                    ?.classList
-                    .remove(
-                        "hidden-interface"
-                    );
-
-
-                currentState =
-                    GAME_STATE.PLAYING;
-
-
-                playerHealth.setVisible(
-                    true
-                );
-
-
-                waveManager.start();
-
-
-                showNotification(
-
-                    "ARMAMENTO Y SUMINISTROS DISPERSOS EN ZONA A"
-
-                );
-
-
-                /*
-                 * Empieza inmediatamente después
-                 * de entrar a gameplay.
-                 */
-                preloadBossEncounter();
+                await runIntroSequence();
 
             },
 
-            300
+            250
 
         );
-
     }
 
     catch (
@@ -4426,7 +5915,7 @@ function getEnvironmentFloorMeshes(
 
 
 /* =========================================================
-   FLOOR HIT
+   FLOOR HITS
 ========================================================= */
 
 function getArenaFloorHits(
@@ -4650,7 +6139,8 @@ function detectCentralArenaFloor(
 
                 ix /
                 (
-                    steps - 1
+                    steps -
+                    1
                 )
 
             );
@@ -4676,7 +6166,8 @@ function detectCentralArenaFloor(
 
                     iz /
                     (
-                        steps - 1
+                        steps -
+                        1
                     )
 
                 );
@@ -4728,8 +6219,14 @@ function detectCentralArenaFloor(
 
 
     points.sort(
-        (a, b) =>
-            a.y - b.y
+
+        (
+            a,
+            b
+        ) =>
+            a.y -
+            b.y
+
     );
 
 
@@ -4820,7 +6317,10 @@ function detectCentralArenaFloor(
 
     clusters.sort(
 
-        (a, b) =>
+        (
+            a,
+            b
+        ) =>
             b.points.length -
             a.points.length
 
@@ -4853,7 +6353,7 @@ function detectCentralArenaFloor(
 
 
 /* =========================================================
-   SAMPLE FLOOR
+   SAMPLE CENTRAL FLOOR
 ========================================================= */
 
 function sampleCentralArenaFloor(
@@ -4941,8 +6441,6 @@ function sampleCentralArenaFloor(
 
 /* =========================================================
    SIMPLE CLEARANCE
-
-   Solo 4 raycasts.
 ========================================================= */
 
 function hasSimpleClearance(
@@ -5042,7 +6540,7 @@ function hasSimpleClearance(
 
 
 /* =========================================================
-   TRY SPAWN PAIR
+   TRY BOSS SPAWN PAIR
 ========================================================= */
 
 function tryBossSpawnPair(
@@ -5065,22 +6563,26 @@ function tryBossSpawnPair(
 
     const playerX =
         center.x -
-        directionX * distance;
+        directionX *
+        distance;
 
 
     const playerZ =
         center.z -
-        directionZ * distance;
+        directionZ *
+        distance;
 
 
     const bossX =
         center.x +
-        directionX * distance;
+        directionX *
+        distance;
 
 
     const bossZ =
         center.z +
-        directionZ * distance;
+        directionZ *
+        distance;
 
 
     const player =
@@ -5176,8 +6678,6 @@ function tryBossSpawnPair(
 
 /* =========================================================
    CALCULATE BOSS SPAWNS
-
-   Pocas combinaciones alrededor del centro.
 ========================================================= */
 
 function calculateBossArenaSpawns(
@@ -5226,13 +6726,25 @@ function calculateBossArenaSpawns(
 
     const directions = [
 
-        [0, 1],
+        [
+            0,
+            1
+        ],
 
-        [1, 0],
+        [
+            1,
+            0
+        ],
 
-        [0.707, 0.707],
+        [
+            0.707,
+            0.707
+        ],
 
-        [0.707, -0.707]
+        [
+            0.707,
+            -0.707
+        ]
 
     ];
 
@@ -5440,7 +6952,7 @@ function teleportPlayerTo(
 
 
 /* =========================================================
-   TRANSITION ERROR
+   BOSS TRANSITION ERROR
 ========================================================= */
 
 function handleBossTransitionError(
@@ -5527,6 +7039,11 @@ async function beginBossTransition() {
 
         currentState ===
         GAME_STATE.GAME_OVER
+
+        ||
+
+        currentState ===
+        GAME_STATE.VICTORY
     ) {
 
         return;
@@ -5604,6 +7121,10 @@ async function beginBossTransition() {
         "none";
 
 
+    /* =====================================================
+       HE IS COMING
+    ====================================================== */
+
     showCinematicText(
         "ÉL VIENE POR TI"
     );
@@ -5621,6 +7142,10 @@ async function beginBossTransition() {
         300
     );
 
+
+    /* =====================================================
+       LOADING
+    ====================================================== */
 
     showBossOverlay();
 
@@ -5652,7 +7177,7 @@ async function beginBossTransition() {
 
 
     /* =====================================================
-       WAIT FOR PRELOAD WHEN POSSIBLE
+       PRELOAD
     ====================================================== */
 
     setBossLoading(
@@ -5664,10 +7189,6 @@ async function beginBossTransition() {
     );
 
 
-    /*
-     * Si ya terminó, esto regresa inmediatamente.
-     * Si F9 se presionó muy rápido, espera aquí.
-     */
     await preloadBossEncounter();
 
 
@@ -5737,7 +7258,7 @@ async function beginBossTransition() {
 
 
     /* =====================================================
-       FAST SPAWN
+       SPAWN
     ====================================================== */
 
     setBossLoading(
@@ -5798,8 +7319,6 @@ async function beginBossTransition() {
 
     /* =====================================================
        BOSS
-
-       Ya debería estar precargado.
     ====================================================== */
 
     setBossLoading(
@@ -5870,6 +7389,10 @@ async function beginBossTransition() {
     );
 
 
+    /* =====================================================
+       ONLINE
+    ====================================================== */
+
     setBossLoading(
 
         100,
@@ -5896,6 +7419,10 @@ async function beginBossTransition() {
     bossLoadingPanel.style.display =
         "none";
 
+
+    /* =====================================================
+       SURVIVE
+    ====================================================== */
 
     showCinematicText(
         "SOBREVIVE"
@@ -5952,62 +7479,45 @@ async function beginBossTransition() {
 
 
 /* =========================================================
-   VICTORY
+   BOSS DEFEATED
 ========================================================= */
 
 function finishBossEncounter() {
 
     if (
-        currentState ===
-        GAME_STATE.VICTORY
+        endingSequenceStarted
     ) {
 
         return;
     }
 
 
-    currentState =
-        GAME_STATE.VICTORY;
+    /*
+     * boss.js llama este callback cuando
+     * terminó realmente su Death.
+     */
+    runEndingSequence()
+        .catch(
+
+            error => {
+
+                console.error(
+
+                    "[Nova] Error en cinemática final:",
+
+                    error
+
+                );
 
 
-    playerController.setEnabled(
-        false
-    );
+                /*
+                 * Si algo falla, no dejamos atrapado
+                 * al jugador.
+                 */
+                fleeToMenu();
+            }
 
-
-    weaponManager.setPaused(
-        true
-    );
-
-
-    bossManager.setEnabled(
-        false
-    );
-
-
-    cameraManager.cancelAim();
-
-
-    cameraManager
-        .releasePointerLock();
-
-
-    showNotification(
-        "ANOMALÍA NEUTRALIZADA"
-    );
-
-
-    setTimeout(
-
-        () => {
-
-            victoryOverlay.style.display =
-                "flex";
-        },
-
-        900
-
-    );
+        );
 }
 
 
@@ -6119,13 +7629,21 @@ function updateFPSCounter(
     fpsCounter.style.color =
 
         fps >= 55
+
             ?
+
             "#8effa8"
+
             :
+
             fps >= 40
+
                 ?
+
                 "#ffd75e"
+
                 :
+
                 "#ff635e";
 
 
@@ -6182,19 +7700,31 @@ function updateAdaptiveQuality(
     const minimum =
 
         bossPerformanceMode
+
             ?
-            PERFORMANCE.bossMinPixelRatio
+
+            PERFORMANCE
+                .bossMinPixelRatio
+
             :
-            PERFORMANCE.minPixelRatio;
+
+            PERFORMANCE
+                .minPixelRatio;
 
 
     const maximum =
 
         bossPerformanceMode
+
             ?
-            PERFORMANCE.bossMaxPixelRatio
+
+            PERFORMANCE
+                .bossMaxPixelRatio
+
             :
-            PERFORMANCE.maxPixelRatio;
+
+            PERFORMANCE
+                .maxPixelRatio;
 
 
     let newRatio =
@@ -6276,8 +7806,6 @@ function updateAdaptiveQuality(
 
 /* =========================================================
    SHADOW SYSTEM
-
-   TOTALMENTE OMITIDO DURANTE BOSS.
 ========================================================= */
 
 function updateShadowSystem(
@@ -6421,6 +7949,10 @@ function update(
     );
 
 
+    /* =====================================================
+       GAMEPLAY
+    ====================================================== */
+
     if (
         isGameplayState()
     ) {
@@ -6463,7 +7995,7 @@ function update(
 
 
         /* =================================================
-           VIEW MODE
+           CAMERA MODE
         ================================================= */
 
         if (
@@ -6552,7 +8084,7 @@ function update(
 
 
         /* =================================================
-           ENEMY PRE-PHYSICS
+           NORMAL ENEMY PRE-PHYSICS
         ================================================= */
 
         if (
@@ -6567,7 +8099,7 @@ function update(
 
 
         /* =================================================
-           EXACTLY ONE PHYSICS STEP
+           ONE PHYSICS STEP
         ================================================= */
 
         physicsManager.step(
@@ -6656,7 +8188,7 @@ function update(
 
 
         /* =================================================
-           PLAYER LIGHT
+           LIGHT
         ================================================= */
 
         const playerPosition =
@@ -6677,9 +8209,6 @@ function update(
         );
 
 
-        /*
-         * En Boss Arena no actualiza shadow maps.
-         */
         updateShadowSystem(
 
             deltaTime,
@@ -6690,7 +8219,7 @@ function update(
 
 
         /* =================================================
-           DEBUG
+           DEBUG HUD
         ================================================= */
 
         debugTimer +=
@@ -6713,9 +8242,13 @@ function update(
             const threatText =
 
                 bossFight
+
                     ?
+
                     ` · BOSS HP ${Math.ceil(bossManager.getHealth())}`
+
                     :
+
                     ` · WAVE ${waveManager.getWave()}/5 · HOSTILES ${enemyManager.getAliveCount()}`;
 
 
@@ -6745,6 +8278,25 @@ function update(
 
                 threatText;
         }
+    }
+
+
+    /* =====================================================
+       INTRO
+
+       El escenario ya está cargado detrás.
+       No hacemos simulación de combate.
+    ====================================================== */
+
+    else if (
+        currentState ===
+        GAME_STATE.INTRO
+    ) {
+
+        playerController
+            .updateAnimationOnly(
+                deltaTime
+            );
     }
 
 
@@ -6790,11 +8342,6 @@ function update(
         GAME_STATE.VICTORY
     ) {
 
-        bossManager.update(
-            deltaTime
-        );
-
-
         playerController
             .updateAnimationOnly(
                 deltaTime
@@ -6808,7 +8355,7 @@ function update(
 
 
     /* =====================================================
-       SIREN
+       BOSS SIREN
     ====================================================== */
 
     if (
@@ -6833,7 +8380,8 @@ function update(
             +
 
             Math.sin(
-                elapsedTime * 1.3
+                elapsedTime *
+                1.3
             ) *
             3;
     }
@@ -6846,7 +8394,7 @@ function update(
 
 
 /* =========================================================
-   LOOP
+   MAIN LOOP
 ========================================================= */
 
 function animate() {
@@ -6886,7 +8434,11 @@ function animate() {
 
 
 /* =========================================================
-   F9 DEBUG
+   F9 DEBUG · BOSS FIGHT
+
+   1. Entra a Zona A.
+   2. Deja terminar la intro.
+   3. Cuando puedas moverte, presiona F9.
 ========================================================= */
 
 window.addEventListener(
@@ -6915,7 +8467,7 @@ window.addEventListener(
 
             console.warn(
 
-                "[DEBUG] Espera a que Zona A termine de cargar."
+                "[DEBUG] F9 disponible después de la intro."
 
             );
 
@@ -6948,7 +8500,7 @@ window.addEventListener(
 
 
 /* =========================================================
-   ESC TRANSITION ERROR
+   ESC · TRANSITION ERROR
 ========================================================= */
 
 window.addEventListener(
@@ -6980,6 +8532,9 @@ window.addEventListener(
 
 /* =========================================================
    AUTO RETRY
+
+   Reintentar = nueva partida.
+   Por lo tanto vuelve a mostrar la intro.
 ========================================================= */
 
 const autoRetryZoneA =
@@ -7045,7 +8600,7 @@ console.log(
 
 console.log(
 
-    "%cBoss Performance Build v0.23.0",
+    "%cPre-Alpha Story Flow · Build v0.24.0",
 
     "color:#8effa8;"
 
