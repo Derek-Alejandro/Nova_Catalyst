@@ -1,0 +1,11 @@
+Model Information:
+* title:	Astro Champion - Cannon
+* source:	https://sketchfab.com/3d-models/astro-champion-cannon-16e89e6414b1487292f04642cb5c2afa
+* author:	Elite Big Speakerman (https://sketchfab.com/EvesStudio2008)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Astro Champion - Cannon" (https://sketchfab.com/3d-models/astro-champion-cannon-16e89e6414b1487292f04642cb5c2afa) by Elite Big Speakerman (https://sketchfab.com/EvesStudio2008) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

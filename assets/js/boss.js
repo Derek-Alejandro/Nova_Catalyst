@@ -2,17 +2,21 @@
    NOVA CATALYST
    Boss Manager
 
-   Build v0.18.0 · FINAL BOSS BALANCE
-
+   Build v0.22.0 · PERFORMANCE + TACTICAL AI
    ---------------------------------------------------------
-   - GLTF / GLB Boss
-   - 2500 HP
-   - Faster melee
-   - Faster cannon
-   - Attack animation lock
-   - Cannon cannot be interrupted by Hit
-   - Melee cannot be interrupted by Hit
-   - Death can interrupt everything
+   - 3000 HP
+   - Boss más lento que el jugador
+   - Cannon a larga distancia
+   - Persecución táctica
+   - Navegación optimizada
+   - Menos raycasts
+   - IA de navegación ~8 Hz
+   - Mejor evasión de paredes
+   - Anti-stuck
+   - Cannon/Melee no se interrumpen
+   - Run no recibe stun
+   - Cañón 3D
+   - Animaciones GLB cargadas en paralelo
 ========================================================= */
 
 import * as THREE from "three";
@@ -35,32 +39,33 @@ const BOSS_CONFIG = {
     targetHeight:
         3.25,
 
-    /*
-     * Antes:
-     * 1600
-     *
-     * Ahora:
-     * 2500
-     */
     maxHealth:
-        2500,
+        3000,
 
 
     /* =====================================================
-       MOVEMENT
+       MOVIMIENTO
     ====================================================== */
 
     walkSpeed:
         1.55,
 
+    /*
+     * Player Run = 5.2 aprox.
+     *
+     * Boss claramente más lento.
+     */
     runSpeed:
-        3.20,
+        3.35,
 
     runDistance:
-        8.5,
+        5.20,
 
     rotationSpeed:
-        7.0,
+        7.4,
+
+    runAnimationSpeed:
+        1.08,
 
     modelRotationOffset:
         0,
@@ -71,35 +76,22 @@ const BOSS_CONFIG = {
     ====================================================== */
 
     meleeDistance:
-        2.25,
+        2.40,
 
     meleeDamageDistance:
-        2.65,
+        2.90,
 
     meleeDamage:
         20,
 
-    /*
-     * Antes:
-     * 1.65
-     */
     meleeCooldown:
-        1.15,
+        1.10,
 
-    /*
-     * Punto dentro de la animación
-     * donde se aplica daño.
-     */
     meleeImpactRatio:
         0.54,
 
-    /*
-     * 1.0 = velocidad normal.
-     *
-     * 1.15 = 15% más rápida.
-     */
     meleeAnimationSpeed:
-        1.15,
+        1.16,
 
 
     /* =====================================================
@@ -107,52 +99,35 @@ const BOSS_CONFIG = {
     ====================================================== */
 
     cannonMinDistance:
-        7.0,
+        9.0,
 
     cannonMaxDistance:
-        32.0,
+        55.0,
 
-    /*
-     * Antes:
-     * 5.6
-     *
-     * Ahora puede disparar más seguido.
-     */
     cannonCooldown:
-        3.8,
+        4.10,
 
-    /*
-     * Tiempo antes de poder usar
-     * el primer cañonazo.
-     */
     cannonInitialDelay:
-        1.6,
+        1.85,
 
-    /*
-     * Momento de la animación donde
-     * sale el proyectil.
-     */
     cannonFireRatio:
         0.72,
 
-    /*
-     * 20% más rápida.
-     */
     cannonAnimationSpeed:
-        1.20,
+        1.18,
+
+    postCannonRushDuration:
+        1.45,
 
     projectileSpeed:
-        14.5,
+        15.0,
 
     projectileLife:
-        5.0,
+        6.0,
 
     projectileRadius:
         0.22,
 
-    /*
-     * Mantenemos los daños que ya habíamos definido.
-     */
     directDamage:
         50,
 
@@ -164,23 +139,40 @@ const BOSS_CONFIG = {
 
 
     /* =====================================================
-       MOVEMENT / COLLISION
+       NAVEGACIÓN
+
+       La ruta ya NO se recalcula cada frame.
     ====================================================== */
 
-    bodyRadius:
-        0.82,
+    navigationUpdateInterval:
+        0.12,
 
-    collisionProbeHeight:
-        1.15,
+    cannonLOSUpdateInterval:
+        0.18,
+
+    bodyRadius:
+        0.94,
+
+    obstacleLookAhead:
+        0.62,
 
     floorProbeAbove:
-        3.5,
+        3.2,
 
     floorProbeDistance:
-        7.0,
+        6.5,
 
     maxFloorStep:
-        0.75,
+        0.70,
+
+    stuckTime:
+        0.45,
+
+    stuckDistance:
+        0.008,
+
+    avoidanceDuration:
+        0.85,
 
 
     /* =====================================================
@@ -188,16 +180,15 @@ const BOSS_CONFIG = {
     ====================================================== */
 
     hitAnimationCooldown:
-        0.50,
+        1.10,
 
     wakeDelay:
-        0.70
-
+        0.65
 };
 
 
 /* =========================================================
-   GLB PATHS
+   PATHS
 ========================================================= */
 
 const BOSS_PATHS = {
@@ -227,9 +218,7 @@ const BOSS_PATHS = {
 
         Death:
             "./assets/models/boss_glb/animations/Death.glb"
-
     }
-
 };
 
 
@@ -259,7 +248,6 @@ const BOSS_STATE = {
 
     DEATH:
         "death"
-
 };
 
 
@@ -280,10 +268,6 @@ export class BossManager {
         onDeath = null
 
     }) {
-
-        /* =================================================
-           REFERENCES
-        ================================================= */
 
         this.scene =
             scene;
@@ -367,14 +351,6 @@ export class BossManager {
 
 
         /* =================================================
-           WEAPON TARGETS
-        ================================================= */
-
-        this.hitMeshes =
-            [];
-
-
-        /* =================================================
            ENVIRONMENT
         ================================================= */
 
@@ -383,6 +359,14 @@ export class BossManager {
 
 
         this.environmentMeshes =
+            [];
+
+
+        /* =================================================
+           HIT TARGETS
+        ================================================= */
+
+        this.hitMeshes =
             [];
 
 
@@ -422,6 +406,10 @@ export class BossManager {
             BOSS_CONFIG.cannonInitialDelay;
 
 
+        this.rushTimer =
+            0;
+
+
         this.hitAnimationCooldown =
             0;
 
@@ -432,6 +420,46 @@ export class BossManager {
 
         this.deathCallbackFired =
             false;
+
+
+        /* =================================================
+           NAVIGATION
+        ================================================= */
+
+        this.navigationTimer =
+            0;
+
+
+        this.cannonLOSTimer =
+            0;
+
+
+        this.cachedCannonLOS =
+            true;
+
+
+        this.cachedMoveDirection =
+            new THREE.Vector3();
+
+
+        this.hasCachedMoveDirection =
+            false;
+
+
+        this.avoidanceSign =
+            1;
+
+
+        this.avoidanceTimer =
+            0;
+
+
+        this.stuckTimer =
+            0;
+
+
+        this.previousPosition =
+            new THREE.Vector3();
 
 
         /* =================================================
@@ -446,15 +474,15 @@ export class BossManager {
             [];
 
 
+        /*
+         * MeshBasicMaterial:
+         * el proyectil no necesita iluminación física.
+         */
         this.projectileGeometry =
             new THREE.SphereGeometry(
-
                 BOSS_CONFIG.projectileRadius,
-
                 10,
-
                 8
-
             );
 
 
@@ -462,8 +490,7 @@ export class BossManager {
             new THREE.MeshBasicMaterial({
 
                 color:
-                    0xff4a30
-
+                    0xff321f
             });
 
 
@@ -487,7 +514,19 @@ export class BossManager {
             new THREE.Vector3();
 
 
+        this.tempDirection2 =
+            new THREE.Vector3();
+
+
+        this.tempRight =
+            new THREE.Vector3();
+
+
         this.tempPosition =
+            new THREE.Vector3();
+
+
+        this.tempPosition2 =
             new THREE.Vector3();
 
 
@@ -535,12 +574,43 @@ export class BossManager {
             new THREE.Raycaster();
 
 
-        this.wallRaycaster =
+        this.navigationRaycaster =
+            new THREE.Raycaster();
+
+
+        this.losRaycaster =
             new THREE.Raycaster();
 
 
         this.projectileRaycaster =
             new THREE.Raycaster();
+
+
+        /* =================================================
+           CANNON
+        ================================================= */
+
+        this.rightHandBone =
+            null;
+
+
+        this.cannonRoot =
+            null;
+
+
+        this.cannonMuzzle =
+            null;
+
+
+        this.cannonChargeCore =
+            null;
+
+
+        this.cannonChargeLight =
+            null;
+
+
+        this.createCannonModel();
 
 
         /* =================================================
@@ -553,10 +623,7 @@ export class BossManager {
 
 
     /* =====================================================
-       IS ATTACK LOCKED
-
-       Mientras el Boss ejecuta estas animaciones,
-       recibir un disparo NO puede activar Hit.
+       ATTACK LOCK
     ====================================================== */
 
     isAttackLocked() {
@@ -572,6 +639,612 @@ export class BossManager {
             BOSS_STATE.CANNON
 
         );
+    }
+
+
+    /* =====================================================
+       CREATE CANNON
+    ====================================================== */
+
+    createCannonModel() {
+
+        this.cannonRoot =
+            new THREE.Group();
+
+
+        this.cannonRoot.name =
+            "Boss_Cannon";
+
+
+        this.cannonRoot.visible =
+            false;
+
+
+        this.scene.add(
+            this.cannonRoot
+        );
+
+
+        const darkMetal =
+            new THREE.MeshStandardMaterial({
+
+                color:
+                    0x11161b,
+
+                roughness:
+                    0.32,
+
+                metalness:
+                    0.85
+            });
+
+
+        const metal =
+            new THREE.MeshStandardMaterial({
+
+                color:
+                    0x4d5861,
+
+                roughness:
+                    0.28,
+
+                metalness:
+                    0.88
+            });
+
+
+        const blackMetal =
+            new THREE.MeshStandardMaterial({
+
+                color:
+                    0x050607,
+
+                roughness:
+                    0.25,
+
+                metalness:
+                    0.90
+            });
+
+
+        const redEnergy =
+            new THREE.MeshBasicMaterial({
+
+                color:
+                    0xff2418
+            });
+
+
+        /* =================================================
+           BARREL
+        ================================================= */
+
+        const barrel =
+            new THREE.Mesh(
+
+                new THREE.CylinderGeometry(
+                    0.105,
+                    0.135,
+                    1.25,
+                    14
+                ),
+
+                darkMetal
+            );
+
+
+        barrel.rotation.x =
+            Math.PI / 2;
+
+
+        barrel.position.z =
+            0.40;
+
+
+        barrel.castShadow =
+            false;
+
+
+        this.cannonRoot.add(
+            barrel
+        );
+
+
+        const innerBarrel =
+            new THREE.Mesh(
+
+                new THREE.CylinderGeometry(
+                    0.062,
+                    0.062,
+                    1.30,
+                    12
+                ),
+
+                blackMetal
+            );
+
+
+        innerBarrel.rotation.x =
+            Math.PI / 2;
+
+
+        innerBarrel.position.z =
+            0.44;
+
+
+        this.cannonRoot.add(
+            innerBarrel
+        );
+
+
+        /* =================================================
+           BODY
+        ================================================= */
+
+        const body =
+            new THREE.Mesh(
+
+                new THREE.BoxGeometry(
+                    0.38,
+                    0.32,
+                    0.58
+                ),
+
+                metal
+            );
+
+
+        body.position.z =
+            -0.30;
+
+
+        body.castShadow =
+            false;
+
+
+        this.cannonRoot.add(
+            body
+        );
+
+
+        const rear =
+            new THREE.Mesh(
+
+                new THREE.BoxGeometry(
+                    0.32,
+                    0.26,
+                    0.32
+                ),
+
+                darkMetal
+            );
+
+
+        rear.position.z =
+            -0.66;
+
+
+        this.cannonRoot.add(
+            rear
+        );
+
+
+        /* =================================================
+           ENERGY CELLS
+        ================================================= */
+
+        const cellGeometry =
+            new THREE.CylinderGeometry(
+                0.052,
+                0.052,
+                0.34,
+                10
+            );
+
+
+        const leftCell =
+            new THREE.Mesh(
+                cellGeometry,
+                redEnergy
+            );
+
+
+        leftCell.rotation.x =
+            Math.PI / 2;
+
+
+        leftCell.position.set(
+            -0.22,
+            0,
+            -0.28
+        );
+
+
+        this.cannonRoot.add(
+            leftCell
+        );
+
+
+        const rightCell =
+            leftCell.clone();
+
+
+        rightCell.position.x =
+            0.22;
+
+
+        this.cannonRoot.add(
+            rightCell
+        );
+
+
+        /* =================================================
+           MUZZLE
+        ================================================= */
+
+        this.cannonMuzzle =
+            new THREE.Object3D();
+
+
+        this.cannonMuzzle.position.set(
+            0,
+            0,
+            1.13
+        );
+
+
+        this.cannonRoot.add(
+            this.cannonMuzzle
+        );
+
+
+        /* =================================================
+           CHARGE CORE
+        ================================================= */
+
+        this.cannonChargeCore =
+            new THREE.Mesh(
+
+                new THREE.SphereGeometry(
+                    0.105,
+                    10,
+                    8
+                ),
+
+                new THREE.MeshBasicMaterial({
+
+                    color:
+                        0xff3a20,
+
+                    transparent:
+                        true,
+
+                    opacity:
+                        0.85,
+
+                    blending:
+                        THREE.AdditiveBlending,
+
+                    depthWrite:
+                        false
+                })
+            );
+
+
+        this.cannonChargeCore.position.set(
+            0,
+            0,
+            1.14
+        );
+
+
+        this.cannonChargeCore.visible =
+            false;
+
+
+        this.cannonRoot.add(
+            this.cannonChargeCore
+        );
+
+
+        /* =================================================
+           SMALL CANNON LIGHT
+
+           Alcance reducido para rendimiento.
+        ================================================= */
+
+        this.cannonChargeLight =
+            new THREE.PointLight(
+                0xff321f,
+                0,
+                3.6,
+                2
+            );
+
+
+        this.cannonChargeLight.castShadow =
+            false;
+
+
+        this.cannonChargeLight.position.set(
+            0,
+            0,
+            1.10
+        );
+
+
+        this.cannonRoot.add(
+            this.cannonChargeLight
+        );
+
+    }
+
+
+    /* =====================================================
+       FIND HAND
+    ====================================================== */
+
+    findRightHandBone() {
+
+        if (
+            !this.model
+        ) {
+
+            return null;
+        }
+
+
+        const expectedNames = [
+
+            "mixamorigRightHand",
+
+            "RightHand",
+
+            "rightHand",
+
+            "right_hand",
+
+            "hand_r",
+
+            "r_hand",
+
+            "Bip01_R_Hand",
+
+            "Right_Hand"
+        ];
+
+
+        let result =
+            null;
+
+
+        this.model.traverse(
+
+            object => {
+
+                if (
+                    result
+
+                    ||
+
+                    !object.isBone
+                ) {
+
+                    return;
+                }
+
+
+                const objectName =
+                    object.name.toLowerCase();
+
+
+                for (
+                    const expected
+                    of expectedNames
+                ) {
+
+                    if (
+                        objectName.includes(
+                            expected.toLowerCase()
+                        )
+                    ) {
+
+                        result =
+                            object;
+
+                        break;
+                    }
+                }
+
+            }
+
+        );
+
+
+        if (
+            result
+        ) {
+
+            console.log(
+
+                "[Boss Cannon] Mano derecha:",
+
+                result.name
+
+            );
+        }
+
+
+        return result;
+    }
+
+
+    /* =====================================================
+       UPDATE CANNON
+    ====================================================== */
+
+    updateCannonVisual() {
+
+        if (
+            !this.cannonRoot
+
+            ||
+
+            !this.spawned
+
+            ||
+
+            !this.root.visible
+        ) {
+
+            return;
+        }
+
+
+        this.cannonRoot.visible =
+            !this.dead;
+
+
+        if (
+            this.dead
+        ) {
+
+            return;
+        }
+
+
+        if (
+            this.rightHandBone
+        ) {
+
+            this.rightHandBone
+                .getWorldPosition(
+                    this.tempPosition
+                );
+
+
+            this.cannonRoot.position.copy(
+                this.tempPosition
+            );
+
+
+            this.cannonRoot.position.y +=
+                0.02;
+        }
+
+        else {
+
+            this.tempRight
+                .set(
+                    1,
+                    0,
+                    0
+                )
+                .applyQuaternion(
+                    this.root.quaternion
+                );
+
+
+            this.tempDirection2
+                .set(
+                    0,
+                    0,
+                    1
+                )
+                .applyQuaternion(
+                    this.root.quaternion
+                );
+
+
+            this.cannonRoot.position
+                .copy(
+                    this.root.position
+                )
+                .addScaledVector(
+                    this.tempRight,
+                    0.72
+                )
+                .addScaledVector(
+                    this.tempDirection2,
+                    0.28
+                );
+
+
+            this.cannonRoot.position.y +=
+                1.72;
+        }
+
+
+        this.playerController
+            .getObject()
+            .getWorldPosition(
+                this.playerChest
+            );
+
+
+        this.playerChest.y +=
+            0.95;
+
+
+        this.cannonRoot.lookAt(
+            this.playerChest
+        );
+
+
+        /* =================================================
+           CHARGE
+        ================================================= */
+
+        if (
+            this.state ===
+            BOSS_STATE.CANNON
+        ) {
+
+            const progress =
+                this.getCurrentActionProgress();
+
+
+            const charge =
+                THREE.MathUtils.smoothstep(
+
+                    progress,
+
+                    0.06,
+
+                    BOSS_CONFIG.cannonFireRatio
+                );
+
+
+            this.cannonChargeCore.visible =
+                true;
+
+
+            this.cannonChargeCore.scale.setScalar(
+
+                0.40 +
+                charge * 2.15
+
+            );
+
+
+            this.cannonChargeCore.material.opacity =
+                0.45 +
+                charge * 0.50;
+
+
+            this.cannonChargeLight.intensity =
+                charge * 5.5;
+        }
+
+        else {
+
+            this.cannonChargeCore.visible =
+                false;
+
+
+            this.cannonChargeLight.intensity =
+                0;
+        }
 
     }
 
@@ -595,56 +1268,24 @@ export class BossManager {
 
                     path,
 
-                    gltf => {
-
-                        resolve(
-                            gltf
-                        );
-
-                    },
+                    resolve,
 
                     undefined,
 
-                    error => {
-
-                        console.error(
-
-                            `[Boss] Error cargando GLB: ${path}`,
-
-                            error
-
-                        );
-
-
-                        reject(
-                            error
-                        );
-
-                    }
+                    reject
 
                 );
-
             }
 
         );
-
     }
 
-
-    /* =====================================================
-       PRELOAD
-    ====================================================== */
 
     preload() {
 
         return this.load();
-
     }
 
-
-    /* =====================================================
-       LOAD
-    ====================================================== */
 
     async load() {
 
@@ -653,7 +1294,6 @@ export class BossManager {
         ) {
 
             return this.root;
-
         }
 
 
@@ -662,7 +1302,6 @@ export class BossManager {
         ) {
 
             return this.loadingPromise;
-
         }
 
 
@@ -673,7 +1312,6 @@ export class BossManager {
         try {
 
             return await this.loadingPromise;
-
         }
 
         catch (
@@ -685,26 +1323,21 @@ export class BossManager {
 
 
             throw error;
-
         }
 
     }
 
 
     /* =====================================================
-       PERFORM LOAD
+       LOAD MODEL + ANIMATIONS
     ====================================================== */
 
     async performLoad() {
 
         console.log(
-            "[Boss] Cargando modelo GLB..."
+            "[Boss] Cargando GLB..."
         );
 
-
-        /* =================================================
-           MODEL
-        ================================================= */
 
         const bossGLTF =
             await this.loadGLB(
@@ -713,19 +1346,12 @@ export class BossManager {
 
 
         if (
-            !bossGLTF
-
-            ||
-
-            !bossGLTF.scene
+            !bossGLTF?.scene
         ) {
 
             throw new Error(
-
-                "boss.glb no contiene una escena válida."
-
+                "boss.glb no contiene escena válida."
             );
-
         }
 
 
@@ -741,10 +1367,6 @@ export class BossManager {
             0;
 
 
-        /* =================================================
-           MESH CONFIG
-        ================================================= */
-
         this.model.traverse(
 
             object => {
@@ -758,12 +1380,14 @@ export class BossManager {
                 ) {
 
                     return;
-
                 }
 
 
+                /*
+                 * Boss Arena no usa shadow map dinámica.
+                 */
                 object.castShadow =
-                    true;
+                    false;
 
 
                 object.receiveShadow =
@@ -781,7 +1405,6 @@ export class BossManager {
                 this.hitMeshes.push(
                     object
                 );
-
             }
 
         );
@@ -799,9 +1422,9 @@ export class BossManager {
         );
 
 
-        /* =================================================
-           MIXER
-        ================================================= */
+        this.rightHandBone =
+            this.findRightHandBone();
+
 
         this.mixer =
             new THREE.AnimationMixer(
@@ -810,197 +1433,157 @@ export class BossManager {
 
 
         /* =================================================
-           LOAD ANIMATIONS
+           LOAD ALL ANIMATIONS IN PARALLEL
+
+           Antes:
+           Idle -> espera -> Walk -> espera -> Run...
+
+           Ahora:
+           todas se descargan en paralelo.
         ================================================= */
 
-        for (
-            const [
-                name,
-                path
-            ]
-            of Object.entries(
+        const animationEntries =
+            Object.entries(
                 BOSS_PATHS.animations
-            )
-        ) {
-
-            try {
-
-                console.log(
-
-                    `[Boss] Cargando animación: ${name}`
-
-                );
+            );
 
 
-                const animationGLTF =
-                    await this.loadGLB(
+        await Promise.all(
+
+            animationEntries.map(
+
+                async (
+                    [
+                        name,
                         path
-                    );
+                    ]
+                ) => {
+
+                    try {
+
+                        const gltf =
+                            await this.loadGLB(
+                                path
+                            );
 
 
-                if (
-                    !animationGLTF.animations
+                        if (
+                            !gltf.animations
 
-                    ||
+                            ||
 
-                    animationGLTF.animations.length ===
-                    0
-                ) {
+                            gltf.animations.length ===
+                            0
+                        ) {
 
-                    console.warn(
-
-                        `[Boss] ${name} no contiene AnimationClip.`
-
-                    );
+                            console.warn(
+                                `[Boss] Sin clip: ${name}`
+                            );
 
 
-                    continue;
-
-                }
-
-
-                let clip =
-                    animationGLTF
-                        .animations[0]
-                        .clone();
+                            return;
+                        }
 
 
-                clip.name =
-                    `Boss_${name}`;
+                        let clip =
+                            gltf
+                                .animations[0]
+                                .clone();
 
 
-                clip =
-                    this.removeRootMotion(
-                        clip
-                    );
+                        clip.name =
+                            `Boss_${name}`;
 
 
-                const action =
-                    this.mixer
-                        .clipAction(
-                            clip
+                        clip =
+                            this.removeRootMotion(
+                                clip
+                            );
+
+
+                        const action =
+                            this.mixer
+                                .clipAction(
+                                    clip
+                                );
+
+
+                        if (
+                            name === "Idle"
+
+                            ||
+
+                            name === "Walk"
+
+                            ||
+
+                            name === "Run"
+                        ) {
+
+                            action.setLoop(
+
+                                THREE.LoopRepeat,
+
+                                Infinity
+
+                            );
+
+
+                            action.clampWhenFinished =
+                                false;
+                        }
+
+                        else {
+
+                            action.setLoop(
+
+                                THREE.LoopOnce,
+
+                                1
+
+                            );
+
+
+                            action.clampWhenFinished =
+                                true;
+                        }
+
+
+                        this.actions.set(
+                            name,
+                            action
                         );
 
 
-                /* =========================================
-                   LOOP ACTIONS
-                ========================================= */
+                        console.log(
 
-                if (
-                    name ===
-                    "Idle"
+                            `[Boss] ${name} OK`
 
-                    ||
+                        );
+                    }
 
-                    name ===
-                    "Walk"
+                    catch (
+                        error
+                    ) {
 
-                    ||
+                        console.error(
 
-                    name ===
-                    "Run"
-                ) {
+                            `[Boss] Error ${name}:`,
 
-                    action.setLoop(
+                            error
 
-                        THREE.LoopRepeat,
-
-                        Infinity
-
-                    );
-
-
-                    action.clampWhenFinished =
-                        false;
+                        );
+                    }
 
                 }
 
-                else {
+            )
 
-                    action.setLoop(
-
-                        THREE.LoopOnce,
-
-                        1
-
-                    );
-
-
-                    action.clampWhenFinished =
-                        true;
-
-                }
-
-
-                /*
-                 * Attack speed.
-                 */
-                if (
-                    name ===
-                    "MeleeAttack"
-                ) {
-
-                    action.setEffectiveTimeScale(
-
-                        BOSS_CONFIG
-                            .meleeAnimationSpeed
-
-                    );
-
-                }
-
-
-                if (
-                    name ===
-                    "CannonCharge"
-                ) {
-
-                    action.setEffectiveTimeScale(
-
-                        BOSS_CONFIG
-                            .cannonAnimationSpeed
-
-                    );
-
-                }
-
-
-                this.actions.set(
-
-                    name,
-
-                    action
-
-                );
-
-
-                console.log(
-
-                    `[Boss] ${name} OK · ${clip.duration.toFixed(2)} s`
-
-                );
-
-            }
-
-            catch (
-                error
-            ) {
-
-                console.error(
-
-                    `[Boss] Error cargando animación ${name}:`,
-
-                    error
-
-                );
-
-            }
-
-        }
+        );
 
 
         /* =================================================
-           MIXER FINISHED
+           FINISHED
         ================================================= */
 
         this.mixer.addEventListener(
@@ -1015,17 +1598,12 @@ export class BossManager {
                 ) {
 
                     return;
-
                 }
 
 
                 const finished =
                     this.currentActionName;
 
-
-                /* =========================================
-                   DEATH
-                ========================================= */
 
                 if (
                     finished ===
@@ -1034,29 +1612,31 @@ export class BossManager {
 
                     this.finishDeath();
 
-
                     return;
-
                 }
 
 
-                /* =========================================
-                   ATTACK / HIT FINISHED
-                ========================================= */
-
                 if (
                     finished ===
-                    "MeleeAttack"
-
-                    ||
-
-                    finished ===
                     "CannonCharge"
+                ) {
+
+                    this.rushTimer =
+                        BOSS_CONFIG
+                            .postCannonRushDuration;
+                }
+
+
+                if (
+                    finished === "MeleeAttack"
 
                     ||
 
-                    finished ===
-                    "Hit"
+                    finished === "CannonCharge"
+
+                    ||
+
+                    finished === "Hit"
                 ) {
 
                     this.currentAction =
@@ -1076,13 +1656,9 @@ export class BossManager {
 
 
                     this.playLoop(
-
                         "Idle",
-
                         0.06
-
                     );
-
                 }
 
             }
@@ -1099,33 +1675,11 @@ export class BossManager {
 
 
         console.log(
-            "[Boss] GLB ONLINE"
-        );
-
-
-        console.log(
-
-            `[Boss] HP: ${BOSS_CONFIG.maxHealth}`
-
-        );
-
-
-        console.log(
-
-            `[Boss] Cannon CD: ${BOSS_CONFIG.cannonCooldown}s`
-
-        );
-
-
-        console.log(
-
-            `[Boss] Melee CD: ${BOSS_CONFIG.meleeCooldown}s`
-
+            "[Boss] PERFORMANCE AI ONLINE"
         );
 
 
         return this.root;
-
     }
 
 
@@ -1143,75 +1697,69 @@ export class BossManager {
         ) {
 
             const name =
-                track.name
-                    .toLowerCase();
-
-
-            const isPosition =
-                name.endsWith(
-                    ".position"
-                );
-
-
-            const isRoot =
-
-                name.includes(
-                    "hips"
-                )
-
-                ||
-
-                name.includes(
-                    "root"
-                );
+                track.name.toLowerCase();
 
 
             if (
-                !isPosition
-
-                ||
-
-                !isRoot
+                !name.endsWith(
+                    ".position"
+                )
             ) {
 
                 continue;
-
             }
 
 
             if (
-                track.values.length <
-                3
+                !name.includes(
+                    "hips"
+                )
+
+                &&
+
+                !name.includes(
+                    "root"
+                )
             ) {
 
                 continue;
+            }
 
+
+            const values =
+                track.values;
+
+
+            if (
+                values.length < 3
+            ) {
+
+                continue;
             }
 
 
             const baseX =
-                track.values[0];
+                values[0];
 
 
             const baseZ =
-                track.values[2];
+                values[2];
 
 
             for (
                 let i = 0;
-                i < track.values.length;
+                i < values.length;
                 i += 3
             ) {
 
-                track.values[i] =
+                values[i] =
                     baseX;
 
 
-                track.values[
+                values[
                     i + 2
                 ] =
                     baseZ;
-
             }
 
         }
@@ -1221,12 +1769,11 @@ export class BossManager {
 
 
         return clip;
-
     }
 
 
     /* =====================================================
-       NORMALIZE MODEL
+       NORMALIZE
     ====================================================== */
 
     normalizeModel() {
@@ -1274,25 +1821,17 @@ export class BossManager {
 
 
         if (
-            size.y <=
-            0
+            size.y <= 0
         ) {
 
             throw new Error(
-
-                "El Boss tiene altura inválida."
-
+                "Altura inválida del Boss."
             );
-
         }
 
 
         const scale =
-
-            BOSS_CONFIG.targetHeight
-
-            /
-
+            BOSS_CONFIG.targetHeight /
             size.y;
 
 
@@ -1324,7 +1863,6 @@ export class BossManager {
         this.model.updateMatrixWorld(
             true
         );
-
     }
 
 
@@ -1368,13 +1906,17 @@ export class BossManager {
                     this.environmentMeshes.push(
                         object
                     );
-
                 }
-
             }
 
         );
 
+
+        console.log(
+
+            `[Boss] Environment meshes: ${this.environmentMeshes.length}`
+
+        );
     }
 
 
@@ -1409,7 +1951,7 @@ export class BossManager {
                     "translateX(-50%)",
 
                 width:
-                    "min(560px,72vw)",
+                    "min(620px,75vw)",
 
                 padding:
                     "10px 14px 12px",
@@ -1418,16 +1960,16 @@ export class BossManager {
                     "920",
 
                 background:
-                    "rgba(0,0,0,.72)",
+                    "rgba(0,0,0,.76)",
 
                 border:
-                    "1px solid rgba(255,78,62,.45)",
+                    "1px solid rgba(255,70,55,.50)",
 
                 borderRadius:
                     "6px",
 
                 boxShadow:
-                    "0 0 28px rgba(255,35,25,.12)",
+                    "0 0 24px rgba(255,35,25,.12)",
 
                 fontFamily:
                     "Orbitron,Consolas,monospace",
@@ -1440,7 +1982,6 @@ export class BossManager {
 
                 display:
                     "none"
-
             }
 
         );
@@ -1472,7 +2013,6 @@ export class BossManager {
 
                 textAlign:
                     "center"
-
             }
 
         );
@@ -1491,7 +2031,7 @@ export class BossManager {
             {
 
                 height:
-                    "8px",
+                    "9px",
 
                 borderRadius:
                     "999px",
@@ -1500,11 +2040,7 @@ export class BossManager {
                     "hidden",
 
                 background:
-                    "rgba(255,255,255,.10)",
-
-                border:
-                    "1px solid rgba(255,255,255,.08)"
-
+                    "rgba(255,255,255,.10)"
             }
 
         );
@@ -1529,7 +2065,7 @@ export class BossManager {
                     "100%",
 
                 background:
-                    "linear-gradient(90deg,#7a0808,#ff392f,#ff7868)",
+                    "linear-gradient(90deg,#620606,#ff281f,#ff796b)",
 
                 transformOrigin:
                     "left center",
@@ -1539,7 +2075,6 @@ export class BossManager {
 
                 transition:
                     "transform .08s linear"
-
             }
 
         );
@@ -1562,7 +2097,6 @@ export class BossManager {
         document.body.appendChild(
             this.hud
         );
-
     }
 
 
@@ -1571,17 +2105,11 @@ export class BossManager {
     ) {
 
         this.hud.style.display =
-
             visible
-
                 ?
-
                 "block"
-
                 :
-
                 "none";
-
     }
 
 
@@ -1606,38 +2134,27 @@ export class BossManager {
 
         this.hudTitle.textContent =
             `ANOMALÍA CORE · ${Math.ceil(this.health)} / ${BOSS_CONFIG.maxHealth}`;
-
     }
 
 
     /* =====================================================
-       LOOP ANIMATION
+       PLAY LOOP
     ====================================================== */
 
     playLoop(
         name,
-        fade = 0.12
+        fade = 0.10
     ) {
 
         if (
             this.dead
-        ) {
 
-            return false;
+            ||
 
-        }
-
-
-        /*
-         * Una animación de ataque no puede ser sustituida
-         * accidentalmente por Walk/Run/Idle.
-         */
-        if (
             this.isAttackLocked()
         ) {
 
             return false;
-
         }
 
 
@@ -1652,7 +2169,6 @@ export class BossManager {
         ) {
 
             return false;
-
         }
 
 
@@ -1667,7 +2183,6 @@ export class BossManager {
         ) {
 
             return true;
-
         }
 
 
@@ -1678,7 +2193,6 @@ export class BossManager {
             this.currentAction.fadeOut(
                 fade
             );
-
         }
 
 
@@ -1694,13 +2208,22 @@ export class BossManager {
         );
 
 
-        /*
-         * Restauramos velocidad normal
-         * para locomoción.
-         */
-        next.setEffectiveTimeScale(
-            1
-        );
+        if (
+            name ===
+            "Run"
+        ) {
+
+            next.setEffectiveTimeScale(
+                BOSS_CONFIG.runAnimationSpeed
+            );
+        }
+
+        else {
+
+            next.setEffectiveTimeScale(
+                1
+            );
+        }
 
 
         next.fadeIn(
@@ -1720,7 +2243,6 @@ export class BossManager {
 
 
         return true;
-
     }
 
 
@@ -1731,7 +2253,7 @@ export class BossManager {
     playOneShot(
         name,
         state,
-        fade = 0.06
+        fade = 0.05
     ) {
 
         if (
@@ -1744,17 +2266,9 @@ export class BossManager {
         ) {
 
             return false;
-
         }
 
 
-        /*
-         * Si estamos atacando:
-         *
-         * - Hit NO puede interrumpir.
-         * - Otro ataque tampoco.
-         * - Death SÍ puede interrumpir.
-         */
         if (
             this.isAttackLocked()
 
@@ -1765,7 +2279,6 @@ export class BossManager {
         ) {
 
             return false;
-
         }
 
 
@@ -1779,15 +2292,7 @@ export class BossManager {
             !next
         ) {
 
-            console.warn(
-
-                `[Boss] Animación no encontrada: ${name}`
-
-            );
-
-
             return false;
-
         }
 
 
@@ -1798,7 +2303,6 @@ export class BossManager {
             this.currentAction.fadeOut(
                 fade
             );
-
         }
 
 
@@ -1814,22 +2318,14 @@ export class BossManager {
         );
 
 
-        /* =================================================
-           ATTACK SPEED
-        ================================================= */
-
         if (
             name ===
             "MeleeAttack"
         ) {
 
             next.setEffectiveTimeScale(
-
-                BOSS_CONFIG
-                    .meleeAnimationSpeed
-
+                BOSS_CONFIG.meleeAnimationSpeed
             );
-
         }
 
         else if (
@@ -1838,12 +2334,8 @@ export class BossManager {
         ) {
 
             next.setEffectiveTimeScale(
-
-                BOSS_CONFIG
-                    .cannonAnimationSpeed
-
+                BOSS_CONFIG.cannonAnimationSpeed
             );
-
         }
 
         else {
@@ -1851,7 +2343,6 @@ export class BossManager {
             next.setEffectiveTimeScale(
                 1
             );
-
         }
 
 
@@ -1880,7 +2371,6 @@ export class BossManager {
 
 
         return true;
-
     }
 
 
@@ -1931,12 +2421,36 @@ export class BossManager {
             BOSS_CONFIG.cannonInitialDelay;
 
 
+        this.rushTimer =
+            0;
+
+
         this.hitAnimationCooldown =
             0;
 
 
-        this.attackEventFired =
+        this.navigationTimer =
+            0;
+
+
+        this.cannonLOSTimer =
+            0;
+
+
+        this.cachedCannonLOS =
+            true;
+
+
+        this.hasCachedMoveDirection =
             false;
+
+
+        this.avoidanceTimer =
+            0;
+
+
+        this.stuckTimer =
+            0;
 
 
         this.root.position.copy(
@@ -1944,18 +2458,23 @@ export class BossManager {
         );
 
 
+        this.previousPosition.copy(
+            position
+        );
+
+
         this.root.rotation.set(
-
             0,
-
             Math.PI,
-
             0
-
         );
 
 
         this.root.visible =
+            true;
+
+
+        this.cannonRoot.visible =
             true;
 
 
@@ -1973,23 +2492,12 @@ export class BossManager {
 
 
         this.playLoop(
-
             "Idle",
-
             0
-
-        );
-
-
-        console.log(
-
-            `[Boss] SPAWN · ${BOSS_CONFIG.maxHealth} HP`
-
         );
 
 
         return this;
-
     }
 
 
@@ -1998,13 +2506,9 @@ export class BossManager {
     ====================================================== */
 
     sampleFloorAt(
-
         x,
-
         z,
-
         referenceY
-
     ) {
 
         if (
@@ -2013,7 +2517,6 @@ export class BossManager {
         ) {
 
             return null;
-
         }
 
 
@@ -2030,11 +2533,8 @@ export class BossManager {
 
 
         this.floorRaycaster.set(
-
             this.floorOrigin,
-
             this.down
-
         );
 
 
@@ -2091,16 +2591,12 @@ export class BossManager {
 
 
                 if (
-                    Math.abs(
-                        this.floorNormal.y
-                    ) <
-                    0.55
+                    this.floorNormal.y <
+                    0.48
                 ) {
 
                     continue;
-
                 }
-
             }
 
 
@@ -2119,7 +2615,6 @@ export class BossManager {
             ) {
 
                 continue;
-
             }
 
 
@@ -2134,98 +2629,148 @@ export class BossManager {
 
                 best =
                     hit.point;
-
             }
-
         }
 
 
         return best
-
             ?
-
             best.clone()
-
             :
-
             null;
-
     }
 
 
     /* =====================================================
-       WALL CHECK
+       OPTIMIZED OBSTACLE TEST
+
+       SOLO:
+       - 3 rayos laterales
+       - 2 alturas
+
+       Y únicamente durante actualización de navegación.
     ====================================================== */
 
-    isDirectionClear(
-
+    isDirectionSafe(
         direction,
-
-        distance
-
+        lookDistance
     ) {
 
-        this.tempPosition.set(
+        this.tempRight.set(
 
-            this.root.position.x,
+            -direction.z,
 
-            this.root.position.y +
-            BOSS_CONFIG.collisionProbeHeight,
+            0,
 
-            this.root.position.z
-
-        );
-
-
-        this.wallRaycaster.set(
-
-            this.tempPosition,
-
-            direction
+            direction.x
 
         );
 
 
-        this.wallRaycaster.near =
-            0;
+        const lateral =
+            BOSS_CONFIG.bodyRadius *
+            0.58;
 
 
-        this.wallRaycaster.far =
+        const sideOffsets = [
+            -lateral,
+            0,
+            lateral
+        ];
 
-            distance
+
+        const heights = [
+            0.85,
+            1.80
+        ];
+
+
+        const distance =
+            lookDistance
 
             +
 
-            BOSS_CONFIG.bodyRadius;
+            BOSS_CONFIG.bodyRadius
+
+            +
+
+            BOSS_CONFIG.obstacleLookAhead;
 
 
-        const hits =
-            this.wallRaycaster
-                .intersectObjects(
+        for (
+            const height
+            of heights
+        ) {
 
-                    this.environmentMeshes,
+            for (
+                const side
+                of sideOffsets
+            ) {
 
-                    false
+                this.tempPosition
+                    .copy(
+                        this.root.position
+                    )
+                    .addScaledVector(
+                        this.tempRight,
+                        side
+                    );
+
+
+                this.tempPosition.y +=
+                    height;
+
+
+                this.navigationRaycaster.set(
+
+                    this.tempPosition,
+
+                    direction
 
                 );
 
 
-        return hits.length ===
-            0;
+                this.navigationRaycaster.near =
+                    0.05;
 
+
+                this.navigationRaycaster.far =
+                    distance;
+
+
+                const hit =
+                    this.navigationRaycaster
+                        .intersectObjects(
+
+                            this.environmentMeshes,
+
+                            false
+
+                        )[0];
+
+
+                if (
+                    hit
+                ) {
+
+                    return false;
+                }
+            }
+        }
+
+
+        return true;
     }
 
 
     /* =====================================================
-       MOVE
+       RECALCULATE NAVIGATION
+
+       ~8 veces por segundo.
     ====================================================== */
 
-    moveTowardPlayer(
-
-        speed,
-
-        deltaTime
-
+    recalculateNavigation(
+        movementDistance
     ) {
 
         this.moveDirection.set(
@@ -2242,104 +2787,219 @@ export class BossManager {
 
 
         if (
-            this.moveDirection
-                .lengthSq() <
+            this.moveDirection.lengthSq() <
             0.0001
         ) {
 
-            return;
+            this.hasCachedMoveDirection =
+                false;
 
+
+            return;
         }
 
 
         this.moveDirection.normalize();
 
 
-        const movementDistance =
+        let angles;
 
+
+        if (
+            this.avoidanceTimer >
+            0
+        ) {
+
+            angles = [
+
+                48 *
+                this.avoidanceSign,
+
+                72 *
+                this.avoidanceSign,
+
+                28 *
+                this.avoidanceSign,
+
+                0,
+
+                -45 *
+                this.avoidanceSign
+
+            ];
+        }
+
+        else {
+
+            angles = [
+                0,
+                32,
+                -32,
+                62,
+                -62
+            ];
+        }
+
+
+        let bestScore =
+            -Infinity;
+
+
+        let found =
+            false;
+
+
+        for (
+            const angle
+            of angles
+        ) {
+
+            this.tempDirection
+                .copy(
+                    this.moveDirection
+                )
+                .applyAxisAngle(
+
+                    this.worldUp,
+
+                    THREE.MathUtils
+                        .degToRad(
+                            angle
+                        )
+
+                )
+                .normalize();
+
+
+            if (
+                !this.isDirectionSafe(
+
+                    this.tempDirection,
+
+                    movementDistance
+
+                )
+            ) {
+
+                continue;
+            }
+
+
+            const score =
+                this.tempDirection.dot(
+                    this.moveDirection
+                )
+
+                -
+
+                Math.abs(
+                    angle
+                ) *
+                0.002;
+
+
+            if (
+                score >
+                bestScore
+            ) {
+
+                bestScore =
+                    score;
+
+
+                this.cachedMoveDirection
+                    .copy(
+                        this.tempDirection
+                    );
+
+
+                found =
+                    true;
+            }
+        }
+
+
+        this.hasCachedMoveDirection =
+            found;
+    }
+
+
+    /* =====================================================
+       MOVE
+    ====================================================== */
+
+    moveTowardPlayer(
+        speed,
+        deltaTime
+    ) {
+
+        const movementDistance =
             speed *
             deltaTime;
 
 
-        let chosenDirection =
-            this.moveDirection;
+        this.navigationTimer -=
+            deltaTime;
 
 
         if (
-            !this.isDirectionClear(
-
-                chosenDirection,
-
-                movementDistance
-
-            )
+            this.navigationTimer <=
+            0
         ) {
 
-            const left =
-
-                this.moveDirection
-                    .clone()
-                    .applyAxisAngle(
-
-                        this.worldUp,
-
-                        Math.PI /
-                        3
-
-                    );
+            this.navigationTimer =
+                BOSS_CONFIG
+                    .navigationUpdateInterval;
 
 
-            const right =
+            this.recalculateNavigation(
 
-                this.moveDirection
-                    .clone()
-                    .applyAxisAngle(
+                speed *
+                BOSS_CONFIG
+                    .navigationUpdateInterval
 
-                        this.worldUp,
+            );
+        }
 
-                        -Math.PI /
-                        3
 
-                    );
+        if (
+            !this.hasCachedMoveDirection
+        ) {
+
+            this.stuckTimer +=
+                deltaTime;
 
 
             if (
-                this.isDirectionClear(
-
-                    left,
-
-                    movementDistance
-
-                )
+                this.stuckTimer >=
+                BOSS_CONFIG.stuckTime
             ) {
 
-                chosenDirection =
-                    left;
+                this.stuckTimer =
+                    0;
 
+
+                this.avoidanceSign *=
+                    -1;
+
+
+                this.avoidanceTimer =
+                    BOSS_CONFIG
+                        .avoidanceDuration;
+
+
+                this.navigationTimer =
+                    0;
             }
 
-            else if (
-                this.isDirectionClear(
 
-                    right,
-
-                    movementDistance
-
-                )
-            ) {
-
-                chosenDirection =
-                    right;
-
-            }
-
-            else {
-
-                return;
-
-            }
-
+            return;
         }
+
+
+        this.previousPosition.copy(
+            this.root.position
+        );
 
 
         this.tempTarget
@@ -2348,13 +3008,16 @@ export class BossManager {
             )
             .addScaledVector(
 
-                chosenDirection,
+                this.cachedMoveDirection,
 
                 movementDistance
 
             );
 
 
+        /*
+         * Un único raycast de suelo por frame.
+         */
         const floor =
             this.sampleFloorAt(
 
@@ -2371,8 +3034,15 @@ export class BossManager {
             !floor
         ) {
 
-            return;
+            this.navigationTimer =
+                0;
 
+
+            this.hasCachedMoveDirection =
+                false;
+
+
+            return;
         }
 
 
@@ -2389,12 +3059,56 @@ export class BossManager {
 
         this.rotateToward(
 
-            chosenDirection,
+            this.cachedMoveDirection,
 
             deltaTime
 
         );
 
+
+        const moved =
+            this.root.position.distanceTo(
+                this.previousPosition
+            );
+
+
+        if (
+            moved <
+            BOSS_CONFIG.stuckDistance
+        ) {
+
+            this.stuckTimer +=
+                deltaTime;
+        }
+
+        else {
+
+            this.stuckTimer =
+                0;
+        }
+
+
+        if (
+            this.stuckTimer >=
+            BOSS_CONFIG.stuckTime
+        ) {
+
+            this.stuckTimer =
+                0;
+
+
+            this.avoidanceSign *=
+                -1;
+
+
+            this.avoidanceTimer =
+                BOSS_CONFIG
+                    .avoidanceDuration;
+
+
+            this.navigationTimer =
+                0;
+        }
     }
 
 
@@ -2403,20 +3117,14 @@ export class BossManager {
     ====================================================== */
 
     rotateToward(
-
         direction,
-
         deltaTime
-
     ) {
 
         const targetAngle =
             Math.atan2(
-
                 direction.x,
-
                 direction.z
-
             );
 
 
@@ -2428,24 +3136,19 @@ export class BossManager {
             Math.atan2(
 
                 Math.sin(
-
                     targetAngle -
                     currentAngle
-
                 ),
 
                 Math.cos(
-
                     targetAngle -
                     currentAngle
-
                 )
 
             );
 
 
         const alpha =
-
             1
 
             -
@@ -2459,14 +3162,142 @@ export class BossManager {
 
 
         this.root.rotation.y =
+            currentAngle +
+            difference * alpha;
+    }
 
-            currentAngle
 
-            +
+    /* =====================================================
+       LINE OF SIGHT
+    ====================================================== */
 
-            difference *
-            alpha;
+    hasLineOfSightToPlayer() {
 
+        if (
+            this.cannonMuzzle
+        ) {
+
+            this.cannonMuzzle
+                .getWorldPosition(
+                    this.tempPosition
+                );
+        }
+
+        else {
+
+            this.tempPosition.set(
+
+                this.root.position.x,
+
+                this.root.position.y +
+                1.8,
+
+                this.root.position.z
+            );
+        }
+
+
+        this.playerController
+            .getObject()
+            .getWorldPosition(
+                this.playerChest
+            );
+
+
+        this.playerChest.y +=
+            0.95;
+
+
+        this.tempDirection
+            .subVectors(
+
+                this.playerChest,
+
+                this.tempPosition
+
+            );
+
+
+        const distance =
+            this.tempDirection.length();
+
+
+        if (
+            distance <= 0.1
+        ) {
+
+            return true;
+        }
+
+
+        this.tempDirection.normalize();
+
+
+        this.losRaycaster.set(
+
+            this.tempPosition,
+
+            this.tempDirection
+
+        );
+
+
+        this.losRaycaster.near =
+            0.20;
+
+
+        this.losRaycaster.far =
+            Math.max(
+                0.2,
+                distance - 0.50
+            );
+
+
+        return (
+
+            this.losRaycaster
+                .intersectObjects(
+
+                    this.environmentMeshes,
+
+                    false
+
+                )
+                .length ===
+            0
+
+        );
+    }
+
+
+    /* =====================================================
+       CACHED CANNON LOS
+    ====================================================== */
+
+    canFireCannon(
+        deltaTime
+    ) {
+
+        this.cannonLOSTimer -=
+            deltaTime;
+
+
+        if (
+            this.cannonLOSTimer <=
+            0
+        ) {
+
+            this.cannonLOSTimer =
+                BOSS_CONFIG
+                    .cannonLOSUpdateInterval;
+
+
+            this.cachedCannonLOS =
+                this.hasLineOfSightToPlayer();
+        }
+
+
+        return this.cachedCannonLOS;
     }
 
 
@@ -2481,7 +3312,6 @@ export class BossManager {
         ) {
 
             return 0;
-
         }
 
 
@@ -2492,22 +3322,13 @@ export class BossManager {
 
 
         if (
-            duration <=
-            0
+            duration <= 0
         ) {
 
             return 0;
-
         }
 
 
-        /*
-         * Importante:
-         *
-         * AnimationAction.time continúa expresándose
-         * contra la duración original del clip,
-         * incluso usando timeScale.
-         */
         return THREE.MathUtils.clamp(
 
             this.currentAction.time /
@@ -2518,7 +3339,6 @@ export class BossManager {
             1
 
         );
-
     }
 
 
@@ -2544,13 +3364,11 @@ export class BossManager {
 
 
         if (
-            this.tempDirection
-                .lengthSq() <=
+            this.tempDirection.lengthSq() <=
             0.0001
         ) {
 
             return;
-
         }
 
 
@@ -2558,30 +3376,17 @@ export class BossManager {
 
 
         this.rotateToward(
-
             this.tempDirection,
-
             deltaTime
-
         );
-
     }
 
 
     /* =====================================================
-       BEGIN MELEE
+       ATTACKS
     ====================================================== */
 
     beginMelee() {
-
-        if (
-            this.isAttackLocked()
-        ) {
-
-            return;
-
-        }
-
 
         if (
             this.playOneShot(
@@ -2597,26 +3402,11 @@ export class BossManager {
 
             this.meleeCooldown =
                 BOSS_CONFIG.meleeCooldown;
-
         }
-
     }
 
 
-    /* =====================================================
-       BEGIN CANNON
-    ====================================================== */
-
     beginCannon() {
-
-        if (
-            this.isAttackLocked()
-        ) {
-
-            return;
-
-        }
-
 
         if (
             this.playOneShot(
@@ -2634,27 +3424,16 @@ export class BossManager {
                 BOSS_CONFIG.cannonCooldown;
 
 
-            console.log(
-                "[Boss] CANNON CHARGE"
-            );
-
+            this.cannonLOSTimer =
+                0;
         }
-
     }
 
-
-    /* =====================================================
-       UPDATE ATTACK
-    ====================================================== */
 
     updateAttackState(
         deltaTime
     ) {
 
-        /*
-         * Puede rotar hacia nosotros durante
-         * el ataque, pero NO cambiar de animación.
-         */
         this.facePlayer(
             deltaTime
         );
@@ -2665,7 +3444,7 @@ export class BossManager {
 
 
         /* =================================================
-           MELEE DAMAGE
+           MELEE
         ================================================= */
 
         if (
@@ -2713,14 +3492,12 @@ export class BossManager {
                     }
 
                 );
-
             }
-
         }
 
 
         /* =================================================
-           CANNON PROJECTILE
+           CANNON
         ================================================= */
 
         if (
@@ -2742,17 +3519,28 @@ export class BossManager {
 
 
             this.fireCannon();
-
         }
-
     }
 
 
     /* =====================================================
-       FIRE CANNON
+       CANNON FIRE
     ====================================================== */
 
     fireCannon() {
+
+        this.updateCannonVisual();
+
+
+        const origin =
+            new THREE.Vector3();
+
+
+        this.cannonMuzzle
+            .getWorldPosition(
+                origin
+            );
+
 
         this.playerController
             .getObject()
@@ -2763,40 +3551,6 @@ export class BossManager {
 
         this.playerChest.y +=
             0.95;
-
-
-        const origin =
-            new THREE.Vector3(
-
-                this.root.position.x,
-
-                this.root.position.y +
-                2.05,
-
-                this.root.position.z
-
-            );
-
-
-        const forward =
-            new THREE.Vector3(
-                0,
-                0,
-                1
-            )
-                .applyQuaternion(
-                    this.root.quaternion
-                )
-                .normalize();
-
-
-        origin.addScaledVector(
-
-            forward,
-
-            1.05
-
-        );
 
 
         const direction =
@@ -2811,7 +3565,7 @@ export class BossManager {
                 .normalize();
 
 
-        const mesh =
+        const projectile =
             new THREE.Mesh(
 
                 this.projectileGeometry,
@@ -2821,47 +3575,48 @@ export class BossManager {
             );
 
 
-        mesh.position.copy(
+        projectile.position.copy(
             origin
         );
 
 
+        projectile.scale.set(
+            0.90,
+            0.90,
+            1.35
+        );
+
+
         this.scene.add(
-            mesh
+            projectile
         );
 
 
         this.projectiles.push({
 
-            mesh,
+            mesh:
+                projectile,
 
             direction,
 
             life:
                 BOSS_CONFIG.projectileLife
-
         });
 
 
-        console.log(
-            "[Boss] CANNON FIRE"
-        );
-
+        this.cannonChargeLight.intensity =
+            8;
     }
 
 
     /* =====================================================
-       DISTANCE POINT TO SEGMENT
+       POINT -> SEGMENT
     ====================================================== */
 
     distancePointToSegment(
-
         point,
-
         a,
-
         b
-
     ) {
 
         this.tempDirection
@@ -2872,8 +3627,7 @@ export class BossManager {
 
 
         const lengthSq =
-            this.tempDirection
-                .lengthSq();
+            this.tempDirection.lengthSq();
 
 
         if (
@@ -2884,7 +3638,6 @@ export class BossManager {
             return point.distanceTo(
                 a
             );
-
         }
 
 
@@ -2893,11 +3646,8 @@ export class BossManager {
 
                 this.tempTarget
                     .subVectors(
-
                         point,
-
                         a
-
                     )
                     .dot(
                         this.tempDirection
@@ -2930,12 +3680,11 @@ export class BossManager {
         return point.distanceTo(
             this.segmentClosest
         );
-
     }
 
 
     /* =====================================================
-       UPDATE PROJECTILES
+       PROJECTILES
     ====================================================== */
 
     updateProjectiles(
@@ -2944,8 +3693,7 @@ export class BossManager {
 
         for (
             let i =
-                this.projectiles.length -
-                1;
+                this.projectiles.length - 1;
 
             i >= 0;
 
@@ -2961,16 +3709,13 @@ export class BossManager {
 
 
             const previous =
-                projectile.mesh.position
+                projectile.mesh
+                    .position
                     .clone();
 
 
             const travel =
-
-                BOSS_CONFIG.projectileSpeed
-
-                *
-
+                BOSS_CONFIG.projectileSpeed *
                 deltaTime;
 
 
@@ -2986,10 +3731,6 @@ export class BossManager {
                     );
 
 
-            /* =================================================
-               PLAYER
-            ================================================= */
-
             this.playerController
                 .getObject()
                 .getWorldPosition(
@@ -3001,7 +3742,7 @@ export class BossManager {
                 0.90;
 
 
-            const playerDistance =
+            if (
                 this.distancePointToSegment(
 
                     this.playerChest,
@@ -3010,11 +3751,7 @@ export class BossManager {
 
                     next
 
-                );
-
-
-            if (
-                playerDistance <=
+                ) <=
                 0.72
             ) {
 
@@ -3030,13 +3767,8 @@ export class BossManager {
 
 
                 continue;
-
             }
 
-
-            /* =================================================
-               ENVIRONMENT
-            ================================================= */
 
             this.projectileRaycaster.set(
 
@@ -3052,11 +3784,7 @@ export class BossManager {
 
 
             this.projectileRaycaster.far =
-
-                travel
-
-                +
-
+                travel +
                 BOSS_CONFIG.projectileRadius;
 
 
@@ -3087,7 +3815,6 @@ export class BossManager {
 
 
                 continue;
-
             }
 
 
@@ -3110,26 +3837,19 @@ export class BossManager {
                     false
 
                 );
-
             }
-
         }
-
     }
 
 
     /* =====================================================
-       EXPLODE PROJECTILE
+       EXPLOSION
     ====================================================== */
 
     explodeProjectile(
-
         index,
-
         position,
-
         directHit
-
     ) {
 
         const projectile =
@@ -3148,13 +3868,9 @@ export class BossManager {
 
 
             this.projectiles.splice(
-
                 index,
-
                 1
-
             );
-
         }
 
 
@@ -3162,10 +3878,6 @@ export class BossManager {
             position
         );
 
-
-        /* =================================================
-           DIRECT HIT = 50 HP
-        ================================================= */
 
         if (
             directHit
@@ -3184,13 +3896,8 @@ export class BossManager {
 
 
             return;
-
         }
 
-
-        /* =================================================
-           SPLASH = 25 HP
-        ================================================= */
 
         this.playerController
             .getObject()
@@ -3200,14 +3907,13 @@ export class BossManager {
 
 
         this.playerChest.y +=
-            0.9;
+            0.90;
 
 
         if (
-            this.playerChest
-                .distanceTo(
-                    position
-                )
+            this.playerChest.distanceTo(
+                position
+            )
             <=
             BOSS_CONFIG.splashRadius
         ) {
@@ -3222,59 +3928,41 @@ export class BossManager {
                 }
 
             );
-
         }
-
     }
 
-
-    /* =====================================================
-       EXPLOSION FX
-    ====================================================== */
 
     createExplosionEffect(
         position
     ) {
 
-        const geometry =
-            new THREE.SphereGeometry(
-
-                0.25,
-
-                10,
-
-                8
-
-            );
-
-
-        const material =
-            new THREE.MeshBasicMaterial({
-
-                color:
-                    0xff3b24,
-
-                transparent:
-                    true,
-
-                opacity:
-                    0.72,
-
-                depthWrite:
-                    false,
-
-                blending:
-                    THREE.AdditiveBlending
-
-            });
-
-
         const mesh =
             new THREE.Mesh(
 
-                geometry,
+                new THREE.SphereGeometry(
+                    0.22,
+                    8,
+                    6
+                ),
 
-                material
+                new THREE.MeshBasicMaterial({
+
+                    color:
+                        0xff3b24,
+
+                    transparent:
+                        true,
+
+                    opacity:
+                        0.70,
+
+                    depthWrite:
+                        false,
+
+                    blending:
+                        THREE.AdditiveBlending
+
+                })
 
             );
 
@@ -3294,19 +3982,13 @@ export class BossManager {
             mesh,
 
             life:
-                0.36,
+                0.30,
 
             maxLife:
-                0.36
-
+                0.30
         });
-
     }
 
-
-    /* =====================================================
-       UPDATE EXPLOSIONS
-    ====================================================== */
 
     updateExplosions(
         deltaTime
@@ -3314,8 +3996,7 @@ export class BossManager {
 
         for (
             let i =
-                this.explosions.length -
-                1;
+                this.explosions.length - 1;
 
             i >= 0;
 
@@ -3331,23 +4012,15 @@ export class BossManager {
 
 
             const progress =
-
-                1
-
-                -
-
+                1 -
                 effect.life /
                 effect.maxLife;
 
 
             effect.mesh.scale.setScalar(
 
-                1
-
-                +
-
-                progress *
-                13
+                1 +
+                progress * 11
 
             );
 
@@ -3357,10 +4030,9 @@ export class BossManager {
 
                     0,
 
-                    0.72 *
+                    0.70 *
                     (
-                        1 -
-                        progress
+                        1 - progress
                     )
 
                 );
@@ -3383,23 +4055,13 @@ export class BossManager {
 
 
                 this.explosions.splice(
-
                     i,
-
                     1
-
                 );
-
             }
-
         }
-
     }
 
-
-    /* =====================================================
-       CLEAR PROJECTILES
-    ====================================================== */
 
     clearProjectiles() {
 
@@ -3411,21 +4073,16 @@ export class BossManager {
             this.scene.remove(
                 projectile.mesh
             );
-
         }
 
 
         this.projectiles.length =
             0;
-
     }
 
 
     /* =====================================================
-       TAKE DAMAGE
-
-       IMPORTANTE:
-       Los ataques NO se cancelan al recibir daño.
+       DAMAGE
     ====================================================== */
 
     takeDamage(
@@ -3441,7 +4098,6 @@ export class BossManager {
         ) {
 
             return false;
-
         }
 
 
@@ -3452,11 +4108,7 @@ export class BossManager {
 
                 Number(
                     damage
-                )
-
-                ||
-
-                0
+                ) || 0
 
             );
 
@@ -3467,7 +4119,6 @@ export class BossManager {
         ) {
 
             return false;
-
         }
 
 
@@ -3485,17 +4136,6 @@ export class BossManager {
         this.updateHealthHUD();
 
 
-        console.log(
-
-            `[Boss] HP ${this.health} / ${BOSS_CONFIG.maxHealth}`
-
-        );
-
-
-        /* =================================================
-           DEATH ALWAYS WINS
-        ================================================= */
-
         if (
             this.health <=
             0
@@ -3505,35 +4145,27 @@ export class BossManager {
 
 
             return true;
-
         }
 
 
-        /* =================================================
-           ATTACK LOCK
-
-           Recibe el daño normalmente...
-
-           PERO:
-
-           CannonCharge continúa.
-           MeleeAttack continúa.
-
-           No se reproduce Hit.
-        ================================================= */
-
+        /*
+         * Nunca interrumpir:
+         * - Cannon
+         * - Melee
+         * - Run
+         */
         if (
             this.isAttackLocked()
+
+            ||
+
+            this.state ===
+            BOSS_STATE.RUN
         ) {
 
             return false;
-
         }
 
-
-        /* =================================================
-           NORMAL HIT REACTION
-        ================================================= */
 
         if (
             this.hitAnimationCooldown <=
@@ -3541,7 +4173,8 @@ export class BossManager {
         ) {
 
             this.hitAnimationCooldown =
-                BOSS_CONFIG.hitAnimationCooldown;
+                BOSS_CONFIG
+                    .hitAnimationCooldown;
 
 
             this.playOneShot(
@@ -3553,17 +4186,15 @@ export class BossManager {
                 0.035
 
             );
-
         }
 
 
         return false;
-
     }
 
 
     /* =====================================================
-       DIE
+       DEATH
     ====================================================== */
 
     die() {
@@ -3573,18 +4204,9 @@ export class BossManager {
         ) {
 
             return;
-
         }
 
 
-        console.log(
-            "[Boss] DEATH"
-        );
-
-
-        /*
-         * Death sí puede cancelar Cannon/Melee.
-         */
         this.dead =
             true;
 
@@ -3598,6 +4220,14 @@ export class BossManager {
 
 
         this.clearProjectiles();
+
+
+        this.cannonChargeCore.visible =
+            false;
+
+
+        this.cannonChargeLight.intensity =
+            0;
 
 
         const started =
@@ -3617,15 +4247,9 @@ export class BossManager {
         ) {
 
             this.finishDeath();
-
         }
-
     }
 
-
-    /* =====================================================
-       FINISH DEATH
-    ====================================================== */
 
     finishDeath() {
 
@@ -3634,7 +4258,6 @@ export class BossManager {
         ) {
 
             return;
-
         }
 
 
@@ -3651,9 +4274,13 @@ export class BossManager {
         );
 
 
-        console.log(
-            "[Boss] Boss derrotado."
-        );
+        if (
+            this.cannonRoot
+        ) {
+
+            this.cannonRoot.visible =
+                false;
+        }
 
 
         if (
@@ -3662,9 +4289,7 @@ export class BossManager {
         ) {
 
             this.onDeath();
-
         }
-
     }
 
 
@@ -3685,14 +4310,9 @@ export class BossManager {
         ) {
 
             return;
-
         }
 
 
-        /*
-         * Permitimos que Death continúe reproduciéndose
-         * aunque enabled sea false.
-         */
         if (
             !this.enabled
 
@@ -3702,47 +4322,52 @@ export class BossManager {
         ) {
 
             return;
-
         }
 
 
         const dt =
             Math.min(
-
                 deltaTime,
-
                 0.05
-
             );
 
 
         /* =================================================
-           MIXER
+           ANIMATION
         ================================================= */
 
-        if (
-            this.mixer
-        ) {
-
-            this.mixer.update(
-                dt
-            );
-
-        }
+        this.mixer?.update(
+            dt
+        );
 
 
         /* =================================================
            PROJECTILES
         ================================================= */
 
-        this.updateProjectiles(
-            dt
-        );
+        if (
+            this.projectiles.length >
+            0
+        ) {
+
+            this.updateProjectiles(
+                dt
+            );
+        }
 
 
-        this.updateExplosions(
-            dt
-        );
+        if (
+            this.explosions.length >
+            0
+        ) {
+
+            this.updateExplosions(
+                dt
+            );
+        }
+
+
+        this.updateCannonVisual();
 
 
         if (
@@ -3754,12 +4379,11 @@ export class BossManager {
         ) {
 
             return;
-
         }
 
 
         /* =================================================
-           COOLDOWNS
+           TIMERS
         ================================================= */
 
         this.meleeCooldown =
@@ -3784,6 +4408,28 @@ export class BossManager {
             );
 
 
+        this.rushTimer =
+            Math.max(
+
+                0,
+
+                this.rushTimer -
+                dt
+
+            );
+
+
+        this.avoidanceTimer =
+            Math.max(
+
+                0,
+
+                this.avoidanceTimer -
+                dt
+
+            );
+
+
         this.hitAnimationCooldown =
             Math.max(
 
@@ -3796,7 +4442,7 @@ export class BossManager {
 
 
         /* =================================================
-           PLAYER POSITION
+           PLAYER
         ================================================= */
 
         this.playerController
@@ -3805,10 +4451,6 @@ export class BossManager {
                 this.playerPosition
             );
 
-
-        /* =================================================
-           INITIAL WAKE
-        ================================================= */
 
         if (
             this.wakeTimer >
@@ -3825,16 +4467,11 @@ export class BossManager {
 
 
             return;
-
         }
 
 
         /* =================================================
-           ATTACK LOCK
-
-           Importantísimo:
-           mientras Melee o Cannon estén activos,
-           aquí no puede entrar Walk/Run/Hit/Idle.
+           ACTIVE ATTACK
         ================================================= */
 
         if (
@@ -3853,7 +4490,6 @@ export class BossManager {
 
 
             return;
-
         }
 
 
@@ -3872,13 +4508,8 @@ export class BossManager {
 
 
             return;
-
         }
 
-
-        /* =================================================
-           DISTANCE
-        ================================================= */
 
         const distance =
             Math.hypot(
@@ -3893,7 +4524,7 @@ export class BossManager {
 
 
         /* =================================================
-           MELEE
+           1. MELEE
         ================================================= */
 
         if (
@@ -3915,12 +4546,50 @@ export class BossManager {
 
 
             return;
-
         }
 
 
         /* =================================================
-           CANNON
+           2. POST CANNON RUSH
+        ================================================= */
+
+        if (
+            this.rushTimer >
+            0
+
+            &&
+
+            distance >
+            BOSS_CONFIG.meleeDistance
+        ) {
+
+            this.state =
+                BOSS_STATE.RUN;
+
+
+            this.playLoop(
+                "Run",
+                0.08
+            );
+
+
+            this.moveTowardPlayer(
+
+                BOSS_CONFIG.runSpeed,
+
+                dt
+
+            );
+
+
+            return;
+        }
+
+
+        /* =================================================
+           3. CANNON
+
+           Línea de visión se comprueba a baja frecuencia.
         ================================================= */
 
         if (
@@ -3936,6 +4605,12 @@ export class BossManager {
 
             this.cannonCooldown <=
             0
+
+            &&
+
+            this.canFireCannon(
+                dt
+            )
         ) {
 
             this.facePlayer(
@@ -3947,12 +4622,11 @@ export class BossManager {
 
 
             return;
-
         }
 
 
         /* =================================================
-           RUN
+           4. RUN
         ================================================= */
 
         if (
@@ -3965,11 +4639,8 @@ export class BossManager {
 
 
             this.playLoop(
-
                 "Run",
-
-                0.10
-
+                0.08
             );
 
 
@@ -3981,14 +4652,16 @@ export class BossManager {
 
             );
 
+
+            return;
         }
 
 
         /* =================================================
-           WALK
+           5. WALK
         ================================================= */
 
-        else if (
+        if (
             distance >
             BOSS_CONFIG.meleeDistance *
             0.92
@@ -3999,11 +4672,8 @@ export class BossManager {
 
 
             this.playLoop(
-
                 "Walk",
-
-                0.10
-
+                0.08
             );
 
 
@@ -4015,6 +4685,8 @@ export class BossManager {
 
             );
 
+
+            return;
         }
 
 
@@ -4022,37 +4694,24 @@ export class BossManager {
            IDLE
         ================================================= */
 
-        else {
-
-            this.state =
-                BOSS_STATE.IDLE;
+        this.state =
+            BOSS_STATE.IDLE;
 
 
-            this.playLoop(
-
-                "Idle",
-
-                0.10
-
-            );
-
-
-            this.facePlayer(
-                dt
-            );
-
-        }
-
-
-        this.root.updateMatrixWorld(
-            true
+        this.playLoop(
+            "Idle",
+            0.08
         );
 
+
+        this.facePlayer(
+            dt
+        );
     }
 
 
     /* =====================================================
-       WEAPON MANAGER COMPATIBILITY
+       WEAPON COMPATIBILITY
     ====================================================== */
 
     getHitMeshes() {
@@ -4070,12 +4729,10 @@ export class BossManager {
         ) {
 
             return [];
-
         }
 
 
         return this.hitMeshes;
-
     }
 
 
@@ -4090,67 +4747,48 @@ export class BossManager {
             !this.dead
 
         )
-
             ?
-
             1
-
             :
-
             0;
-
     }
 
-
-    /* =====================================================
-       GETTERS
-    ====================================================== */
 
     getObject() {
 
         return this.root;
-
     }
 
 
     getHealth() {
 
         return this.health;
-
     }
 
 
     getMaxHealth() {
 
         return BOSS_CONFIG.maxHealth;
-
     }
 
 
     isDead() {
 
         return this.dead;
-
     }
 
 
     isLoaded() {
 
         return this.loaded;
-
     }
 
-
-    /* =====================================================
-       ENABLE
-    ====================================================== */
 
     setEnabled(
         enabled
     ) {
 
         this.enabled =
-
             Boolean(
                 enabled
             )
@@ -4162,13 +4800,8 @@ export class BossManager {
             &&
 
             !this.dead;
-
     }
 
-
-    /* =====================================================
-       VISIBLE
-    ====================================================== */
 
     setVisible(
         visible
@@ -4178,6 +4811,26 @@ export class BossManager {
             Boolean(
                 visible
             );
+
+
+        if (
+            this.cannonRoot
+        ) {
+
+            this.cannonRoot.visible =
+
+                Boolean(
+                    visible
+                )
+
+                &&
+
+                this.spawned
+
+                &&
+
+                !this.dead;
+        }
 
 
         this.setHUDVisible(
@@ -4195,7 +4848,6 @@ export class BossManager {
             !this.dead
 
         );
-
     }
 
 }
