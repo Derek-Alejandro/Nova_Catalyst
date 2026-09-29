@@ -2,61 +2,33 @@
    NOVA CATALYST
    Audio Manager
 
-   Build v0.1.0
-
-   ---------------------------------------------------------
-   SISTEMA CENTRAL DE AUDIO
-   ---------------------------------------------------------
-   - Música dinámica
-   - Crossfade entre canciones
-   - Efectos de sonido simultáneos
-   - Variación de pitch
-   - Sirenas en loop
-   - Volumen independiente
-   - AudioContext
-   - Compatible con autoplay restrictions
-   - Precarga automática
-   - Preparado para pausa
-========================================================= */
-
-
-/* =========================================================
-   AUDIO FILES
+   Build v0.3.0 · FULL SFX INTEGRATION
 ========================================================= */
 
 const AUDIO_FILES = {
 
-    /* =====================================================
-       MUSIC
-    ====================================================== */
-
     menu: {
         path: "./assets/sounds/music/menu.mp3",
         category: "music",
-        volume: 0.80
+        volume: 0.90
     },
 
     zoneA: {
         path: "./assets/sounds/music/zone_a.mp3",
         category: "music",
-        volume: 0.75
+        volume: 0.700
     },
 
     boss: {
         path: "./assets/sounds/music/boss.mp3",
         category: "music",
-        volume: 0.85
+        volume: 0.620
     },
-
-
-    /* =====================================================
-       WEAPONS
-    ====================================================== */
 
     pistolFire: {
         path: "./assets/sounds/weapons/pistol_fire.mp3",
         category: "sfx",
-        volume: 0.72
+        volume: 0.60
     },
 
     smgFire: {
@@ -71,11 +43,6 @@ const AUDIO_FILES = {
         volume: 0.88
     },
 
-
-    /* =====================================================
-       ENEMIES
-    ====================================================== */
-
     enemyCreature: {
         path: "./assets/sounds/enemies/enemy_creature.mp3",
         category: "sfx",
@@ -85,18 +52,13 @@ const AUDIO_FILES = {
     enemyDeath: {
         path: "./assets/sounds/enemies/enemy_death.mp3",
         category: "sfx",
-        volume: 0.58
+        volume: 0.65
     },
-
-
-    /* =====================================================
-       PLAYER
-    ====================================================== */
 
     playerHurt: {
         path: "./assets/sounds/player/player_hurt.mp3",
         category: "sfx",
-        volume: 0.60
+        volume: 0.65
     },
 
     playerDeath: {
@@ -105,32 +67,17 @@ const AUDIO_FILES = {
         volume: 0.82
     },
 
-
-    /* =====================================================
-       PICKUPS
-    ====================================================== */
-
     pickup: {
         path: "./assets/sounds/pickups/pickup.mp3",
         category: "sfx",
-        volume: 0.46
+        volume: 0.35
     },
-
-
-    /* =====================================================
-       WORLD
-    ====================================================== */
 
     barrelExplosion: {
         path: "./assets/sounds/world/barrel_explosion.mp3",
         category: "sfx",
-        volume: 0.90
+        volume: 0.80
     },
-
-
-    /* =====================================================
-       BOSS
-    ====================================================== */
 
     cannonCharge: {
         path: "./assets/sounds/boss/cannon_charge.mp3",
@@ -144,138 +91,75 @@ const AUDIO_FILES = {
         volume: 1.00
     },
 
-
-    /* =====================================================
-       AMBIENT
-    ====================================================== */
-
     siren: {
         path: "./assets/sounds/ambient/siren.mp3",
         category: "ambient",
-        volume: 0.30
+        volume: 0.45
     }
-
 };
 
-
-/* =========================================================
-   AUDIO MANAGER
-========================================================= */
 
 export class AudioManager {
 
     constructor() {
 
-        /* =================================================
-           CONTEXT
-        ================================================= */
-
         this.context = null;
 
         this.masterGain = null;
-
         this.musicGain = null;
-
         this.sfxGain = null;
-
         this.ambientGain = null;
 
-
-        /* =================================================
-           VOLUMES
-        ================================================= */
-
         this.masterVolume = 0.85;
-
         this.musicVolume = 0.50;
-
         this.sfxVolume = 0.90;
-
         this.ambientVolume = 0.60;
 
-
-        /* =================================================
-           BUFFERS
-        ================================================= */
-
         this.buffers = new Map();
-
         this.loadingPromises = new Map();
 
-
-        /* =================================================
-           MUSIC
-        ================================================= */
-
         this.currentMusic = null;
-
         this.musicRequestId = 0;
-
-
-        /* =================================================
-           LOOPS
-        ================================================= */
 
         this.loops = new Map();
 
-
-        /* =================================================
-           STATE
-        ================================================= */
+        this.activeSFX = new Map();
+        this.cooldowns = new Map();
 
         this.unlocked = false;
-
         this.preloaded = false;
-
         this.pausedByGame = false;
-
-
-        /* =================================================
-           UNLOCK
-        ================================================= */
 
         this.unlockHandler =
             this.unlock.bind(this);
-
 
         window.addEventListener(
             "pointerdown",
             this.unlockHandler
         );
 
-
         window.addEventListener(
             "keydown",
             this.unlockHandler
         );
-
 
         window.addEventListener(
             "touchstart",
             this.unlockHandler
         );
 
-
-        /* =================================================
-           PRELOAD
-        ================================================= */
-
         this.preloadAll()
-            .catch(error => {
+            .catch(
+                error => {
 
-                console.warn(
-                    "[Audio] Error durante preload:",
-                    error
-                );
-
-            });
-
+                    console.warn(
+                        "[Audio] Error durante preload:",
+                        error
+                    );
+                }
+            );
     }
 
-
-    /* =====================================================
-       CONTEXT
-    ====================================================== */
 
     ensureContext() {
 
@@ -284,18 +168,12 @@ export class AudioManager {
         ) {
 
             return this.context;
-
         }
 
-
         const AudioContextClass =
-
             window.AudioContext
-
             ||
-
             window.webkitAudioContext;
-
 
         if (
             !AudioContextClass
@@ -306,115 +184,70 @@ export class AudioManager {
             );
 
             return null;
-
         }
-
 
         this.context =
             new AudioContextClass();
 
-
-        /* =================================================
-           MASTER
-        ================================================= */
-
         this.masterGain =
             this.context.createGain();
 
-
         this.masterGain.gain.value =
             this.masterVolume;
-
 
         this.masterGain.connect(
             this.context.destination
         );
 
-
-        /* =================================================
-           MUSIC
-        ================================================= */
-
         this.musicGain =
             this.context.createGain();
 
-
         this.musicGain.gain.value =
             this.musicVolume;
-
 
         this.musicGain.connect(
             this.masterGain
         );
 
-
-        /* =================================================
-           SFX
-        ================================================= */
-
         this.sfxGain =
             this.context.createGain();
 
-
         this.sfxGain.gain.value =
             this.sfxVolume;
-
 
         this.sfxGain.connect(
             this.masterGain
         );
 
-
-        /* =================================================
-           AMBIENT
-        ================================================= */
-
         this.ambientGain =
             this.context.createGain();
 
-
         this.ambientGain.gain.value =
             this.ambientVolume;
-
 
         this.ambientGain.connect(
             this.masterGain
         );
 
-
         console.log(
             "[Audio] AudioContext ONLINE"
         );
 
-
         return this.context;
-
     }
 
-
-    /* =====================================================
-       UNLOCK
-
-       Los navegadores bloquean sonido hasta que el usuario
-       interactúa con la página.
-
-       Pointer / teclado / touch desbloquean el sistema.
-    ====================================================== */
 
     async unlock() {
 
         const context =
             this.ensureContext();
 
-
         if (
             !context
         ) {
 
             return false;
-
         }
-
 
         try {
 
@@ -424,39 +257,31 @@ export class AudioManager {
             ) {
 
                 await context.resume();
-
             }
-
 
             this.unlocked =
                 true;
-
 
             window.removeEventListener(
                 "pointerdown",
                 this.unlockHandler
             );
 
-
             window.removeEventListener(
                 "keydown",
                 this.unlockHandler
             );
-
 
             window.removeEventListener(
                 "touchstart",
                 this.unlockHandler
             );
 
-
             console.log(
                 "[Audio] Sistema desbloqueado"
             );
 
-
             return true;
-
         }
 
         catch (
@@ -468,17 +293,10 @@ export class AudioManager {
                 error
             );
 
-
             return false;
-
         }
-
     }
 
-
-    /* =====================================================
-       LOAD SOUND
-    ====================================================== */
 
     async loadSound(
         key
@@ -493,9 +311,7 @@ export class AudioManager {
             return this.buffers.get(
                 key
             );
-
         }
-
 
         if (
             this.loadingPromises.has(
@@ -506,13 +322,10 @@ export class AudioManager {
             return this.loadingPromises.get(
                 key
             );
-
         }
-
 
         const config =
             AUDIO_FILES[key];
-
 
         if (
             !config
@@ -523,103 +336,83 @@ export class AudioManager {
             );
 
             return null;
-
         }
-
 
         const context =
             this.ensureContext();
-
 
         if (
             !context
         ) {
 
             return null;
-
         }
 
-
         const promise =
-
             fetch(
                 config.path
             )
+                .then(
+                    response => {
 
-                .then(response => {
+                        if (
+                            !response.ok
+                        ) {
 
-                    if (
-                        !response.ok
-                    ) {
+                            throw new Error(
+                                `${response.status} · ${config.path}`
+                            );
+                        }
 
-                        throw new Error(
-                            `${response.status} · ${config.path}`
+                        return response.arrayBuffer();
+                    }
+                )
+                .then(
+                    arrayBuffer =>
+
+                        context.decodeAudioData(
+                            arrayBuffer
+                        )
+                )
+                .then(
+                    buffer => {
+
+                        this.buffers.set(
+                            key,
+                            buffer
                         );
 
+                        this.loadingPromises.delete(
+                            key
+                        );
+
+                        return buffer;
                     }
-
-
-                    return response.arrayBuffer();
-
-                })
-
-                .then(arrayBuffer =>
-
-                    context.decodeAudioData(
-                        arrayBuffer
-                    )
-
                 )
+                .catch(
+                    error => {
 
-                .then(buffer => {
+                        this.loadingPromises.delete(
+                            key
+                        );
 
-                    this.buffers.set(
-                        key,
-                        buffer
-                    );
+                        console.warn(
+                            `[Audio] No se pudo cargar "${key}"`,
+                            error
+                        );
 
-
-                    this.loadingPromises.delete(
-                        key
-                    );
-
-
-                    return buffer;
-
-                })
-
-                .catch(error => {
-
-                    this.loadingPromises.delete(
-                        key
-                    );
-
-
-                    console.warn(
-                        `[Audio] No se pudo cargar "${key}"`,
-                        error
-                    );
-
-
-                    return null;
-
-                });
-
+                        return null;
+                    }
+                );
 
         this.loadingPromises.set(
             key,
             promise
         );
 
-
         return promise;
-
     }
 
-
-    /* =====================================================
-       PRELOAD ALL
-    ====================================================== */
 
     async preloadAll() {
 
@@ -627,7 +420,6 @@ export class AudioManager {
             Object.keys(
                 AUDIO_FILES
             );
-
 
         await Promise.allSettled(
 
@@ -640,44 +432,62 @@ export class AudioManager {
 
         );
 
-
         this.preloaded =
             true;
 
-
         console.log(
-
             `[Audio] PRELOAD COMPLETE · ${this.buffers.size}/${keys.length}`
-
         );
-
     }
 
 
-    /* =====================================================
-       MUSIC
-    ====================================================== */
+    canPlayCooldown(
+        id,
+        seconds
+    ) {
+
+        const now =
+            performance.now() /
+            1000;
+
+        const previous =
+            this.cooldowns.get(
+                id
+            )
+            ??
+            -Infinity;
+
+        if (
+            now - previous <
+            seconds
+        ) {
+
+            return false;
+        }
+
+        this.cooldowns.set(
+            id,
+            now
+        );
+
+        return true;
+    }
+
 
     async playMusic(
-
         key,
-
         {
             fade = 1.5,
             restart = false
         } = {}
-
     ) {
 
         const config =
             AUDIO_FILES[key];
 
-
         if (
             !config
-
             ||
-
             config.category !==
             "music"
         ) {
@@ -687,76 +497,58 @@ export class AudioManager {
             );
 
             return false;
-
         }
-
 
         if (
             this.currentMusic
-
             &&
-
             this.currentMusic.key ===
             key
-
             &&
-
             !restart
         ) {
 
+            this.setCurrentMusicLevel(
+                1,
+                0.6
+            );
+
             return true;
-
         }
-
 
         const requestId =
             ++this.musicRequestId;
-
 
         const buffer =
             await this.loadSound(
                 key
             );
 
-
         if (
             !buffer
-
             ||
-
             requestId !==
             this.musicRequestId
         ) {
 
             return false;
-
         }
-
 
         const context =
             this.ensureContext();
-
 
         if (
             !context
         ) {
 
             return false;
-
         }
-
 
         const now =
             context.currentTime;
 
-
-        /* =================================================
-           FADE OUT OLD MUSIC
-        ================================================= */
-
         const oldMusic =
             this.currentMusic;
-
 
         if (
             oldMusic
@@ -769,124 +561,91 @@ export class AudioManager {
                         now
                     );
 
-
                 oldMusic.gain.gain
                     .setValueAtTime(
-
                         oldMusic.gain.gain.value,
-
                         now
-
                     );
-
 
                 oldMusic.gain.gain
                     .linearRampToValueAtTime(
-
                         0,
-
-                        now +
-                        fade
-
+                        now + fade
                     );
 
-
                 oldMusic.source.stop(
-
-                    now +
-                    fade +
-                    0.10
-
+                    now + fade + 0.10
                 );
-
             }
 
             catch (
                 error
             ) {
 
-                // Source posiblemente ya detenido.
-
+                // Source anterior ya detenido.
             }
-
         }
-
-
-        /* =================================================
-           NEW MUSIC
-        ================================================= */
 
         const source =
             context.createBufferSource();
 
-
         source.buffer =
             buffer;
-
 
         source.loop =
             true;
 
-
         const gain =
             context.createGain();
-
 
         gain.gain.setValueAtTime(
             0,
             now
         );
 
-
         gain.gain.linearRampToValueAtTime(
-
             config.volume,
-
-            now +
-            fade
-
+            now + fade
         );
-
 
         source.connect(
             gain
         );
 
-
         gain.connect(
             this.musicGain
         );
-
 
         source.start(
             now
         );
 
-
         this.currentMusic = {
-
             key,
-
             source,
-
             gain
-
         };
 
+        source.onended =
+            () => {
+
+                if (
+                    this.currentMusic?.source ===
+                    source
+                ) {
+
+                    this.currentMusic =
+                        null;
+                }
+            };
 
         console.log(
             `[Audio] Music → ${key}`
         );
 
-
         return true;
-
     }
 
-
-    /* =====================================================
-       STOP MUSIC
-    ====================================================== */
 
     stopMusic(
         fade = 1
@@ -894,65 +653,43 @@ export class AudioManager {
 
         ++this.musicRequestId;
 
-
         if (
             !this.currentMusic
-
             ||
-
             !this.context
         ) {
 
             return;
-
         }
-
 
         const current =
             this.currentMusic;
 
-
         const now =
             this.context.currentTime;
-
 
         current.gain.gain
             .cancelScheduledValues(
                 now
             );
 
-
         current.gain.gain
             .setValueAtTime(
-
                 current.gain.gain.value,
-
                 now
-
             );
-
 
         current.gain.gain
             .linearRampToValueAtTime(
-
                 0,
-
-                now +
-                fade
-
+                now + fade
             );
-
 
         try {
 
             current.source.stop(
-
-                now +
-                fade +
-                0.10
-
+                now + fade + 0.10
             );
-
         }
 
         catch (
@@ -960,36 +697,186 @@ export class AudioManager {
         ) {
 
             // Ya estaba detenido.
-
         }
-
 
         this.currentMusic =
             null;
-
     }
 
 
-    /* =====================================================
-       GENERIC SFX
-    ====================================================== */
+    setCurrentMusicLevel(
+        level = 1,
+        fade = 0.8
+    ) {
+
+        if (
+            !this.currentMusic
+            ||
+            !this.context
+        ) {
+
+            return;
+        }
+
+        const config =
+            AUDIO_FILES[
+                this.currentMusic.key
+            ];
+
+        if (
+            !config
+        ) {
+
+            return;
+        }
+
+        const normalizedLevel =
+            clamp(
+                level,
+                0,
+                1
+            );
+
+        const targetVolume =
+            config.volume *
+            normalizedLevel;
+
+        const now =
+            this.context.currentTime;
+
+        const gain =
+            this.currentMusic
+                .gain
+                .gain;
+
+        gain.cancelScheduledValues(
+            now
+        );
+
+        gain.setValueAtTime(
+            gain.value,
+            now
+        );
+
+        gain.linearRampToValueAtTime(
+            targetVolume,
+            now +
+            Math.max(
+                0.01,
+                fade
+            )
+        );
+
+        console.log(
+            `[Audio] Music level → ${Math.round(normalizedLevel * 100)}%`
+        );
+    }
+
+
+    registerActiveSFX(
+        key,
+        source
+    ) {
+
+        if (
+            !this.activeSFX.has(
+                key
+            )
+        ) {
+
+            this.activeSFX.set(
+                key,
+                new Set()
+            );
+        }
+
+        const group =
+            this.activeSFX.get(
+                key
+            );
+
+        group.add(
+            source
+        );
+
+        source.addEventListener(
+            "ended",
+            () => {
+
+                group.delete(
+                    source
+                );
+
+                if (
+                    group.size ===
+                    0
+                ) {
+
+                    this.activeSFX.delete(
+                        key
+                    );
+                }
+            },
+            {
+                once:
+                    true
+            }
+        );
+    }
+
+
+    stopSFX(
+        key
+    ) {
+
+        const group =
+            this.activeSFX.get(
+                key
+            );
+
+        if (
+            !group
+        ) {
+
+            return;
+        }
+
+        for (
+            const source
+            of group
+        ) {
+
+            try {
+
+                source.stop();
+            }
+
+            catch (
+                error
+            ) {
+
+                // Ya detenido.
+            }
+        }
+
+        this.activeSFX.delete(
+            key
+        );
+    }
+
 
     async playSFX(
-
         key,
-
         {
             volume = 1,
             playbackRate = 1,
             randomPitch = 0,
             category = null
         } = {}
-
     ) {
 
         const config =
             AUDIO_FILES[key];
-
 
         if (
             !config
@@ -1000,53 +887,38 @@ export class AudioManager {
             );
 
             return null;
-
         }
-
 
         const buffer =
             await this.loadSound(
                 key
             );
 
-
         if (
             !buffer
         ) {
 
             return null;
-
         }
-
 
         const context =
             this.ensureContext();
-
 
         if (
             !context
         ) {
 
             return null;
-
         }
-
 
         const source =
             context.createBufferSource();
 
-
         source.buffer =
             buffer;
 
-
-        /* =================================================
-           PITCH
-        ================================================= */
-
         let finalRate =
             playbackRate;
-
 
         if (
             randomPitch >
@@ -1054,19 +926,14 @@ export class AudioManager {
         ) {
 
             finalRate +=
-
                 (
                     Math.random() *
                     2 -
                     1
                 )
-
                 *
-
                 randomPitch;
-
         }
-
 
         finalRate =
             Math.max(
@@ -1074,41 +941,24 @@ export class AudioManager {
                 finalRate
             );
 
-
         source.playbackRate.value =
             finalRate;
-
-
-        /* =================================================
-           GAIN
-        ================================================= */
 
         const gain =
             context.createGain();
 
-
         gain.gain.value =
-
-            config.volume
-
-            *
-
+            config.volume *
             volume;
-
 
         source.connect(
             gain
         );
 
-
         const targetCategory =
-
             category
-
             ||
-
             config.category;
-
 
         if (
             targetCategory ===
@@ -1118,7 +968,6 @@ export class AudioManager {
             gain.connect(
                 this.ambientGain
             );
-
         }
 
         else {
@@ -1126,21 +975,18 @@ export class AudioManager {
             gain.connect(
                 this.sfxGain
             );
-
         }
 
+        this.registerActiveSFX(
+            key,
+            source
+        );
 
         source.start();
 
-
         return source;
-
     }
 
-
-    /* =====================================================
-       WEAPONS
-    ====================================================== */
 
     playWeaponFire(
         weaponKey
@@ -1152,17 +998,13 @@ export class AudioManager {
         ) {
 
             return this.playSFX(
-
                 "pistolFire",
-
                 {
-                    randomPitch: 0.025
+                    randomPitch:
+                        0.025
                 }
-
             );
-
         }
-
 
         if (
             weaponKey ===
@@ -1170,18 +1012,16 @@ export class AudioManager {
         ) {
 
             return this.playSFX(
-
                 "smgFire",
-
                 {
-                    volume: 0.90,
-                    randomPitch: 0.045
+                    volume:
+                        0.90,
+
+                    randomPitch:
+                        0.045
                 }
-
             );
-
         }
-
 
         if (
             weaponKey ===
@@ -1189,40 +1029,57 @@ export class AudioManager {
         ) {
 
             return this.playSFX(
-
                 "shotgunFire",
-
                 {
-                    randomPitch: 0.025
+                    randomPitch:
+                        0.025
                 }
-
             );
-
         }
 
-
         return null;
-
     }
 
-
-    /* =====================================================
-       ENEMY CREATURE
-
-       Reutilizamos un solo archivo.
-    ====================================================== */
 
     playEnemyCreature(
         mode = "attack"
     ) {
 
+        const cooldowns = {
+
+            spawn:
+                0.35,
+
+            attack:
+                0.22,
+
+            hit:
+                0.11,
+
+            boss:
+                0.40
+        };
+
+        const cooldown =
+            cooldowns[mode]
+            ??
+            0.18;
+
+        if (
+            !this.canPlayCooldown(
+                `enemy-creature-${mode}`,
+                cooldown
+            )
+        ) {
+
+            return null;
+        }
+
         let playbackRate =
             1;
 
-
         let volume =
             1;
-
 
         if (
             mode ===
@@ -1232,12 +1089,9 @@ export class AudioManager {
             playbackRate =
                 1.10;
 
-
             volume =
-                0.80;
-
+                0.76;
         }
-
 
         else if (
             mode ===
@@ -1245,14 +1099,11 @@ export class AudioManager {
         ) {
 
             playbackRate =
-                0.82;
-
+                0.84;
 
             volume =
-                1;
-
+                0.92;
         }
-
 
         else if (
             mode ===
@@ -1260,96 +1111,122 @@ export class AudioManager {
         ) {
 
             playbackRate =
-                0.58;
-
+                0.60;
 
             volume =
-                1.10;
-
+                1.05;
         }
 
-
         return this.playSFX(
-
             "enemyCreature",
-
             {
                 playbackRate,
                 volume,
-                randomPitch: 0.035
+                randomPitch:
+                    0.035
             }
-
         );
-
     }
 
 
     playEnemyDeath() {
 
+        if (
+            !this.canPlayCooldown(
+                "enemy-death",
+                0.06
+            )
+        ) {
+
+            return null;
+        }
+
         return this.playSFX(
-
             "enemyDeath",
-
             {
-                randomPitch: 0.05
+                randomPitch:
+                    0.05
             }
-
         );
-
     }
 
 
-    /* =====================================================
-       PLAYER
-    ====================================================== */
+    playBossDeath() {
+
+        this.stopSFX(
+            "enemyCreature"
+        );
+
+        return this.playSFX(
+            "enemyDeath",
+            {
+                playbackRate:
+                    0.62,
+
+                volume:
+                    1.15
+            }
+        );
+    }
+
 
     playPlayerHurt() {
 
+        if (
+            !this.canPlayCooldown(
+                "player-hurt",
+                0.18
+            )
+        ) {
+
+            return null;
+        }
+
         return this.playSFX(
-
             "playerHurt",
-
             {
-                randomPitch: 0.025
+                randomPitch:
+                    0.025
             }
-
         );
-
     }
 
 
     playPlayerDeath() {
 
-        return this.playSFX(
-
-            "playerDeath",
-
-            {
-                volume: 1
-            }
-
+        this.stopSFX(
+            "playerHurt"
         );
 
+        return this.playSFX(
+            "playerDeath",
+            {
+                volume:
+                    1
+            }
+        );
     }
 
-
-    /* =====================================================
-       PICKUPS
-
-       Un archivo para tres tipos.
-    ====================================================== */
 
     playPickup(
         type = "ammo"
     ) {
 
+        if (
+            !this.canPlayCooldown(
+                "pickup",
+                0.08
+            )
+        ) {
+
+            return null;
+        }
+
         let playbackRate =
             1;
 
-
         let volume =
             1;
-
 
         if (
             type ===
@@ -1359,12 +1236,9 @@ export class AudioManager {
             playbackRate =
                 0.82;
 
-
             volume =
                 1.10;
-
         }
-
 
         else if (
             type ===
@@ -1374,117 +1248,117 @@ export class AudioManager {
             playbackRate =
                 1.20;
 
-
             volume =
                 0.90;
-
         }
 
-
         return this.playSFX(
-
             "pickup",
-
             {
                 playbackRate,
                 volume
             }
-
         );
-
     }
 
-
-    /* =====================================================
-       WORLD
-    ====================================================== */
 
     playExplosion() {
 
+        if (
+            !this.canPlayCooldown(
+                "barrel-explosion",
+                0.05
+            )
+        ) {
+
+            return null;
+        }
+
         return this.playSFX(
-
             "barrelExplosion",
-
             {
-                randomPitch: 0.035
+                randomPitch:
+                    0.035
             }
-
         );
-
     }
 
 
-    /* =====================================================
-       BOSS CANNON
-    ====================================================== */
-
     playCannonCharge() {
 
-        return this.playSFX(
-
-            "cannonCharge",
-
-            {
-                volume: 1
-            }
-
+        this.stopSFX(
+            "cannonCharge"
         );
 
+        return this.playSFX(
+            "cannonCharge",
+            {
+                volume:
+                    1
+            }
+        );
     }
 
 
     playCannonFire() {
 
-        return this.playSFX(
-
-            "cannonFire",
-
-            {
-                volume: 1
-            }
-
+        this.stopSFX(
+            "cannonCharge"
         );
 
+        if (
+            !this.canPlayCooldown(
+                "cannon-fire",
+                0.22
+            )
+        ) {
+
+            return null;
+        }
+
+        return this.playSFX(
+            "cannonFire",
+            {
+                volume:
+                    1
+            }
+        );
     }
 
 
     playCannonImpact() {
 
-        /*
-         * Reutilizamos la explosión del barril,
-         * pero más grave y más fuerte.
-         */
+        if (
+            !this.canPlayCooldown(
+                "cannon-impact",
+                0.16
+            )
+        ) {
+
+            return null;
+        }
 
         return this.playSFX(
-
             "barrelExplosion",
-
             {
-                playbackRate: 0.72,
-                volume: 1.10
+                playbackRate:
+                    0.72,
+
+                volume:
+                    1.10
             }
-
         );
-
     }
 
 
-    /* =====================================================
-       LOOP
-    ====================================================== */
-
     async startLoop(
-
         id,
-
         key,
-
         {
             volume = 1,
             playbackRate = 1,
             fade = 0.5
         } = {}
-
     ) {
 
         await this.stopLoop(
@@ -1492,120 +1366,89 @@ export class AudioManager {
             0.25
         );
 
-
         const buffer =
             await this.loadSound(
                 key
             );
-
 
         if (
             !buffer
         ) {
 
             return null;
-
         }
-
 
         const context =
             this.ensureContext();
 
+        if (
+            !context
+        ) {
+
+            return null;
+        }
 
         const source =
             context.createBufferSource();
 
-
         source.buffer =
             buffer;
-
 
         source.loop =
             true;
 
-
         source.playbackRate.value =
             playbackRate;
-
 
         const gain =
             context.createGain();
 
-
         const config =
             AUDIO_FILES[key];
 
-
         const targetVolume =
-
-            config.volume
-
-            *
-
+            config.volume *
             volume;
-
 
         const now =
             context.currentTime;
-
 
         gain.gain.setValueAtTime(
             0,
             now
         );
 
-
         gain.gain.linearRampToValueAtTime(
-
             targetVolume,
-
-            now +
-            fade
-
+            now + fade
         );
-
 
         source.connect(
             gain
         );
 
-
         gain.connect(
             this.ambientGain
         );
 
-
         source.start();
 
-
         this.loops.set(
-
             id,
-
             {
                 source,
                 gain,
                 key
             }
-
         );
 
-
         return source;
-
     }
 
 
-    /* =====================================================
-       STOP LOOP
-    ====================================================== */
-
     async stopLoop(
-
         id,
-
         fade = 0.4
-
     ) {
 
         const loop =
@@ -1613,61 +1456,40 @@ export class AudioManager {
                 id
             );
 
-
         if (
             !loop
-
             ||
-
             !this.context
         ) {
 
             return;
-
         }
-
 
         const now =
             this.context.currentTime;
-
 
         loop.gain.gain
             .cancelScheduledValues(
                 now
             );
 
-
         loop.gain.gain
             .setValueAtTime(
-
                 loop.gain.gain.value,
-
                 now
-
             );
-
 
         loop.gain.gain
             .linearRampToValueAtTime(
-
                 0,
-
-                now +
-                fade
-
+                now + fade
             );
-
 
         try {
 
             loop.source.stop(
-
-                now +
-                fade +
-                0.05
-
+                now + fade + 0.05
             );
-
         }
 
         catch (
@@ -1675,58 +1497,49 @@ export class AudioManager {
         ) {
 
             // Ya detenido.
-
         }
-
 
         this.loops.delete(
             id
         );
-
     }
 
-
-    /* =====================================================
-       SIREN
-
-       Mismo archivo con comportamiento diferente.
-    ====================================================== */
 
     startZoneASiren() {
 
         return this.startLoop(
-
             "siren",
-
             "siren",
-
             {
-                volume: 0.48,
-                playbackRate: 1,
-                fade: 1
+                volume:
+                    0.48,
+
+                playbackRate:
+                    1,
+
+                fade:
+                    1
             }
-
         );
-
     }
 
 
     startBossSiren() {
 
         return this.startLoop(
-
             "siren",
-
             "siren",
-
             {
-                volume: 0.85,
-                playbackRate: 0.88,
-                fade: 0.7
+                volume:
+                    0.85,
+
+                playbackRate:
+                    0.88,
+
+                fade:
+                    0.7
             }
-
         );
-
     }
 
 
@@ -1736,25 +1549,19 @@ export class AudioManager {
             "siren",
             0.8
         );
-
     }
 
-
-    /* =====================================================
-       MASTER VOLUME
-    ====================================================== */
 
     setMasterVolume(
         value
     ) {
 
         this.masterVolume =
-            THREEClamp(
+            clamp(
                 value,
                 0,
                 1
             );
-
 
         if (
             this.masterGain
@@ -1762,9 +1569,7 @@ export class AudioManager {
 
             this.masterGain.gain.value =
                 this.masterVolume;
-
         }
-
     }
 
 
@@ -1773,12 +1578,11 @@ export class AudioManager {
     ) {
 
         this.musicVolume =
-            THREEClamp(
+            clamp(
                 value,
                 0,
                 1
             );
-
 
         if (
             this.musicGain
@@ -1786,9 +1590,7 @@ export class AudioManager {
 
             this.musicGain.gain.value =
                 this.musicVolume;
-
         }
-
     }
 
 
@@ -1797,12 +1599,11 @@ export class AudioManager {
     ) {
 
         this.sfxVolume =
-            THREEClamp(
+            clamp(
                 value,
                 0,
                 1
             );
-
 
         if (
             this.sfxGain
@@ -1810,9 +1611,7 @@ export class AudioManager {
 
             this.sfxGain.gain.value =
                 this.sfxVolume;
-
         }
-
     }
 
 
@@ -1821,12 +1620,11 @@ export class AudioManager {
     ) {
 
         this.ambientVolume =
-            THREEClamp(
+            clamp(
                 value,
                 0,
                 1
             );
-
 
         if (
             this.ambientGain
@@ -1834,38 +1632,26 @@ export class AudioManager {
 
             this.ambientGain.gain.value =
                 this.ambientVolume;
-
         }
-
     }
 
-
-    /* =====================================================
-       GAME PAUSE
-    ====================================================== */
 
     async pauseAll() {
 
         if (
             !this.context
-
             ||
-
             this.context.state !==
             "running"
         ) {
 
             return;
-
         }
-
 
         this.pausedByGame =
             true;
 
-
         await this.context.suspend();
-
     }
 
 
@@ -1873,29 +1659,38 @@ export class AudioManager {
 
         if (
             !this.context
-
             ||
-
             !this.pausedByGame
         ) {
 
             return;
-
         }
-
 
         this.pausedByGame =
             false;
 
-
         await this.context.resume();
-
     }
 
 
-    /* =====================================================
-       STOP EVERYTHING
-    ====================================================== */
+    stopAllSFX() {
+
+        const keys =
+            Array.from(
+                this.activeSFX.keys()
+            );
+
+        for (
+            const key
+            of keys
+        ) {
+
+            this.stopSFX(
+                key
+            );
+        }
+    }
+
 
     stopAll() {
 
@@ -1903,12 +1698,10 @@ export class AudioManager {
             0.25
         );
 
-
         const ids =
             Array.from(
                 this.loops.keys()
             );
-
 
         for (
             const id
@@ -1919,45 +1712,28 @@ export class AudioManager {
                 id,
                 0.20
             );
-
         }
 
+        this.stopAllSFX();
     }
-
 }
 
 
-/* =========================================================
-   SMALL UTILITY
-
-   Evitamos importar Three.js solo para MathUtils.clamp().
-========================================================= */
-
-function THREEClamp(
+function clamp(
     value,
     min,
     max
 ) {
 
     return Math.min(
-
         max,
-
         Math.max(
             min,
             value
         )
-
     );
-
 }
 
-
-/* =========================================================
-   GLOBAL SINGLETON
-
-   Todo el juego utilizará la misma instancia.
-========================================================= */
 
 export const audioManager =
     new AudioManager();

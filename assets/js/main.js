@@ -2,27 +2,7 @@
    NOVA CATALYST
    Main Controller
 
-   Build v0.27.0 · DYNAMIC AUDIO
-
-   ---------------------------------------------------------
-   - Intro cinematic
-   - Zone A aftermath
-   - Stronger but controlled emergency lighting
-   - Blood on floors
-   - Blood on walls
-   - Scorch marks
-   - Debris
-   - Waves 1-5
-   - Boss transition
-   - Boss performance mode
-   - Boss emergency siren
-   - F9 Boss Debug
-   - Game Over Spanish
-   - Final cinematic
-   - Zona B Próximamente
-   - Dynamic music: Menu / Zone A / Boss
-   - Audio siren integration
-   - Audio pause / resume
+   Build v0.29.0 · FULL AUDIO INTEGRATION
 ========================================================= */
 
 import * as THREE from "three";
@@ -88,10 +68,6 @@ import {
     audioManager
 } from "./audioManager.js";
 
-
-/* =========================================================
-   PERFORMANCE
-========================================================= */
 
 const PERFORMANCE = {
 
@@ -171,10 +147,6 @@ let shadowFocusTimer =
     0;
 
 
-/* =========================================================
-   GAME STATES
-========================================================= */
-
 const GAME_STATE = {
 
     MENU:
@@ -239,10 +211,6 @@ let endingSequenceStarted =
     false;
 
 
-/* =========================================================
-   PLAYER SPAWN ZONE A
-========================================================= */
-
 const PLAYER_SPAWN_ZONE_A = {
 
     x:
@@ -255,10 +223,6 @@ const PLAYER_SPAWN_ZONE_A = {
         -4.4
 };
 
-
-/* =========================================================
-   BOSS ARENA SPAWN
-========================================================= */
 
 const BOSS_ARENA_SPAWN_CONFIG = {
 
@@ -845,10 +809,16 @@ const playerHealth =
             () => {
 
                 playerController.hit();
+
+
+                audioManager.playPlayerHurt();
             },
 
         onDeath:
             () => {
+
+                audioManager.playPlayerDeath();
+
 
                 beginPlayerDeath();
             },
@@ -914,6 +884,9 @@ const bossManager =
         onDeath:
             () => {
 
+                audioManager.playBossDeath();
+
+
                 finishBossEncounter();
             }
     });
@@ -940,6 +913,53 @@ const pickupManager =
                 if (
                     data?.message
                 ) {
+
+                    const pickupMessage =
+                        String(
+                            data.message
+                        )
+                            .toUpperCase();
+
+
+                    if (
+                        pickupMessage.includes(
+                            "ADQUIRIDA"
+                        )
+                    ) {
+
+                        audioManager.playPickup(
+                            "weapon"
+                        );
+                    }
+
+                    else if (
+                        pickupMessage.includes(
+                            "MUNICIÓN"
+                        )
+
+                        ||
+
+                        pickupMessage.includes(
+                            "CARTUCHOS"
+                        )
+                    ) {
+
+                        audioManager.playPickup(
+                            "ammo"
+                        );
+                    }
+
+                    else if (
+                        pickupMessage.includes(
+                            "SALUD +"
+                        )
+                    ) {
+
+                        audioManager.playPickup(
+                            "medkit"
+                        );
+                    }
+
 
                     showNotification(
                         data.message
@@ -1025,6 +1045,950 @@ installBarrelEnemyDamage({
     minDamage:
         25
 });
+
+
+/* =========================================================
+   FULL SFX BRIDGE
+========================================================= */
+
+const audioPatchedEnemies =
+    new WeakSet();
+
+
+const enemyAttackAudioState =
+    new WeakMap();
+
+
+const bossAudioState = {
+
+    chargeRunning:
+        false,
+
+    firePlayed:
+        false,
+
+    previousProjectiles:
+        new Set(),
+
+    projectilesInitialized:
+        false
+};
+
+
+function getActionClipName(
+    action
+) {
+
+    if (
+        !action
+        ||
+        typeof action !==
+        "object"
+    ) {
+
+        return "";
+    }
+
+
+    try {
+
+        const clip =
+            typeof action.getClip ===
+            "function"
+                ?
+                action.getClip()
+                :
+                action._clip;
+
+
+        return String(
+            clip?.name || ""
+        );
+    }
+
+    catch (
+        error
+    ) {
+
+        return "";
+    }
+}
+
+
+function isAnimationActionLike(
+    value
+) {
+
+    return Boolean(
+        value
+        &&
+        typeof value ===
+        "object"
+        &&
+        (
+            typeof value.isRunning ===
+            "function"
+            ||
+            value._clip?.name
+            ||
+            typeof value.getClip ===
+            "function"
+        )
+    );
+}
+
+
+function isActionRunning(
+    action
+) {
+
+    if (
+        !action
+    ) {
+
+        return false;
+    }
+
+
+    try {
+
+        if (
+            typeof action.isRunning ===
+            "function"
+        ) {
+
+            return action.isRunning();
+        }
+
+
+        const weight =
+            typeof action.getEffectiveWeight ===
+            "function"
+                ?
+                action.getEffectiveWeight()
+                :
+                action.weight ?? 1;
+
+
+        return (
+            action.enabled !==
+            false
+            &&
+            !action.paused
+            &&
+            weight >
+            0.01
+        );
+    }
+
+    catch (
+        error
+    ) {
+
+        return false;
+    }
+}
+
+
+function findAnimationAction(
+    entity,
+    pattern
+) {
+
+    if (
+        !entity
+    ) {
+
+        return null;
+    }
+
+
+    const inspect =
+        value => {
+
+            if (
+                isAnimationActionLike(
+                    value
+                )
+            ) {
+
+                const name =
+                    getActionClipName(
+                        value
+                    );
+
+
+                if (
+                    pattern.test(
+                        name
+                    )
+                ) {
+
+                    return value;
+                }
+            }
+
+
+            return null;
+        };
+
+
+    for (
+        const [
+            key,
+            value
+        ]
+        of Object.entries(
+            entity
+        )
+    ) {
+
+        const direct =
+            inspect(
+                value
+            );
+
+
+        if (
+            direct
+        ) {
+
+            return direct;
+        }
+
+
+        if (
+            value instanceof Map
+        ) {
+
+            for (
+                const candidate
+                of value.values()
+            ) {
+
+                const found =
+                    inspect(
+                        candidate
+                    );
+
+
+                if (
+                    found
+                ) {
+
+                    return found;
+                }
+            }
+        }
+
+        else if (
+            Array.isArray(
+                value
+            )
+        ) {
+
+            for (
+                const candidate
+                of value
+            ) {
+
+                const found =
+                    inspect(
+                        candidate
+                    );
+
+
+                if (
+                    found
+                ) {
+
+                    return found;
+                }
+            }
+        }
+
+        else if (
+            value
+            &&
+            typeof value ===
+            "object"
+            &&
+            /action|anim|clip/i.test(
+                key
+            )
+        ) {
+
+            for (
+                const candidate
+                of Object.values(
+                    value
+                )
+            ) {
+
+                const found =
+                    inspect(
+                        candidate
+                    );
+
+
+                if (
+                    found
+                ) {
+
+                    return found;
+                }
+            }
+        }
+    }
+
+
+    return null;
+}
+
+
+function installWeaponAudioHooks() {
+
+    if (
+        typeof weaponManager.fire ===
+        "function"
+        &&
+        !weaponManager.fire.__novaAudioWrapped
+    ) {
+
+        const originalFire =
+            weaponManager.fire;
+
+
+        const wrappedFire =
+            function (...args) {
+
+                const weaponKey =
+                    typeof this.getCurrentWeapon ===
+                    "function"
+                        ?
+                        this.getCurrentWeapon()
+                        :
+                        this.currentWeapon ||
+                        "pistol";
+
+
+                const fired =
+                    originalFire.apply(
+                        this,
+                        args
+                    );
+
+
+                if (
+                    fired ===
+                    true
+                ) {
+
+                    audioManager.playWeaponFire(
+                        weaponKey
+                    );
+                }
+
+
+                return fired;
+            };
+
+
+        wrappedFire.__novaAudioWrapped =
+            true;
+
+
+        weaponManager.fire =
+            wrappedFire;
+    }
+
+
+    if (
+        typeof weaponManager.explodeBarrel ===
+        "function"
+        &&
+        !weaponManager.explodeBarrel.__novaAudioWrapped
+    ) {
+
+        const originalExplodeBarrel =
+            weaponManager.explodeBarrel;
+
+
+        const wrappedExplodeBarrel =
+            function (
+                barrel,
+                ...args
+            ) {
+
+                const rigidBody =
+                    barrel?.rigidBody;
+
+
+                const alreadyExploded =
+                    Boolean(
+                        rigidBody
+                        &&
+                        this.explodedBodies?.has?.(
+                            rigidBody
+                        )
+                    );
+
+
+                const result =
+                    originalExplodeBarrel.call(
+                        this,
+                        barrel,
+                        ...args
+                    );
+
+
+                if (
+                    rigidBody
+                    &&
+                    !alreadyExploded
+                ) {
+
+                    audioManager.playExplosion();
+                }
+
+
+                return result;
+            };
+
+
+        wrappedExplodeBarrel.__novaAudioWrapped =
+            true;
+
+
+        weaponManager.explodeBarrel =
+            wrappedExplodeBarrel;
+    }
+}
+
+
+function installBossDamageAudioHook() {
+
+    if (
+        typeof bossManager.takeDamage !==
+        "function"
+        ||
+        bossManager.takeDamage.__novaAudioWrapped
+    ) {
+
+        return;
+    }
+
+
+    const originalTakeDamage =
+        bossManager.takeDamage;
+
+
+    const wrappedTakeDamage =
+        function (...args) {
+
+            const killed =
+                originalTakeDamage.apply(
+                    this,
+                    args
+                );
+
+
+            if (
+                !killed
+            ) {
+
+                audioManager.playEnemyCreature(
+                    "boss"
+                );
+            }
+
+
+            return killed;
+        };
+
+
+    wrappedTakeDamage.__novaAudioWrapped =
+        true;
+
+
+    bossManager.takeDamage =
+        wrappedTakeDamage;
+}
+
+
+function patchEnemyAudio(
+    enemy
+) {
+
+    if (
+        !enemy
+        ||
+        audioPatchedEnemies.has(
+            enemy
+        )
+    ) {
+
+        return;
+    }
+
+
+    audioPatchedEnemies.add(
+        enemy
+    );
+
+
+    audioManager.playEnemyCreature(
+        "spawn"
+    );
+
+
+    if (
+        typeof enemy.takeDamage ===
+        "function"
+    ) {
+
+        const originalTakeDamage =
+            enemy.takeDamage;
+
+
+        enemy.takeDamage =
+            function (...args) {
+
+                const killed =
+                    originalTakeDamage.apply(
+                        this,
+                        args
+                    );
+
+
+                if (
+                    killed
+                ) {
+
+                    audioManager.playEnemyDeath();
+                }
+
+                else {
+
+                    audioManager.playEnemyCreature(
+                        "hit"
+                    );
+                }
+
+
+                return killed;
+            };
+    }
+}
+
+
+function updateEnemyAudioObservers() {
+
+    const enemies =
+        typeof enemyManager.getAliveEnemies ===
+        "function"
+            ?
+            enemyManager.getAliveEnemies()
+            :
+            [];
+
+
+    for (
+        const enemy
+        of enemies
+    ) {
+
+        patchEnemyAudio(
+            enemy
+        );
+
+
+        const attackAction =
+            findAnimationAction(
+                enemy,
+                /attack|melee/i
+            );
+
+
+        if (
+            !attackAction
+        ) {
+
+            continue;
+        }
+
+
+        const running =
+            isActionRunning(
+                attackAction
+            );
+
+
+        const previous =
+            enemyAttackAudioState.get(
+                enemy
+            )
+            ??
+            false;
+
+
+        if (
+            running
+            &&
+            !previous
+        ) {
+
+            audioManager.playEnemyCreature(
+                "attack"
+            );
+        }
+
+
+        enemyAttackAudioState.set(
+            enemy,
+            running
+        );
+    }
+}
+
+
+function getBossProjectiles() {
+
+    const projectiles =
+        [];
+
+
+    for (
+        const [
+            key,
+            value
+        ]
+        of Object.entries(
+            bossManager
+        )
+    ) {
+
+        if (
+            !/projectile/i.test(
+                key
+            )
+        ) {
+
+            continue;
+        }
+
+
+        if (
+            Array.isArray(
+                value
+            )
+        ) {
+
+            for (
+                const item
+                of value
+            ) {
+
+                if (
+                    item
+                    &&
+                    typeof item ===
+                    "object"
+                ) {
+
+                    projectiles.push(
+                        item
+                    );
+                }
+            }
+        }
+
+        else if (
+            value instanceof Set
+            ||
+            value instanceof Map
+        ) {
+
+            for (
+                const item
+                of value.values()
+            ) {
+
+                if (
+                    item
+                    &&
+                    typeof item ===
+                    "object"
+                ) {
+
+                    projectiles.push(
+                        item
+                    );
+                }
+            }
+        }
+
+        else if (
+            value
+            &&
+            typeof value ===
+            "object"
+            &&
+            !isAnimationActionLike(
+                value
+            )
+        ) {
+
+            projectiles.push(
+                value
+            );
+        }
+    }
+
+
+    return projectiles;
+}
+
+
+function resetBossAudioObserver() {
+
+    bossAudioState.chargeRunning =
+        false;
+
+
+    bossAudioState.firePlayed =
+        false;
+
+
+    bossAudioState.previousProjectiles =
+        new Set();
+
+
+    bossAudioState.projectilesInitialized =
+        false;
+}
+
+
+function updateBossAudioObserver() {
+
+    installBossDamageAudioHook();
+
+
+    const cannonAction =
+        findAnimationAction(
+            bossManager,
+            /cannon.*charge|charge.*cannon/i
+        );
+
+
+    if (
+        cannonAction
+    ) {
+
+        const running =
+            isActionRunning(
+                cannonAction
+            );
+
+
+        if (
+            running
+            &&
+            !bossAudioState.chargeRunning
+        ) {
+
+            bossAudioState.firePlayed =
+                false;
+
+
+            audioManager.playCannonCharge();
+        }
+
+
+        if (
+            running
+        ) {
+
+            const clip =
+                typeof cannonAction.getClip ===
+                "function"
+                    ?
+                    cannonAction.getClip()
+                    :
+                    cannonAction._clip;
+
+
+            const duration =
+                Number(
+                    clip?.duration
+                )
+                ||
+                0;
+
+
+            if (
+                duration >
+                0
+                &&
+                !bossAudioState.firePlayed
+                &&
+                cannonAction.time /
+                duration >=
+                0.72
+            ) {
+
+                bossAudioState.firePlayed =
+                    true;
+
+
+                audioManager.playCannonFire();
+            }
+        }
+
+
+        if (
+            !running
+            &&
+            bossAudioState.chargeRunning
+        ) {
+
+            bossAudioState.firePlayed =
+                false;
+        }
+
+
+        bossAudioState.chargeRunning =
+            running;
+    }
+
+
+    const currentProjectiles =
+        new Set(
+            getBossProjectiles()
+        );
+
+
+    if (
+        !bossAudioState.projectilesInitialized
+    ) {
+
+        bossAudioState.previousProjectiles =
+            currentProjectiles;
+
+
+        bossAudioState.projectilesInitialized =
+            true;
+
+
+        return;
+    }
+
+
+    let projectileCreated =
+        false;
+
+
+    for (
+        const projectile
+        of currentProjectiles
+    ) {
+
+        if (
+            !bossAudioState
+                .previousProjectiles
+                .has(
+                    projectile
+                )
+        ) {
+
+            projectileCreated =
+                true;
+
+
+            break;
+        }
+    }
+
+
+    if (
+        projectileCreated
+        &&
+        !bossAudioState.firePlayed
+    ) {
+
+        bossAudioState.firePlayed =
+            true;
+
+
+        audioManager.playCannonFire();
+    }
+
+
+    let projectileRemoved =
+        false;
+
+
+    for (
+        const projectile
+        of bossAudioState
+            .previousProjectiles
+    ) {
+
+        if (
+            !currentProjectiles.has(
+                projectile
+            )
+        ) {
+
+            projectileRemoved =
+                true;
+
+
+            break;
+        }
+    }
+
+
+    if (
+        projectileRemoved
+        &&
+        currentState ===
+        GAME_STATE.BOSS_FIGHT
+    ) {
+
+        audioManager.playCannonImpact();
+    }
+
+
+    bossAudioState.previousProjectiles =
+        currentProjectiles;
+}
+
+
+function updateDynamicAudioObservers() {
+
+    if (
+        currentState ===
+        GAME_STATE.PLAYING
+    ) {
+
+        updateEnemyAudioObservers();
+    }
+
+    else if (
+        currentState ===
+        GAME_STATE.BOSS_FIGHT
+    ) {
+
+        updateBossAudioObserver();
+    }
+}
+
+
+installWeaponAudioHooks();
+
+
+installBossDamageAudioHook();
 
 
 /* =========================================================
@@ -1806,6 +2770,14 @@ async function runIntroSequence() {
         GAME_STATE.INTRO;
 
 
+    audioManager.playMusic(
+        "zoneA",
+        {
+            fade: 1.8
+        }
+    );
+
+
     playerController.setEnabled(
         false
     );
@@ -2304,10 +3276,6 @@ endingOverlay.appendChild(
 );
 
 
-/* =========================================================
-   ENDING HELPERS
-========================================================= */
-
 function showEndingOverlay() {
 
     endingOverlay.style.visibility =
@@ -2559,10 +3527,6 @@ async function playEndingFlash() {
 }
 
 
-/* =========================================================
-   ENDING
-========================================================= */
-
 async function runEndingSequence() {
 
     if (
@@ -2584,8 +3548,9 @@ async function runEndingSequence() {
     audioManager.stopSiren();
 
 
-    audioManager.stopMusic(
-        1.15
+    audioManager.setCurrentMusicLevel(
+        0.22,
+        1.5
     );
 
 
@@ -4470,8 +5435,9 @@ function beginPlayerDeath() {
     audioManager.stopSiren();
 
 
-    audioManager.stopMusic(
-        0.9
+    audioManager.setCurrentMusicLevel(
+        0.28,
+        1.2
     );
 
 
@@ -6409,8 +7375,11 @@ async function beginBossTransition() {
     audioManager.stopSiren();
 
 
-    audioManager.stopMusic(
-        1.0
+    audioManager.playMusic(
+        "boss",
+        {
+            fade: 1.35
+        }
     );
 
 
@@ -6628,6 +7597,12 @@ async function beginBossTransition() {
     );
 
 
+    resetBossAudioObserver();
+
+
+    installBossDamageAudioHook();
+
+
     weaponManager.setEnemyManager(
         bossManager
     );
@@ -6679,14 +7654,6 @@ async function beginBossTransition() {
     setBossLoading(
         100,
         "SECTOR CORE ONLINE"
-    );
-
-
-    audioManager.playMusic(
-        "boss",
-        {
-            fade: 1.0
-        }
     );
 
 
@@ -7278,10 +8245,7 @@ function update(
         }
 
 
-        /* =================================================
-           ONE AND ONLY RAPIER STEP
-        ================================================= */
-
+        /* ÚNICO RAPIER STEP */
         physicsManager.step(
             deltaTime
         );
@@ -7307,13 +8271,15 @@ function update(
             objectManager.update();
         }
 
-
         else {
 
             bossManager.update(
                 deltaTime
             );
         }
+
+
+        updateDynamicAudioObservers();
 
 
         playerController
@@ -7712,6 +8678,6 @@ console.log(
 
 
 console.log(
-    "%cDynamic Audio · Build v0.27.0",
+    "%cFull Audio Integration · Build v0.29.0",
     "color:#8effa8;"
 );
