@@ -2,7 +2,7 @@
    NOVA CATALYST
    Main Controller
 
-   Build v0.26.0 · VISIBLE ZONE A AFTERMATH
+   Build v0.27.0 · DYNAMIC AUDIO
 
    ---------------------------------------------------------
    - Intro cinematic
@@ -20,6 +20,9 @@
    - Game Over Spanish
    - Final cinematic
    - Zona B Próximamente
+   - Dynamic music: Menu / Zone A / Boss
+   - Audio siren integration
+   - Audio pause / resume
 ========================================================= */
 
 import * as THREE from "three";
@@ -80,6 +83,10 @@ import {
 import {
     ZoneAAtmosphere
 } from "./zoneAAtmosphere.js";
+
+import {
+    audioManager
+} from "./audioManager.js";
 
 
 /* =========================================================
@@ -2574,6 +2581,14 @@ async function runEndingSequence() {
         GAME_STATE.VICTORY;
 
 
+    audioManager.stopSiren();
+
+
+    audioManager.stopMusic(
+        1.15
+    );
+
+
     playerController.setEnabled(
         false
     );
@@ -2854,10 +2869,6 @@ function activateZoneALighting() {
         false;
 
 
-    /* =====================================================
-       BOSS OFF
-    ====================================================== */
-
     bossSiren.active =
         false;
 
@@ -2878,20 +2889,10 @@ function activateZoneALighting() {
         false;
 
 
-    /* =====================================================
-       ATMOSPHERE RESET
-    ====================================================== */
-
     zoneAAtmosphere.setActive(
         false
     );
 
-
-    /* =====================================================
-       DARKER / COLDER ZONE A
-
-       Así el rojo realmente puede apreciarse.
-    ====================================================== */
 
     ambientLight.intensity =
         0.50;
@@ -2912,10 +2913,6 @@ function activateZoneALighting() {
     secondaryFill.intensity =
         0.25;
 
-
-    /* =====================================================
-       SUBTLE GLOBAL RED
-    ====================================================== */
 
     emergencyLight.visible =
         true;
@@ -4336,6 +4333,9 @@ function pauseGame() {
     );
 
 
+    audioManager.pauseAll();
+
+
     pauseMenu.setVisible(
         true
     );
@@ -4356,6 +4356,9 @@ function resumeGame() {
     pauseMenu.setVisible(
         false
     );
+
+
+    audioManager.resumeAll();
 
 
     currentState =
@@ -4462,6 +4465,14 @@ function beginPlayerDeath() {
 
     currentState =
         GAME_STATE.DYING;
+
+
+    audioManager.stopSiren();
+
+
+    audioManager.stopMusic(
+        0.9
+    );
 
 
     weaponManager.setPaused(
@@ -4715,6 +4726,17 @@ function startZoneAGameplay() {
         GAME_STATE.PLAYING;
 
 
+    audioManager.playMusic(
+        "zoneA",
+        {
+            fade: 1.6
+        }
+    );
+
+
+    audioManager.startZoneASiren();
+
+
     cameraManager.setPaused(
         false
     );
@@ -4806,6 +4828,14 @@ async function enterZoneA() {
         GAME_STATE.LOADING;
 
 
+    audioManager.stopSiren();
+
+
+    audioManager.stopMusic(
+        1.0
+    );
+
+
     activateZoneALighting();
 
 
@@ -4869,10 +4899,6 @@ async function enterZoneA() {
 
     try {
 
-        /* =================================================
-           ZONE A
-        ================================================= */
-
         const zoneA =
             await environmentManager
                 .activateEnvironment(
@@ -4890,10 +4916,6 @@ async function enterZoneA() {
         );
 
 
-        /* =================================================
-           PHYSICS
-        ================================================= */
-
         setLoading(
             45,
             "Inicializando física..."
@@ -4909,39 +4931,17 @@ async function enterZoneA() {
             );
 
 
-        /* =================================================
-           PLAYER SPAWN
-        ================================================= */
-
         const playerSpawn =
             calculateZoneASpawn(
                 zoneA
             );
 
 
-        /* =================================================
-           AFTERMATH
-
-           CORRECCIÓN IMPORTANTE:
-
-           Pasamos playerSpawn DIRECTAMENTE.
-
-           NO:
-           playerSpawn.y + 4.4
-
-           NO:
-           playerSpawn.y - heightOffset
-        ================================================= */
-
         zoneAAtmosphere.setup(
             zoneA,
             playerSpawn
         );
 
-
-        /* =================================================
-           PLAYER
-        ================================================= */
 
         setLoading(
             60,
@@ -4974,10 +4974,6 @@ async function enterZoneA() {
         );
 
 
-        /* =================================================
-           WEAPONS
-        ================================================= */
-
         setLoading(
             70,
             "Cargando arsenal..."
@@ -4991,10 +4987,6 @@ async function enterZoneA() {
             zoneA
         );
 
-
-        /* =================================================
-           OBJECTS
-        ================================================= */
 
         setLoading(
             78,
@@ -5016,10 +5008,6 @@ async function enterZoneA() {
             .refreshDynamicTargets();
 
 
-        /* =================================================
-           PICKUPS
-        ================================================= */
-
         setLoading(
             84,
             "Distribuyendo suministros..."
@@ -5036,10 +5024,6 @@ async function enterZoneA() {
                 playerSpawn
             );
 
-
-        /* =================================================
-           ENEMIES
-        ================================================= */
 
         setLoading(
             89,
@@ -5059,10 +5043,6 @@ async function enterZoneA() {
             false
         );
 
-
-        /* =================================================
-           WAVES
-        ================================================= */
 
         waveManager.setEnvironment(
             zoneA
@@ -5101,10 +5081,6 @@ async function enterZoneA() {
         }
 
 
-        /* =================================================
-           CAMERA
-        ================================================= */
-
         playerController.setEnabled(
             false
         );
@@ -5124,10 +5100,6 @@ async function enterZoneA() {
             true
         );
 
-
-        /* =================================================
-           WEAPON
-        ================================================= */
 
         weaponManager.setEnabled(
             true
@@ -5164,10 +5136,6 @@ async function enterZoneA() {
         renderer.shadowMap.needsUpdate =
             true;
 
-
-        /* =================================================
-           READY
-        ================================================= */
 
         setLoading(
             100,
@@ -6438,6 +6406,14 @@ async function beginBossTransition() {
         GAME_STATE.TRANSITION;
 
 
+    audioManager.stopSiren();
+
+
+    audioManager.stopMusic(
+        1.0
+    );
+
+
     playerController.setEnabled(
         false
     );
@@ -6704,6 +6680,17 @@ async function beginBossTransition() {
         100,
         "SECTOR CORE ONLINE"
     );
+
+
+    audioManager.playMusic(
+        "boss",
+        {
+            fade: 1.0
+        }
+    );
+
+
+    audioManager.startBossSiren();
 
 
     await sleep(
@@ -7169,10 +7156,6 @@ function update(
     );
 
 
-    /* =====================================================
-       GAMEPLAY
-    ====================================================== */
-
     if (
         isGameplayState()
     ) {
@@ -7269,10 +7252,6 @@ function update(
             );
 
 
-        /* =================================================
-           PLAYER
-        ================================================= */
-
         playerController.update(
             deltaTime,
             cameraForward,
@@ -7288,10 +7267,6 @@ function update(
             );
 
 
-        /* =================================================
-           ENEMIES
-        ================================================= */
-
         if (
             !bossFight
         ) {
@@ -7304,7 +7279,7 @@ function update(
 
 
         /* =================================================
-           ONE RAPIER STEP
+           ONE AND ONLY RAPIER STEP
         ================================================= */
 
         physicsManager.step(
@@ -7319,10 +7294,6 @@ function update(
             );
 
 
-        /* =================================================
-           ZONE A
-        ================================================= */
-
         if (
             !bossFight
         ) {
@@ -7336,10 +7307,6 @@ function update(
             objectManager.update();
         }
 
-
-        /* =================================================
-           BOSS
-        ================================================= */
 
         else {
 
@@ -7390,10 +7357,6 @@ function update(
         }
 
 
-        /* =================================================
-           PLAYER LIGHT
-        ================================================= */
-
         const playerPosition =
             playerController
                 .getPosition();
@@ -7413,10 +7376,6 @@ function update(
             playerPosition
         );
 
-
-        /* =================================================
-           HUD
-        ================================================= */
 
         debugTimer +=
             deltaTime;
@@ -7461,10 +7420,6 @@ function update(
     }
 
 
-    /* =====================================================
-       INTRO
-    ====================================================== */
-
     else if (
         currentState ===
         GAME_STATE.INTRO
@@ -7476,10 +7431,6 @@ function update(
             );
     }
 
-
-    /* =====================================================
-       DYING
-    ====================================================== */
 
     else if (
         currentState ===
@@ -7510,10 +7461,6 @@ function update(
     }
 
 
-    /* =====================================================
-       VICTORY
-    ====================================================== */
-
     else if (
         currentState ===
         GAME_STATE.VICTORY
@@ -7531,22 +7478,11 @@ function update(
     }
 
 
-    /* =====================================================
-       ZONE A SIREN
-
-       Corre incluso durante la intro detrás de la
-       pantalla negra.
-    ====================================================== */
-
     zoneAAtmosphere.update(
         deltaTime,
         elapsedTime
     );
 
-
-    /* =====================================================
-       BOSS SIREN
-    ====================================================== */
 
     if (
         bossSiren.active
@@ -7558,10 +7494,6 @@ function update(
         );
     }
 
-
-    /* =====================================================
-       ZONE A GLOBAL RED PULSE
-    ====================================================== */
 
     if (
         zoneAAtmosphere.active
@@ -7722,6 +7654,19 @@ const autoRetryZoneA =
 
 
 if (
+    !autoRetryZoneA
+) {
+
+    audioManager.playMusic(
+        "menu",
+        {
+            fade: 1.4
+        }
+    );
+}
+
+
+if (
     autoRetryZoneA
 ) {
 
@@ -7767,6 +7712,6 @@ console.log(
 
 
 console.log(
-    "%cZone A Aftermath · Build v0.26.0",
+    "%cDynamic Audio · Build v0.27.0",
     "color:#8effa8;"
 );
