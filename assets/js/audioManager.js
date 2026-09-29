@@ -10,7 +10,7 @@ const AUDIO_FILES = {
     menu: {
         path: "./assets/sounds/music/menu.mp3",
         category: "music",
-        volume: 0.90
+        volume: 0.95
     },
 
     zoneA: {
@@ -28,7 +28,7 @@ const AUDIO_FILES = {
     pistolFire: {
         path: "./assets/sounds/weapons/pistol_fire.mp3",
         category: "sfx",
-        volume: 0.60
+        volume: 0.28
     },
 
     smgFire: {
@@ -40,13 +40,13 @@ const AUDIO_FILES = {
     shotgunFire: {
         path: "./assets/sounds/weapons/shotgun_fire.mp3",
         category: "sfx",
-        volume: 0.88
+        volume: 0.80
     },
 
     enemyCreature: {
         path: "./assets/sounds/enemies/enemy_creature.mp3",
         category: "sfx",
-        volume: 0.48
+        volume: 0.20
     },
 
     enemyDeath: {
@@ -70,7 +70,7 @@ const AUDIO_FILES = {
     pickup: {
         path: "./assets/sounds/pickups/pickup.mp3",
         category: "sfx",
-        volume: 0.35
+        volume: 0.10
     },
 
     barrelExplosion: {
@@ -88,13 +88,13 @@ const AUDIO_FILES = {
     cannonFire: {
         path: "./assets/sounds/boss/cannon_fire.mp3",
         category: "sfx",
-        volume: 1.00
+        volume: .80
     },
 
     siren: {
         path: "./assets/sounds/ambient/siren.mp3",
         category: "ambient",
-        volume: 0.45
+        volume: 0.50
     }
 };
 
