@@ -2,7 +2,7 @@
    NOVA CATALYST
    Pickup Manager
 
-   Build v0.14.0-R
+   Build v0.15.0-B · AMMO BALANCE
 
    STABLE PRE-ALPHA ROLLBACK
 
@@ -15,6 +15,8 @@
    - E interaction
    - Safe local spawn positions
    - Wave rewards
+   - Progressive ammo balance
+   - No Boss Arena rewards
 
    IMPORTANTE
    ---------------------------------------------------------
@@ -73,8 +75,6 @@ const PICKUP_CONFIG = {
 
     /* =====================================================
        LOCAL SAFE SEARCH
-
-       Esta es la distribución original estable.
     ====================================================== */
 
     searchRadii: [
@@ -90,14 +90,60 @@ const PICKUP_CONFIG = {
 
 
     /* =====================================================
-       RESOURCES
+       BASE AMMO
     ====================================================== */
 
     smgAmmo:
-        45,
+        50,
 
     shotgunAmmo:
-        8,
+        10,
+
+
+    /* =====================================================
+       WAVE BALANCE
+    ====================================================== */
+
+    /*
+     * Wave 2:
+     *
+     * Shotgun garantizada +
+     * posibilidad de una caja SMG pequeña.
+     */
+    wave2BonusChance:
+        0.55,
+
+    wave2BonusSmgAmmo:
+        35,
+
+
+    /*
+     * Wave 3:
+     *
+     * Reabastecimiento intermedio de ambas armas.
+     */
+    wave3SmgAmmo:
+        55,
+
+    wave3ShotgunAmmo:
+        10,
+
+
+    /*
+     * Wave 4:
+     *
+     * Último suministro antes de Wave 5 + Boss.
+     */
+    wave4SmgAmmo:
+        70,
+
+    wave4ShotgunAmmo:
+        12,
+
+
+    /* =====================================================
+       HEALTH
+    ====================================================== */
 
     medkitHealth:
         25,
@@ -865,10 +911,8 @@ export class PickupManager {
     /* =====================================================
        DIRECT ACCESS
 
-       Esta comprobación solo intenta evitar que un objeto
-       termine al otro lado de una pared enorme.
-
-       No se usa como navegación avanzada.
+       Evita que los pickups aparezcan al otro lado
+       de una pared grande.
     ====================================================== */
 
     hasDirectAccess(
@@ -1025,8 +1069,6 @@ export class PickupManager {
 
     /* =====================================================
        FIND SAFE POSITION
-
-       Este es nuevamente el algoritmo estable original.
     ====================================================== */
 
     findSafePosition(
@@ -1168,14 +1210,6 @@ export class PickupManager {
 
         /* =================================================
            RELAXED SEARCH
-
-           Si no encontró uno con línea directa,
-           quitamos solo esa restricción.
-
-           Seguimos exigiendo:
-           - piso
-           - espacio
-           - separación
         ================================================= */
 
         for (
@@ -1287,10 +1321,6 @@ export class PickupManager {
         }
 
 
-        /*
-         * Igual que la primera versión:
-         * fallback cerca del área jugable conocida.
-         */
         console.warn(
 
             "[Pickup] Safe search fallback."
@@ -1364,7 +1394,7 @@ export class PickupManager {
 
 
     /* =====================================================
-       WEAPON
+       WEAPON PICKUP
     ====================================================== */
 
     createWeaponPickup({
@@ -1990,8 +2020,6 @@ export class PickupManager {
 
     /* =====================================================
        INITIAL ZONE A PICKUPS
-
-       REGRESAMOS A LOS OFFSETS DE LA VERSIÓN ESTABLE.
     ====================================================== */
 
     createZoneAPickups(
@@ -2071,7 +2099,7 @@ export class PickupManager {
 
 
         /* =================================================
-           SMG AMMO
+           INITIAL SMG AMMO
         ================================================= */
 
         const smgAmmoPosition =
@@ -2100,7 +2128,7 @@ export class PickupManager {
 
 
         /* =================================================
-           SHOTGUN AMMO
+           INITIAL SHOTGUN AMMO
         ================================================= */
 
         const shotgunAmmoPosition =
@@ -2131,7 +2159,7 @@ export class PickupManager {
         /* =================================================
            INITIAL MEDKIT
 
-           Solo uno.
+           Primer botiquín de los dos máximos.
         ================================================= */
 
         const medkitPosition =
@@ -2158,7 +2186,7 @@ export class PickupManager {
 
         console.log(
 
-            "[Pickup] Stable Pre-Alpha layout ONLINE"
+            "[Pickup] Balanced Pre-Alpha layout ONLINE"
 
         );
 
@@ -2166,17 +2194,27 @@ export class PickupManager {
 
 
     /* =====================================================
-       WAVE REWARDS
+       WAVE REWARDS · BALANCED PRE-ALPHA
 
-       Igual que la primera arquitectura:
-       posiciones alrededor de un área conocida y válida.
+       OBJETIVO
+       -----------------------------------------------------
+       - dar más margen con SMG y Shotgun
+       - pistola sigue siendo respaldo infinito
+       - no llenar el escenario de cajas
+       - preparar al jugador para Wave 5 + Boss
+       - NO dar suministros después de Wave 5
 
-       No hacemos búsqueda global.
+       Seguimos usando findSafePosition().
+       No se modifica el sistema estable de spawns.
     ====================================================== */
 
     spawnWaveRewards(
         wave
     ) {
+
+        /* =================================================
+           PREVENT DUPLICATES
+        ================================================= */
 
         if (
             this.waveRewardsSpawned.has(
@@ -2194,6 +2232,38 @@ export class PickupManager {
         );
 
 
+        /* =================================================
+           WAVE 5
+
+           SIN RECOMPENSA.
+
+           La Wave 5 conecta directamente al Boss Arena.
+
+           El jugador tendrá que conservar suministros de
+           Wave 4 si quiere utilizarlos contra el Boss.
+        ================================================= */
+
+        if (
+            wave >=
+            5
+        ) {
+
+            console.log(
+
+                "[Pickup] Wave 5 clear · sin suministros antes del Boss."
+
+            );
+
+
+            return;
+
+        }
+
+
+        /* =================================================
+           CURRENT PLAYER POSITION
+        ================================================= */
+
         this.playerController
             .getObject()
             .getWorldPosition(
@@ -2207,6 +2277,8 @@ export class PickupManager {
 
         /* =================================================
            WAVE 1
+
+           Caja SMG garantizada.
         ================================================= */
 
         if (
@@ -2236,7 +2308,7 @@ export class PickupManager {
 
             this.emitMessage(
 
-                "SUMINISTROS DESPLEGADOS · MUNICIÓN SMG"
+                `SUMINISTROS · MUNICIÓN SMG +${PICKUP_CONFIG.smgAmmo}`
 
             );
 
@@ -2249,7 +2321,13 @@ export class PickupManager {
         /* =================================================
            WAVE 2
 
-           Sin botiquín.
+           Shotgun garantizada.
+
+           Además:
+           55% de posibilidad de una caja SMG pequeña.
+
+           La partida NO depende de RNG porque el pickup
+           principal siempre aparece.
         ================================================= */
 
         if (
@@ -2277,11 +2355,52 @@ export class PickupManager {
             });
 
 
-            this.emitMessage(
+            const bonusSMG =
+                Math.random() <
+                PICKUP_CONFIG.wave2BonusChance;
 
-                "SUMINISTROS DESPLEGADOS · CARTUCHOS"
 
-            );
+            if (
+                bonusSMG
+            ) {
+
+                this.createAmmoPickup({
+
+                    weaponKey:
+                        "smg",
+
+                    amount:
+                        PICKUP_CONFIG.wave2BonusSmgAmmo,
+
+                    position:
+                        this.findSafePosition(
+
+                            base,
+
+                            3.25
+
+                        )
+
+                });
+
+
+                this.emitMessage(
+
+                    "SUMINISTROS · CARTUCHOS + APOYO SMG"
+
+                );
+
+            }
+
+            else {
+
+                this.emitMessage(
+
+                    `SUMINISTROS · CARTUCHOS +${PICKUP_CONFIG.shotgunAmmo}`
+
+                );
+
+            }
 
 
             return;
@@ -2292,7 +2411,9 @@ export class PickupManager {
         /* =================================================
            WAVE 3
 
-           Munición de ambas.
+           Punto medio.
+
+           Ambas armas reciben munición garantizada.
         ================================================= */
 
         if (
@@ -2306,7 +2427,7 @@ export class PickupManager {
                     "smg",
 
                 amount:
-                    PICKUP_CONFIG.smgAmmo,
+                    PICKUP_CONFIG.wave3SmgAmmo,
 
                 position:
                     this.findSafePosition(
@@ -2326,7 +2447,7 @@ export class PickupManager {
                     "shotgun",
 
                 amount:
-                    PICKUP_CONFIG.shotgunAmmo,
+                    PICKUP_CONFIG.wave3ShotgunAmmo,
 
                 position:
                     this.findSafePosition(
@@ -2342,7 +2463,7 @@ export class PickupManager {
 
             this.emitMessage(
 
-                "SUMINISTROS DESPLEGADOS · MUNICIÓN"
+                "REABASTECIMIENTO · SMG + SHOTGUN"
 
             );
 
@@ -2355,6 +2476,12 @@ export class PickupManager {
         /* =================================================
            WAVE 4
 
+           ÚLTIMO REABASTECIMIENTO.
+
+           Aquí damos suficiente para:
+           - Wave 5
+           - conservar algo para Boss
+
            Segundo y último botiquín.
         ================================================= */
 
@@ -2363,13 +2490,17 @@ export class PickupManager {
             4
         ) {
 
+            /* =============================================
+               SMG
+            ============================================= */
+
             this.createAmmoPickup({
 
                 weaponKey:
                     "smg",
 
                 amount:
-                    60,
+                    PICKUP_CONFIG.wave4SmgAmmo,
 
                 position:
                     this.findSafePosition(
@@ -2383,13 +2514,17 @@ export class PickupManager {
             });
 
 
+            /* =============================================
+               SHOTGUN
+            ============================================= */
+
             this.createAmmoPickup({
 
                 weaponKey:
                     "shotgun",
 
                 amount:
-                    12,
+                    PICKUP_CONFIG.wave4ShotgunAmmo,
 
                 position:
                     this.findSafePosition(
@@ -2403,10 +2538,14 @@ export class PickupManager {
             });
 
 
+            /* =============================================
+               FINAL MEDKIT
+            ============================================= */
+
             this.createMedkitPickup({
 
                 amount:
-                    25,
+                    PICKUP_CONFIG.medkitHealth,
 
                 position:
                     this.findSafePosition(
@@ -2422,9 +2561,12 @@ export class PickupManager {
 
             this.emitMessage(
 
-                "REABASTECIMIENTO FINAL DESPLEGADO"
+                "REABASTECIMIENTO FINAL · PREPÁRATE"
 
             );
+
+
+            return;
 
         }
 
@@ -2514,6 +2656,10 @@ export class PickupManager {
             "ammo"
         ) {
 
+            /*
+             * No se puede recoger munición de un arma
+             * todavía bloqueada.
+             */
             if (
                 !this.weaponManager
                     .isWeaponUnlocked(

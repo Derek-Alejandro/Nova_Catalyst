@@ -2,18 +2,22 @@
    NOVA CATALYST
    Main Controller
 
-   Build v0.24.0 · PRE-ALPHA STORY FLOW
+   Build v0.26.0 · VISIBLE ZONE A AFTERMATH
+
    ---------------------------------------------------------
    - Intro cinematic
-   - "Todos están muertos..."
-   - Intro blink / flash
-   - Waves start AFTER intro
+   - Zone A aftermath
+   - Stronger but controlled emergency lighting
+   - Blood on floors
+   - Blood on walls
+   - Scorch marks
+   - Debris
    - Waves 1-5
    - Boss transition
-   - Boss Arena performance mode
-   - Emergency red siren
+   - Boss performance mode
+   - Boss emergency siren
    - F9 Boss Debug
-   - Game Over Spanish buttons
+   - Game Over Spanish
    - Final cinematic
    - Zona B Próximamente
 ========================================================= */
@@ -73,6 +77,10 @@ import {
     PauseMenu
 } from "./pause.js";
 
+import {
+    ZoneAAtmosphere
+} from "./zoneAAtmosphere.js";
+
 
 /* =========================================================
    PERFORMANCE
@@ -123,46 +131,34 @@ const PERFORMANCE = {
 
 let currentPixelRatio =
     Math.min(
-
-        window.devicePixelRatio ||
-        1,
-
+        window.devicePixelRatio || 1,
         PERFORMANCE.maxPixelRatio
-
     );
 
 
 let bossPerformanceMode =
     false;
 
-
 let qualityTimer =
     0;
-
 
 let qualityFrames =
     0;
 
-
 let fpsTimer =
     0;
-
 
 let fpsFrames =
     0;
 
-
 let displayedFPS =
     60;
-
 
 let debugTimer =
     0;
 
-
 let shadowRefreshTimer =
     0;
-
 
 let shadowFocusTimer =
     0;
@@ -237,7 +233,7 @@ let endingSequenceStarted =
 
 
 /* =========================================================
-   PLAYER SPAWN · ZONE A
+   PLAYER SPAWN ZONE A
 ========================================================= */
 
 const PLAYER_SPAWN_ZONE_A = {
@@ -404,11 +400,8 @@ function localizeGameOverButtons() {
 
         const walker =
             document.createTreeWalker(
-
                 button,
-
                 NodeFilter.SHOW_TEXT
-
             );
 
 
@@ -487,9 +480,7 @@ const fpsCounter =
 
 
 Object.assign(
-
     fpsCounter.style,
-
     {
 
         position:
@@ -531,7 +522,6 @@ Object.assign(
         pointerEvents:
             "none"
     }
-
 );
 
 
@@ -560,11 +550,8 @@ scene.background =
 
 scene.fog =
     new THREE.FogExp2(
-
         0x06080b,
-
         0.0055
-
     );
 
 
@@ -574,16 +561,11 @@ scene.fog =
 
 const camera =
     new THREE.PerspectiveCamera(
-
         60,
-
         window.innerWidth /
         window.innerHeight,
-
         0.05,
-
         350
-
     );
 
 
@@ -626,11 +608,8 @@ renderer.setPixelRatio(
 
 
 renderer.setSize(
-
     window.innerWidth,
-
     window.innerHeight
-
 );
 
 
@@ -643,7 +622,7 @@ renderer.toneMapping =
 
 
 renderer.toneMappingExposure =
-    1.42;
+    1.32;
 
 
 renderer.shadowMap.enabled =
@@ -733,17 +712,11 @@ function createStarField() {
 
 
     geometry.setAttribute(
-
         "position",
-
         new THREE.BufferAttribute(
-
             positions,
-
             3
-
         )
-
     );
 
 
@@ -769,11 +742,8 @@ function createStarField() {
 
     const result =
         new THREE.Points(
-
             geometry,
-
             material
-
         );
 
 
@@ -804,13 +774,16 @@ const environmentManager =
     );
 
 
+const zoneAAtmosphere =
+    new ZoneAAtmosphere(
+        scene
+    );
+
+
 const cameraManager =
     new CameraManager(
-
         camera,
-
         renderer
-
     );
 
 
@@ -826,11 +799,8 @@ const playerController =
 
 const objectManager =
     new ObjectManager(
-
         scene,
-
         physicsManager
-
     );
 
 
@@ -901,7 +871,7 @@ queueMicrotask(
 
 
 /* =========================================================
-   ENEMIES
+   ENEMY
 ========================================================= */
 
 const enemyManager =
@@ -995,9 +965,7 @@ const waveManager =
             data => {
 
                 console.log(
-
                     `[Nova] Wave ${data.wave} · ${data.amount} hostiles`
-
                 );
             },
 
@@ -1015,14 +983,12 @@ const waveManager =
 
                 beginBossTransition()
                     .catch(
-
                         error => {
 
                             handleBossTransitionError(
                                 error
                             );
                         }
-
                     );
             }
     });
@@ -1077,10 +1043,7 @@ cameraManager
 
 
                 return [
-
-                    bossManager
-                        .getObject()
-
+                    bossManager.getObject()
                 ];
             }
 
@@ -1088,19 +1051,14 @@ cameraManager
             return enemyManager
                 .getAliveEnemies()
                 .filter(
-
                     enemy =>
                         !enemy.isSpawning()
-
                 )
                 .map(
-
                     enemy =>
                         enemy.getObject()
-
                 );
         }
-
     );
 
 
@@ -1146,7 +1104,6 @@ playerController
 
             finishPlayerDeath();
         }
-
     );
 
 
@@ -1184,11 +1141,8 @@ let cachedFirstPerson =
 
 const ambientLight =
     new THREE.AmbientLight(
-
         0xb9c8d2,
-
-        0.78
-
+        0.50
     );
 
 
@@ -1199,13 +1153,9 @@ scene.add(
 
 const hemisphereLight =
     new THREE.HemisphereLight(
-
         0xd9efff,
-
         0x15171c,
-
-        1.35
-
+        0.88
     );
 
 
@@ -1216,11 +1166,8 @@ scene.add(
 
 const mainLight =
     new THREE.DirectionalLight(
-
         0xe7f2ff,
-
-        4.0
-
+        2.75
     );
 
 
@@ -1285,11 +1232,8 @@ scene.add(
 
 const secondaryFill =
     new THREE.DirectionalLight(
-
         0x7896ac,
-
-        0.42
-
+        0.25
     );
 
 
@@ -1309,24 +1253,23 @@ scene.add(
 );
 
 
+/* =========================================================
+   GLOBAL ZONE A RED FILL
+========================================================= */
+
 const emergencyLight =
     new THREE.PointLight(
-
-        0xff3029,
-
-        26,
-
-        24,
-
-        2
-
+        0xff2017,
+        8,
+        23,
+        1.8
     );
 
 
 emergencyLight.position.set(
-    0,
-    8,
-    0
+    13,
+    5,
+    1
 );
 
 
@@ -1339,17 +1282,16 @@ scene.add(
 );
 
 
+/* =========================================================
+   PLAYER FILL
+========================================================= */
+
 const playerLight =
     new THREE.PointLight(
-
         0xbde8ff,
-
-        3.2,
-
+        2.8,
         5,
-
         2
-
     );
 
 
@@ -1363,7 +1305,7 @@ scene.add(
 
 
 /* =========================================================
-   LIGHTWEIGHT BOSS SIREN
+   BOSS SIREN
 ========================================================= */
 
 const bossSiren = {
@@ -1402,19 +1344,12 @@ scene.add(
 
 const bossSirenLight =
     new THREE.SpotLight(
-
         0xff170a,
-
         0,
-
         70,
-
         Math.PI / 7,
-
         0.38,
-
         1.4
-
     );
 
 
@@ -1437,15 +1372,10 @@ scene.add(
 
 const bossRedGlow =
     new THREE.PointLight(
-
         0xb5160b,
-
         0,
-
         18,
-
         2
-
     );
 
 
@@ -1480,11 +1410,8 @@ const beaconMaterial =
 
 const bossBeaconA =
     new THREE.Mesh(
-
         beaconGeometry,
-
         beaconMaterial
-
     );
 
 
@@ -1499,11 +1426,8 @@ scene.add(
 
 const bossBeaconB =
     new THREE.Mesh(
-
         beaconGeometry,
-
         beaconMaterial.clone()
-
     );
 
 
@@ -1527,9 +1451,7 @@ const introOverlay =
 
 
 Object.assign(
-
     introOverlay.style,
-
     {
 
         position:
@@ -1565,7 +1487,6 @@ Object.assign(
         pointerEvents:
             "none"
     }
-
 );
 
 
@@ -1581,9 +1502,7 @@ const introText =
 
 
 Object.assign(
-
     introText.style,
-
     {
 
         position:
@@ -1631,7 +1550,6 @@ Object.assign(
         transition:
             "opacity .30s ease, transform .40s ease"
     }
-
 );
 
 
@@ -1647,9 +1565,7 @@ const introFlash =
 
 
 Object.assign(
-
     introFlash.style,
-
     {
 
         position:
@@ -1673,7 +1589,6 @@ Object.assign(
         transition:
             "opacity .045s linear"
     }
-
 );
 
 
@@ -1708,33 +1623,24 @@ function hideIntroOverlay() {
 
 
     setTimeout(
-
         () => {
 
             introOverlay.style.visibility =
                 "hidden";
         },
-
         500
-
     );
 }
 
 
 async function showIntroText(
-
     text,
-
     duration = 900,
-
     {
         color = "#eeeeee",
-
         size = null,
-
         glow = null
     } = {}
-
 ) {
 
     introText.style.transition =
@@ -1758,28 +1664,18 @@ async function showIntroText(
 
 
     introText.style.fontSize =
-
         size
-
             ?
-
             size
-
             :
-
             "clamp(22px,4.2vw,58px)";
 
 
     introText.style.textShadow =
-
         glow
-
             ?
-
             glow
-
             :
-
             "0 0 24px rgba(255,255,255,.12)";
 
 
@@ -1817,15 +1713,8 @@ async function showIntroText(
 }
 
 
-/* =========================================================
-   INTRO FLASH
-========================================================= */
-
 async function playIntroFlash() {
 
-    /*
-     * Primer destello.
-     */
     introFlash.style.background =
         "#8b0b07";
 
@@ -1848,9 +1737,6 @@ async function playIntroFlash() {
     );
 
 
-    /*
-     * Segundo destello.
-     */
     introFlash.style.background =
         "#ffffff";
 
@@ -1873,9 +1759,6 @@ async function playIntroFlash() {
     );
 
 
-    /*
-     * Destello rojo final.
-     */
     introFlash.style.background =
         "#ff2118";
 
@@ -1895,7 +1778,7 @@ async function playIntroFlash() {
 
 
 /* =========================================================
-   RUN INTRO CINEMATIC
+   RUN INTRO
 ========================================================= */
 
 async function runIntroSequence() {
@@ -1915,10 +1798,6 @@ async function runIntroSequence() {
     currentState =
         GAME_STATE.INTRO;
 
-
-    /* =====================================================
-       LOCK EVERYTHING
-    ====================================================== */
 
     playerController.setEnabled(
         false
@@ -1971,10 +1850,6 @@ async function runIntroSequence() {
         );
 
 
-    /* =====================================================
-       BLACK
-    ====================================================== */
-
     showIntroOverlay();
 
 
@@ -1983,16 +1858,9 @@ async function runIntroSequence() {
     );
 
 
-    /* =====================================================
-       TEXT 1
-    ====================================================== */
-
     await showIntroText(
-
         "TODOS ESTÁN MUERTOS.",
-
         900
-
     );
 
 
@@ -2001,21 +1869,13 @@ async function runIntroSequence() {
     );
 
 
-    /* =====================================================
-       TEXT 2
-    ====================================================== */
-
     await showIntroText(
-
         "NADIE RESPONDE.",
-
         800,
-
         {
             color:
                 "#bbbbbb"
         }
-
     );
 
 
@@ -2024,24 +1884,17 @@ async function runIntroSequence() {
     );
 
 
-    /* =====================================================
-       TEXT 3
-    ====================================================== */
-
     await showIntroText(
-
         "AHORA SOLO QUEDAS TÚ.",
-
         1050,
-
         {
+
             color:
                 "#f4f4f4",
 
             glow:
                 "0 0 30px rgba(255,55,45,.18)"
         }
-
     );
 
 
@@ -2049,10 +1902,6 @@ async function runIntroSequence() {
         300
     );
 
-
-    /* =====================================================
-       SURVIVE
-    ====================================================== */
 
     introText.style.transition =
         "none";
@@ -2102,10 +1951,6 @@ async function runIntroSequence() {
     );
 
 
-    /* =====================================================
-       BLINK
-    ====================================================== */
-
     await playIntroFlash();
 
 
@@ -2121,10 +1966,6 @@ async function runIntroSequence() {
     hideIntroOverlay();
 
 
-    /*
-     * Un pequeño margen para que el escenario
-     * aparezca debajo del fade.
-     */
     await sleep(
         320
     );
@@ -2139,7 +1980,7 @@ async function runIntroSequence() {
 
 
 /* =========================================================
-   FINAL CINEMATIC UI
+   FINAL UI
 ========================================================= */
 
 const endingOverlay =
@@ -2149,9 +1990,7 @@ const endingOverlay =
 
 
 Object.assign(
-
     endingOverlay.style,
-
     {
 
         position:
@@ -2193,7 +2032,6 @@ Object.assign(
         fontFamily:
             "Orbitron,Consolas,monospace"
     }
-
 );
 
 
@@ -2209,9 +2047,7 @@ const endingEyebrow =
 
 
 Object.assign(
-
     endingEyebrow.style,
-
     {
 
         fontSize:
@@ -2232,7 +2068,6 @@ Object.assign(
         transition:
             "opacity .35s ease"
     }
-
 );
 
 
@@ -2248,9 +2083,7 @@ const endingTitle =
 
 
 Object.assign(
-
     endingTitle.style,
-
     {
 
         width:
@@ -2286,7 +2119,6 @@ Object.assign(
         textShadow:
             "0 0 30px rgba(255,40,30,.20)"
     }
-
 );
 
 
@@ -2302,9 +2134,7 @@ const endingSubtitle =
 
 
 Object.assign(
-
     endingSubtitle.style,
-
     {
 
         width:
@@ -2334,7 +2164,6 @@ Object.assign(
         transition:
             "opacity .40s ease"
     }
-
 );
 
 
@@ -2350,9 +2179,7 @@ const endingButton =
 
 
 Object.assign(
-
     endingButton.style,
-
     {
 
         marginTop:
@@ -2403,33 +2230,26 @@ Object.assign(
         pointerEvents:
             "none"
     }
-
 );
 
 
 endingButton.addEventListener(
-
     "mouseenter",
-
     () => {
 
         endingButton.style.background =
             "rgba(160,20,15,.35)";
     }
-
 );
 
 
 endingButton.addEventListener(
-
     "mouseleave",
-
     () => {
 
         endingButton.style.background =
             "rgba(120,14,10,.18)";
     }
-
 );
 
 
@@ -2445,9 +2265,7 @@ const endingFlash =
 
 
 Object.assign(
-
     endingFlash.style,
-
     {
 
         position:
@@ -2471,7 +2289,6 @@ Object.assign(
         transition:
             "opacity .05s linear"
     }
-
 );
 
 
@@ -2530,22 +2347,22 @@ function hideEndingContent() {
 }
 
 
-/* =========================================================
-   ENDING TEXT
-========================================================= */
-
 async function showEndingText(
-
     title,
-
     {
-        eyebrow = "",
-        subtitle = "",
-        duration = 1200,
-        color = "#f1f1f1",
-        fontSize = "clamp(28px,5vw,70px)"
-    } = {}
 
+        eyebrow = "",
+
+        subtitle = "",
+
+        duration = 1200,
+
+        color = "#f1f1f1",
+
+        fontSize =
+            "clamp(28px,5vw,70px)"
+
+    } = {}
 ) {
 
     hideEndingContent();
@@ -2616,16 +2433,11 @@ async function showEndingText(
 }
 
 
-/* =========================================================
-   WAIT FOR ENDING BUTTON
-========================================================= */
-
 function waitForEndingButton(
     label
 ) {
 
     return new Promise(
-
         resolve => {
 
             endingButton.textContent =
@@ -2637,7 +2449,6 @@ function waitForEndingButton(
 
 
             requestAnimationFrame(
-
                 () => {
 
                     endingButton.style.opacity =
@@ -2647,17 +2458,17 @@ function waitForEndingButton(
                     endingButton.style.transform =
                         "translateY(0)";
                 }
-
             );
 
 
             const handler =
                 () => {
 
-                    endingButton.removeEventListener(
-                        "click",
-                        handler
-                    );
+                    endingButton
+                        .removeEventListener(
+                            "click",
+                            handler
+                        );
 
 
                     endingButton.style.pointerEvents =
@@ -2673,14 +2484,9 @@ function waitForEndingButton(
                 handler
             );
         }
-
     );
 }
 
-
-/* =========================================================
-   ENDING FLASH
-========================================================= */
 
 async function playEndingFlash() {
 
@@ -2747,7 +2553,7 @@ async function playEndingFlash() {
 
 
 /* =========================================================
-   RUN ENDING CINEMATIC
+   ENDING
 ========================================================= */
 
 async function runEndingSequence() {
@@ -2767,10 +2573,6 @@ async function runEndingSequence() {
     currentState =
         GAME_STATE.VICTORY;
 
-
-    /* =====================================================
-       DISABLE GAMEPLAY
-    ====================================================== */
 
     playerController.setEnabled(
         false
@@ -2826,18 +2628,10 @@ async function runEndingSequence() {
         );
 
 
-    /* =====================================================
-       SHORT PAUSE AFTER BOSS DEATH
-    ====================================================== */
-
     await sleep(
         650
     );
 
-
-    /* =====================================================
-       FADE TO BLACK
-    ====================================================== */
 
     showEndingOverlay();
 
@@ -2847,9 +2641,6 @@ async function runEndingSequence() {
     );
 
 
-    /*
-     * Ya no necesitamos recalcular la sirena.
-     */
     bossSiren.active =
         false;
 
@@ -2870,34 +2661,27 @@ async function runEndingSequence() {
         false;
 
 
-    /* =====================================================
-       ESCAPASTE...
-    ====================================================== */
-
     await showEndingText(
 
         "ESCAPASTE DE ELLOS...",
 
         {
+
             eyebrow:
                 "NOVA ATLAS · SECTOR CORE",
 
             duration:
                 1450
         }
-
     );
 
-
-    /* =====================================================
-       POR AHORA
-    ====================================================== */
 
     await showEndingText(
 
         "POR AHORA.",
 
         {
+
             duration:
                 1500,
 
@@ -2907,13 +2691,8 @@ async function runEndingSequence() {
             fontSize:
                 "clamp(38px,7vw,95px)"
         }
-
     );
 
-
-    /* =====================================================
-       QUESTION
-    ====================================================== */
 
     hideEndingContent();
 
@@ -2971,10 +2750,6 @@ async function runEndingSequence() {
     );
 
 
-    /* =====================================================
-       HIDE QUESTION
-    ====================================================== */
-
     hideEndingContent();
 
 
@@ -2983,10 +2758,6 @@ async function runEndingSequence() {
     );
 
 
-    /* =====================================================
-       FLASH
-    ====================================================== */
-
     await playEndingFlash();
 
 
@@ -2994,10 +2765,6 @@ async function runEndingSequence() {
         300
     );
 
-
-    /* =====================================================
-       ZONE B TEASER
-    ====================================================== */
 
     endingEyebrow.textContent =
         "NOVA CATALYST";
@@ -3047,10 +2814,6 @@ async function runEndingSequence() {
     );
 
 
-    /*
-     * El botón ahora funciona como regreso definitivo
-     * al menú.
-     */
     endingButton.textContent =
         "VOLVER AL INICIO";
 
@@ -3068,19 +2831,15 @@ async function runEndingSequence() {
 
 
     endingButton.addEventListener(
-
         "click",
-
         () => {
 
             fleeToMenu();
         },
-
         {
             once:
                 true
         }
-
     );
 }
 
@@ -3094,6 +2853,10 @@ function activateZoneALighting() {
     bossPerformanceMode =
         false;
 
+
+    /* =====================================================
+       BOSS OFF
+    ====================================================== */
 
     bossSiren.active =
         false;
@@ -3115,16 +2878,31 @@ function activateZoneALighting() {
         false;
 
 
+    /* =====================================================
+       ATMOSPHERE RESET
+    ====================================================== */
+
+    zoneAAtmosphere.setActive(
+        false
+    );
+
+
+    /* =====================================================
+       DARKER / COLDER ZONE A
+
+       Así el rojo realmente puede apreciarse.
+    ====================================================== */
+
     ambientLight.intensity =
-        0.78;
+        0.50;
 
 
     hemisphereLight.intensity =
-        1.35;
+        0.88;
 
 
     mainLight.intensity =
-        4.0;
+        2.75;
 
 
     mainLight.castShadow =
@@ -3132,23 +2910,38 @@ function activateZoneALighting() {
 
 
     secondaryFill.intensity =
-        0.42;
+        0.25;
 
+
+    /* =====================================================
+       SUBTLE GLOBAL RED
+    ====================================================== */
 
     emergencyLight.visible =
         true;
 
 
     emergencyLight.intensity =
-        26;
+        8;
+
+
+    emergencyLight.distance =
+        23;
+
+
+    emergencyLight.position.set(
+        13,
+        5,
+        1
+    );
 
 
     playerLight.intensity =
-        3.2;
+        2.8;
 
 
     renderer.toneMappingExposure =
-        1.42;
+        1.22;
 
 
     renderer.shadowMap.enabled =
@@ -3156,7 +2949,7 @@ function activateZoneALighting() {
 
 
     scene.fog.density =
-        0.0055;
+        0.0060;
 
 
     stars.visible =
@@ -3165,12 +2958,8 @@ function activateZoneALighting() {
 
     currentPixelRatio =
         Math.min(
-
-            window.devicePixelRatio ||
-            1,
-
+            window.devicePixelRatio || 1,
             PERFORMANCE.maxPixelRatio
-
         );
 
 
@@ -3180,13 +2969,9 @@ function activateZoneALighting() {
 
 
     renderer.setSize(
-
         window.innerWidth,
-
         window.innerHeight,
-
         false
-
     );
 
 
@@ -3196,7 +2981,7 @@ function activateZoneALighting() {
 
 
 /* =========================================================
-   BOSS PERFORMANCE MODE
+   BOSS PERFORMANCE
 ========================================================= */
 
 function activateBossPerformanceMode() {
@@ -3215,11 +3000,8 @@ function activateBossPerformanceMode() {
 
     currentPixelRatio =
         Math.min(
-
             currentPixelRatio,
-
             PERFORMANCE.bossMaxPixelRatio
-
         );
 
 
@@ -3229,13 +3011,9 @@ function activateBossPerformanceMode() {
 
 
     renderer.setSize(
-
         window.innerWidth,
-
         window.innerHeight,
-
         false
-
     );
 
 
@@ -3244,23 +3022,18 @@ function activateBossPerformanceMode() {
 
 
     console.log(
-
         `[Performance] Boss Mode ON · DPR ${currentPixelRatio.toFixed(2)}`
-
     );
 }
 
 
 /* =========================================================
-   BOSS EMERGENCY LIGHTING
+   BOSS LIGHTING
 ========================================================= */
 
 function activateBossEmergencyLighting(
-
     environment,
-
     spawns
-
 ) {
 
     activateBossPerformanceMode();
@@ -3292,67 +3065,54 @@ function activateBossEmergencyLighting(
         (
             spawns.player.x +
             spawns.boss.x
-        ) / 2,
+        ) /
+        2,
 
         (
             spawns.player.y +
             spawns.boss.y
-        ) / 2,
+        ) /
+        2,
 
         (
             spawns.player.z +
             spawns.boss.z
-        ) / 2
-
+        ) /
+        2
     );
 
 
     bossSiren.floorY =
         Math.min(
-
             spawns.player.y,
-
             spawns.boss.y
-
         );
 
 
     bossSiren.height =
-
         bossSiren.floorY
-
         +
-
         Math.min(
-
             10,
-
             Math.max(
                 6,
-                size.y * 0.43
+                size.y *
+                0.43
             )
-
         );
 
 
     bossSiren.radius =
-
         Math.min(
-
             19,
-
             Math.max(
-
                 11,
-
                 Math.min(
                     size.x,
                     size.z
                 ) *
                 0.12
-
             )
-
         );
 
 
@@ -3367,10 +3127,6 @@ function activateBossEmergencyLighting(
     bossSiren.active =
         true;
 
-
-    /* =====================================================
-       DARKER BOSS ARENA
-    ====================================================== */
 
     ambientLight.intensity =
         0.18;
@@ -3405,49 +3161,33 @@ function activateBossEmergencyLighting(
 
 
     bossSirenLight.position.set(
-
         bossSiren.center.x,
-
         bossSiren.height,
-
         bossSiren.center.z
-
     );
 
 
     bossRedGlow.position.set(
-
         bossSiren.center.x,
-
         bossSiren.floorY +
         3.4,
-
         bossSiren.center.z
-
     );
 
 
     bossBeaconA.position.set(
-
         bossSiren.center.x -
         3.5,
-
         bossSiren.height,
-
         bossSiren.center.z
-
     );
 
 
     bossBeaconB.position.set(
-
         bossSiren.center.x +
         3.5,
-
         bossSiren.height,
-
         bossSiren.center.z
-
     );
 
 
@@ -3469,15 +3209,12 @@ function activateBossEmergencyLighting(
 
 
 /* =========================================================
-   UPDATE SIREN
+   BOSS SIREN UPDATE
 ========================================================= */
 
 function updateBossEmergencyLighting(
-
     deltaTime,
-
     elapsedTime
-
 ) {
 
     if (
@@ -3517,9 +3254,7 @@ function updateBossEmergencyLighting(
     bossSirenTarget.position.set(
 
         bossSiren.center.x
-
         +
-
         Math.cos(
             bossSiren.angle
         ) *
@@ -3529,14 +3264,11 @@ function updateBossEmergencyLighting(
         0.80,
 
         bossSiren.center.z
-
         +
-
         Math.sin(
             bossSiren.angle
         ) *
         bossSiren.radius
-
     );
 
 
@@ -3545,11 +3277,8 @@ function updateBossEmergencyLighting(
 
 
     const pulse =
-
         0.5
-
         +
-
         0.5 *
         Math.sin(
             elapsedTime *
@@ -3563,55 +3292,41 @@ function updateBossEmergencyLighting(
 
 
     bossSirenLight.intensity =
-
         48
-
         +
-
         hardPulse *
         35;
 
 
     bossRedGlow.intensity =
-
         4
-
         +
-
         hardPulse *
         8;
 
 
     bossBeaconA.scale.setScalar(
-
         0.8
-
         +
-
         hardPulse *
         1.3
-
     );
 
 
     bossBeaconB.scale.setScalar(
-
         0.8
-
         +
-
         (
             1 -
             hardPulse
         ) *
         1.3
-
     );
 }
 
 
 /* =========================================================
-   STATIC ENVIRONMENT OPTIMIZATION
+   OPTIMIZATION
 ========================================================= */
 
 function optimizeStaticEnvironment(
@@ -3619,7 +3334,6 @@ function optimizeStaticEnvironment(
 ) {
 
     environment.traverse(
-
         object => {
 
             if (
@@ -3644,32 +3358,23 @@ function optimizeStaticEnvironment(
 
             if (
                 object.geometry
-
                 &&
-
-                !object.geometry
-                    .boundingSphere
+                !object.geometry.boundingSphere
             ) {
 
                 object.geometry
                     .computeBoundingSphere();
             }
         }
-
     );
 }
 
-
-/* =========================================================
-   PLAYER SHADOWS
-========================================================= */
 
 function configurePlayerShadows(
     root
 ) {
 
     root?.traverse(
-
         object => {
 
             if (
@@ -3687,7 +3392,6 @@ function configurePlayerShadows(
             object.receiveShadow =
                 false;
         }
-
     );
 
 
@@ -3695,10 +3399,6 @@ function configurePlayerShadows(
         true;
 }
 
-
-/* =========================================================
-   DYNAMIC OBJECT SHADOWS
-========================================================= */
 
 function configureDynamicObjectShadows() {
 
@@ -3713,7 +3413,6 @@ function configureDynamicObjectShadows() {
     ) {
 
         object.mesh?.traverse(
-
             child => {
 
                 if (
@@ -3731,7 +3430,6 @@ function configureDynamicObjectShadows() {
                 child.receiveShadow =
                     true;
             }
-
         );
     }
 
@@ -3742,7 +3440,7 @@ function configureDynamicObjectShadows() {
 
 
 /* =========================================================
-   BOSS TRANSITION OVERLAY
+   BOSS OVERLAY
 ========================================================= */
 
 const bossOverlay =
@@ -3752,9 +3450,7 @@ const bossOverlay =
 
 
 Object.assign(
-
     bossOverlay.style,
-
     {
 
         position:
@@ -3790,7 +3486,6 @@ Object.assign(
         pointerEvents:
             "none"
     }
-
 );
 
 
@@ -3806,9 +3501,7 @@ const bossCinematicText =
 
 
 Object.assign(
-
     bossCinematicText.style,
-
     {
 
         position:
@@ -3853,7 +3546,6 @@ Object.assign(
         transition:
             "opacity .35s ease, transform .50s ease"
     }
-
 );
 
 
@@ -3869,9 +3561,7 @@ const bossLoadingPanel =
 
 
 Object.assign(
-
     bossLoadingPanel.style,
-
     {
 
         width:
@@ -3907,7 +3597,6 @@ Object.assign(
         display:
             "none"
     }
-
 );
 
 
@@ -3927,9 +3616,7 @@ bossLoadingEyebrow.textContent =
 
 
 Object.assign(
-
     bossLoadingEyebrow.style,
-
     {
 
         fontSize:
@@ -3944,7 +3631,6 @@ Object.assign(
         marginBottom:
             "9px"
     }
-
 );
 
 
@@ -3959,9 +3645,7 @@ bossLoadingTitle.textContent =
 
 
 Object.assign(
-
     bossLoadingTitle.style,
-
     {
 
         fontSize:
@@ -3976,7 +3660,6 @@ Object.assign(
         marginBottom:
             "18px"
     }
-
 );
 
 
@@ -3987,9 +3670,7 @@ const bossLoadingTrack =
 
 
 Object.assign(
-
     bossLoadingTrack.style,
-
     {
 
         width:
@@ -4010,7 +3691,6 @@ Object.assign(
         marginBottom:
             "12px"
     }
-
 );
 
 
@@ -4021,9 +3701,7 @@ const bossLoadingFill =
 
 
 Object.assign(
-
     bossLoadingFill.style,
-
     {
 
         width:
@@ -4038,7 +3716,6 @@ Object.assign(
         transition:
             "width .20s ease"
     }
-
 );
 
 
@@ -4054,9 +3731,7 @@ const bossLoadingStatus =
 
 
 Object.assign(
-
     bossLoadingStatus.style,
-
     {
 
         fontSize:
@@ -4071,7 +3746,6 @@ Object.assign(
         minHeight:
             "14px"
     }
-
 );
 
 
@@ -4082,9 +3756,7 @@ const bossLoadingPercent =
 
 
 Object.assign(
-
     bossLoadingPercent.style,
-
     {
 
         marginTop:
@@ -4099,7 +3771,6 @@ Object.assign(
         textAlign:
             "right"
     }
-
 );
 
 
@@ -4110,9 +3781,7 @@ const bossErrorButtons =
 
 
 Object.assign(
-
     bossErrorButtons.style,
-
     {
 
         display:
@@ -4124,7 +3793,6 @@ Object.assign(
         marginTop:
             "20px"
     }
-
 );
 
 
@@ -4157,9 +3825,7 @@ for (
 ) {
 
     Object.assign(
-
         button.style,
-
         {
 
             flex:
@@ -4186,7 +3852,6 @@ for (
             cursor:
                 "pointer"
         }
-
     );
 }
 
@@ -4204,28 +3869,18 @@ bossMenuButton.addEventListener(
 
 
 bossErrorButtons.append(
-
     bossRetryButton,
-
     bossMenuButton
-
 );
 
 
 bossLoadingPanel.append(
-
     bossLoadingEyebrow,
-
     bossLoadingTitle,
-
     bossLoadingTrack,
-
     bossLoadingStatus,
-
     bossLoadingPercent,
-
     bossErrorButtons
-
 );
 
 
@@ -4240,13 +3895,9 @@ function setBossLoading(
 
     const value =
         THREE.MathUtils.clamp(
-
             percentage,
-
             0,
-
             100
-
         );
 
 
@@ -4298,7 +3949,6 @@ function showCinematicText(
 
 
     requestAnimationFrame(
-
         () => {
 
             bossCinematicText.style.opacity =
@@ -4308,7 +3958,6 @@ function showCinematicText(
             bossCinematicText.style.transform =
                 "translate(-50%,-50%) scale(1)";
         }
-
     );
 }
 
@@ -4357,7 +4006,6 @@ function hideBossOverlay() {
 
 
     setTimeout(
-
         () => {
 
             bossOverlay.style.visibility =
@@ -4367,15 +4015,13 @@ function hideBossOverlay() {
             bossLoadingPanel.style.display =
                 "none";
         },
-
         600
-
     );
 }
 
 
 /* =========================================================
-   ASYNC HELPERS
+   HELPERS
 ========================================================= */
 
 function sleep(
@@ -4383,7 +4029,6 @@ function sleep(
 ) {
 
     return new Promise(
-
         resolve => {
 
             setTimeout(
@@ -4391,7 +4036,6 @@ function sleep(
                 milliseconds
             );
         }
-
     );
 }
 
@@ -4399,26 +4043,23 @@ function sleep(
 function nextFrame() {
 
     return new Promise(
-
         resolve => {
 
             requestAnimationFrame(
                 resolve
             );
         }
-
     );
 }
 
 
 /* =========================================================
-   STATE HELPERS
+   STATE
 ========================================================= */
 
 function isGameplayState() {
 
     return (
-
         currentState ===
         GAME_STATE.PLAYING
 
@@ -4426,7 +4067,6 @@ function isGameplayState() {
 
         currentState ===
         GAME_STATE.BOSS_FIGHT
-
     );
 }
 
@@ -4438,36 +4078,31 @@ function isGameplayState() {
 function hideMainScreens() {
 
     [
-
         mainMenu,
-
         briefingScreen,
-
         aboutScreen
+    ]
+        .forEach(
+            screen => {
 
-    ].forEach(
+                if (
+                    !screen
+                ) {
 
-        screen => {
+                    return;
+                }
 
-            if (
-                !screen
-            ) {
 
-                return;
+                screen.classList.remove(
+                    "screen-visible"
+                );
+
+
+                screen.classList.add(
+                    "hidden-screen"
+                );
             }
-
-
-            screen.classList.remove(
-                "screen-visible"
-            );
-
-
-            screen.classList.add(
-                "hidden-screen"
-            );
-        }
-
-    );
+        );
 }
 
 
@@ -4514,13 +4149,11 @@ function showScreen(
 
 
 /* =========================================================
-   MENU EVENTS
+   MENU
 ========================================================= */
 
 btnEnter?.addEventListener(
-
     "click",
-
     () => {
 
         currentState =
@@ -4531,14 +4164,11 @@ btnEnter?.addEventListener(
             briefingScreen
         );
     }
-
 );
 
 
 btnAbout?.addEventListener(
-
     "click",
-
     () => {
 
         currentState =
@@ -4549,14 +4179,11 @@ btnAbout?.addEventListener(
             aboutScreen
         );
     }
-
 );
 
 
 btnBackBriefing?.addEventListener(
-
     "click",
-
     () => {
 
         currentState =
@@ -4567,14 +4194,11 @@ btnBackBriefing?.addEventListener(
             mainMenu
         );
     }
-
 );
 
 
 btnBackAbout?.addEventListener(
-
     "click",
-
     () => {
 
         currentState =
@@ -4585,19 +4209,15 @@ btnBackAbout?.addEventListener(
             mainMenu
         );
     }
-
 );
 
 
 btnSurvive?.addEventListener(
-
     "click",
-
     async () => {
 
         await enterZoneA();
     }
-
 );
 
 
@@ -4641,28 +4261,21 @@ cameraManager
 
             pauseMenu
                 .setCaptureHintVisible(
-
                     isGameplayState()
-
                     &&
-
                     !locked
-
                 );
 
 
             if (
                 !locked
-
                 &&
-
                 isGameplayState()
             ) {
 
                 pauseGame();
             }
         }
-
     );
 
 
@@ -4914,19 +4527,13 @@ function beginPlayerDeath() {
 
     deathFallbackTimer =
         setTimeout(
-
             finishPlayerDeath,
-
             Math.max(
-
                 800,
-
                 duration *
                 1000 +
                 250
-
             )
-
         );
 }
 
@@ -5006,11 +4613,8 @@ function finishPlayerDeath() {
 function retryGame() {
 
     sessionStorage.setItem(
-
         "nova_retry_zone_a",
-
         "true"
-
     );
 
 
@@ -5087,18 +4691,13 @@ function preloadBossEncounter() {
 
         ])
             .catch(
-
                 error => {
 
                     console.warn(
-
                         "[Nova] Boss preload incompleto:",
-
                         error
-
                     );
                 }
-
             );
 
 
@@ -5107,10 +4706,7 @@ function preloadBossEncounter() {
 
 
 /* =========================================================
-   START ZONE A GAMEPLAY
-
-   IMPORTANT:
-   waveManager.start() ONLY happens here.
+   START GAMEPLAY
 ========================================================= */
 
 function startZoneAGameplay() {
@@ -5161,24 +4757,15 @@ function startZoneAGameplay() {
         );
 
 
-    /*
-     * AHORA comienza el countdown inicial.
-     */
     waveManager.start();
 
 
     showNotification(
-
         "PREPÁRATE · YA VIENEN"
-
     );
 
 
-    /*
-     * Intentamos recuperar mouse.
-     */
     setTimeout(
-
         () => {
 
             if (
@@ -5190,9 +4777,7 @@ function startZoneAGameplay() {
                     .requestPointerLock();
             }
         },
-
         180
-
     );
 }
 
@@ -5285,7 +4870,7 @@ async function enterZoneA() {
     try {
 
         /* =================================================
-           ENVIRONMENT
+           ZONE A
         ================================================= */
 
         const zoneA =
@@ -5310,11 +4895,8 @@ async function enterZoneA() {
         ================================================= */
 
         setLoading(
-
             45,
-
             "Inicializando física..."
-
         );
 
 
@@ -5328,7 +4910,7 @@ async function enterZoneA() {
 
 
         /* =================================================
-           PLAYER
+           PLAYER SPAWN
         ================================================= */
 
         const playerSpawn =
@@ -5337,12 +4919,33 @@ async function enterZoneA() {
             );
 
 
+        /* =================================================
+           AFTERMATH
+
+           CORRECCIÓN IMPORTANTE:
+
+           Pasamos playerSpawn DIRECTAMENTE.
+
+           NO:
+           playerSpawn.y + 4.4
+
+           NO:
+           playerSpawn.y - heightOffset
+        ================================================= */
+
+        zoneAAtmosphere.setup(
+            zoneA,
+            playerSpawn
+        );
+
+
+        /* =================================================
+           PLAYER
+        ================================================= */
+
         setLoading(
-
             60,
-
             "Cargando jugador..."
-
         );
 
 
@@ -5352,20 +4955,14 @@ async function enterZoneA() {
 
 
         physicsManager.createCharacter(
-
             playerSpawn,
-
             playerController
                 .getHeight()
-
         );
 
 
         configurePlayerShadows(
-
-            playerController
-                .getObject()
-
+            playerController.getObject()
         );
 
 
@@ -5382,11 +4979,8 @@ async function enterZoneA() {
         ================================================= */
 
         setLoading(
-
             70,
-
             "Cargando arsenal..."
-
         );
 
 
@@ -5403,21 +4997,15 @@ async function enterZoneA() {
         ================================================= */
 
         setLoading(
-
             78,
-
             "Desplegando objetos..."
-
         );
 
 
         objectManager
             .createZoneAObjects(
-
                 zoneA,
-
                 playerSpawn
-
             );
 
 
@@ -5433,11 +5021,8 @@ async function enterZoneA() {
         ================================================= */
 
         setLoading(
-
             84,
-
             "Distribuyendo suministros..."
-
         );
 
 
@@ -5457,11 +5042,8 @@ async function enterZoneA() {
         ================================================= */
 
         setLoading(
-
             89,
-
             "Cargando amenazas..."
-
         );
 
 
@@ -5473,10 +5055,6 @@ async function enterZoneA() {
         );
 
 
-        /*
-         * IMPORTANTE:
-         * todavía NO pueden moverse.
-         */
         enemyManager.setEnabled(
             false
         );
@@ -5502,11 +5080,8 @@ async function enterZoneA() {
 
 
         setLoading(
-
             94,
-
             "Analizando zonas hostiles..."
-
         );
 
 
@@ -5536,12 +5111,9 @@ async function enterZoneA() {
 
 
         cameraManager.setTarget(
-
             playerController
                 .getObject(),
-
             true
-
         );
 
 
@@ -5594,27 +5166,19 @@ async function enterZoneA() {
 
 
         /* =================================================
-           COMPLETE LOADING
+           READY
         ================================================= */
 
         setLoading(
-
             100,
-
             "Nova Atlas preparada"
-
         );
 
 
-        /*
-         * Ya arrancamos preload de la Boss Arena
-         * mientras vemos la introducción y jugamos.
-         */
         preloadBossEncounter();
 
 
         setTimeout(
-
             async () => {
 
                 loadingScreen
@@ -5625,11 +5189,8 @@ async function enterZoneA() {
 
 
                 await runIntroSequence();
-
             },
-
             250
-
         );
     }
 
@@ -5638,20 +5199,14 @@ async function enterZoneA() {
     ) {
 
         console.error(
-
             "Error iniciando Zona A:",
-
             error
-
         );
 
 
         setLoading(
-
             100,
-
             "ERROR AL INICIAR ZONA A"
-
         );
     }
 }
@@ -5685,14 +5240,10 @@ function calculateZoneASpawn(
         new THREE.Raycaster(
 
             new THREE.Vector3(
-
                 PLAYER_SPAWN_ZONE_A.x,
-
                 box.max.y +
                 10,
-
                 PLAYER_SPAWN_ZONE_A.z
-
             ),
 
             new THREE.Vector3(
@@ -5700,7 +5251,6 @@ function calculateZoneASpawn(
                 -1,
                 0
             )
-
         );
 
 
@@ -5709,14 +5259,11 @@ function calculateZoneASpawn(
 
 
     environment.traverse(
-
         object => {
 
             if (
                 object.isMesh
-
                 &&
-
                 object.visible
             ) {
 
@@ -5725,17 +5272,13 @@ function calculateZoneASpawn(
                 );
             }
         }
-
     );
 
 
     const hits =
         raycaster.intersectObjects(
-
             meshes,
-
             false
-
         );
 
 
@@ -5749,18 +5292,12 @@ function calculateZoneASpawn(
             PLAYER_SPAWN_ZONE_A.x,
 
             hits[0].point.y
-
             +
-
             0.08
-
             +
-
-            PLAYER_SPAWN_ZONE_A
-                .heightOffset,
+            PLAYER_SPAWN_ZONE_A.heightOffset,
 
             PLAYER_SPAWN_ZONE_A.z
-
         );
     }
 
@@ -5770,10 +5307,10 @@ function calculateZoneASpawn(
         PLAYER_SPAWN_ZONE_A.x,
 
         box.min.y +
-        size.y * 0.55,
+        size.y *
+        0.55,
 
         PLAYER_SPAWN_ZONE_A.z
-
     );
 }
 
@@ -5783,6 +5320,11 @@ function calculateZoneASpawn(
 ========================================================= */
 
 function deactivateZoneAExtras() {
+
+    zoneAAtmosphere.setActive(
+        false
+    );
+
 
     enemyManager.setEnabled(
         false
@@ -5815,7 +5357,6 @@ function deactivateZoneAExtras() {
 
 
     const dynamicObjects =
-
         typeof objectManager
             .getDynamicObjects ===
         "function"
@@ -5846,9 +5387,7 @@ function deactivateZoneAExtras() {
 
         if (
             object?.rigidBody
-
             &&
-
             typeof object
                 .rigidBody
                 .setEnabled ===
@@ -5869,7 +5408,7 @@ function deactivateZoneAExtras() {
 
 
 /* =========================================================
-   BOSS ARENA FLOOR MESHES
+   BOSS FLOOR HELPERS
 ========================================================= */
 
 function getEnvironmentFloorMeshes(
@@ -5886,18 +5425,13 @@ function getEnvironmentFloorMeshes(
 
 
     environment.traverse(
-
         object => {
 
             if (
                 object.isMesh
-
                 &&
-
                 object.visible
-
                 &&
-
                 object.geometry
             ) {
 
@@ -5906,7 +5440,6 @@ function getEnvironmentFloorMeshes(
                 );
             }
         }
-
     );
 
 
@@ -5914,20 +5447,11 @@ function getEnvironmentFloorMeshes(
 }
 
 
-/* =========================================================
-   FLOOR HITS
-========================================================= */
-
 function getArenaFloorHits(
-
     meshes,
-
     box,
-
     x,
-
     z
-
 ) {
 
     const size =
@@ -5943,14 +5467,10 @@ function getArenaFloorHits(
         new THREE.Raycaster(
 
             new THREE.Vector3(
-
                 x,
-
                 box.max.y +
                 4,
-
                 z
-
             ),
 
             new THREE.Vector3(
@@ -5963,7 +5483,6 @@ function getArenaFloorHits(
 
             size.y +
             10
-
         );
 
 
@@ -5977,11 +5496,8 @@ function getArenaFloorHits(
 
     const hits =
         raycaster.intersectObjects(
-
             meshes,
-
             false
-
         );
 
 
@@ -5990,15 +5506,10 @@ function getArenaFloorHits(
 
 
     const maximumFloorY =
-
         box.min.y
-
         +
-
         size.y
-
         *
-
         BOSS_ARENA_SPAWN_CONFIG
             .maxFloorHeightRatio;
 
@@ -6060,16 +5571,9 @@ function getArenaFloorHits(
 }
 
 
-/* =========================================================
-   CENTRAL FLOOR DETECTION
-========================================================= */
-
 function detectCentralArenaFloor(
-
     meshes,
-
     box
-
 ) {
 
     const size =
@@ -6091,21 +5595,15 @@ function detectCentralArenaFloor(
 
 
     const regionX =
-
         size.x
-
         *
-
         BOSS_ARENA_SPAWN_CONFIG
             .centerRegionRatio;
 
 
     const regionZ =
-
         size.z
-
         *
-
         BOSS_ARENA_SPAWN_CONFIG
             .centerRegionRatio;
 
@@ -6126,11 +5624,8 @@ function detectCentralArenaFloor(
     ) {
 
         const x =
-
             center.x
-
             +
-
             THREE.MathUtils.lerp(
 
                 -regionX,
@@ -6142,7 +5637,6 @@ function detectCentralArenaFloor(
                     steps -
                     1
                 )
-
             );
 
 
@@ -6153,11 +5647,8 @@ function detectCentralArenaFloor(
         ) {
 
             const z =
-
                 center.z
-
                 +
-
                 THREE.MathUtils.lerp(
 
                     -regionZ,
@@ -6169,21 +5660,15 @@ function detectCentralArenaFloor(
                         steps -
                         1
                     )
-
                 );
 
 
             const hits =
                 getArenaFloorHits(
-
                     meshes,
-
                     box,
-
                     x,
-
                     z
-
                 );
 
 
@@ -6219,14 +5704,12 @@ function detectCentralArenaFloor(
 
 
     points.sort(
-
         (
             a,
             b
         ) =>
             a.y -
             b.y
-
     );
 
 
@@ -6246,10 +5729,8 @@ function detectCentralArenaFloor(
 
             if (
                 Math.abs(
-
                     current.averageY -
                     point.y
-
                 ) <=
                 tolerance
             ) {
@@ -6316,14 +5797,12 @@ function detectCentralArenaFloor(
 
 
     clusters.sort(
-
         (
             a,
             b
         ) =>
             b.points.length -
             a.points.length
-
     );
 
 
@@ -6346,41 +5825,25 @@ function detectCentralArenaFloor(
 
                 selected.sumZ /
                 selected.points.length
-
             )
     };
 }
 
 
-/* =========================================================
-   SAMPLE CENTRAL FLOOR
-========================================================= */
-
 function sampleCentralArenaFloor(
-
     meshes,
-
     box,
-
     x,
-
     z,
-
     floorY
-
 ) {
 
     const hits =
         getArenaFloorHits(
-
             meshes,
-
             box,
-
             x,
-
             z
-
         );
 
 
@@ -6399,10 +5862,8 @@ function sampleCentralArenaFloor(
 
         const currentDifference =
             Math.abs(
-
                 point.y -
                 floorY
-
             );
 
 
@@ -6439,30 +5900,18 @@ function sampleCentralArenaFloor(
 }
 
 
-/* =========================================================
-   SIMPLE CLEARANCE
-========================================================= */
-
 function hasSimpleClearance(
-
     position,
-
     meshes,
-
     radius
-
 ) {
 
     const origin =
         new THREE.Vector3(
-
             position.x,
-
             position.y +
             1.1,
-
             position.z
-
         );
 
 
@@ -6520,11 +5969,8 @@ function hasSimpleClearance(
         if (
             raycaster
                 .intersectObjects(
-
                     meshes,
-
                     false
-
                 )
                 .length >
             0
@@ -6539,26 +5985,14 @@ function hasSimpleClearance(
 }
 
 
-/* =========================================================
-   TRY BOSS SPAWN PAIR
-========================================================= */
-
 function tryBossSpawnPair(
-
     center,
-
     floorY,
-
     meshes,
-
     box,
-
     directionX,
-
     directionZ,
-
     distance
-
 ) {
 
     const playerX =
@@ -6587,17 +6021,11 @@ function tryBossSpawnPair(
 
     const player =
         sampleCentralArenaFloor(
-
             meshes,
-
             box,
-
             playerX,
-
             playerZ,
-
             floorY
-
         );
 
 
@@ -6611,17 +6039,11 @@ function tryBossSpawnPair(
 
     const boss =
         sampleCentralArenaFloor(
-
             meshes,
-
             box,
-
             bossX,
-
             bossZ,
-
             floorY
-
         );
 
 
@@ -6635,14 +6057,10 @@ function tryBossSpawnPair(
 
     if (
         !hasSimpleClearance(
-
             player,
-
             meshes,
-
             BOSS_ARENA_SPAWN_CONFIG
                 .playerClearance
-
         )
     ) {
 
@@ -6652,14 +6070,10 @@ function tryBossSpawnPair(
 
     if (
         !hasSimpleClearance(
-
             boss,
-
             meshes,
-
             BOSS_ARENA_SPAWN_CONFIG
                 .bossClearance
-
         )
     ) {
 
@@ -6675,10 +6089,6 @@ function tryBossSpawnPair(
     };
 }
 
-
-/* =========================================================
-   CALCULATE BOSS SPAWNS
-========================================================= */
 
 function calculateBossArenaSpawns(
     environment
@@ -6704,11 +6114,8 @@ function calculateBossArenaSpawns(
 
     const floor =
         detectCentralArenaFloor(
-
             meshes,
-
             box
-
         );
 
 
@@ -6717,9 +6124,7 @@ function calculateBossArenaSpawns(
     ) {
 
         throw new Error(
-
             "No se encontró piso central en Boss Arena."
-
         );
     }
 
@@ -6745,7 +6150,6 @@ function calculateBossArenaSpawns(
             0.707,
             -0.707
         ]
-
     ];
 
 
@@ -6757,7 +6161,6 @@ function calculateBossArenaSpawns(
         6,
 
         5
-
     ];
 
 
@@ -6790,7 +6193,6 @@ function calculateBossArenaSpawns(
                     z,
 
                     distance
-
                 );
 
 
@@ -6807,11 +6209,8 @@ function calculateBossArenaSpawns(
 
 
                 console.log(
-
                     "[Boss Arena] Spawn optimizado:",
-
                     result
-
                 );
 
 
@@ -6822,9 +6221,7 @@ function calculateBossArenaSpawns(
 
 
     throw new Error(
-
         "No se encontró un spawn central seguro."
-
     );
 }
 
@@ -6834,12 +6231,8 @@ function calculateBossArenaSpawns(
 ========================================================= */
 
 function teleportPlayerTo(
-
     position,
-
-    lookAtPosition =
-        null
-
+    lookAtPosition = null
 ) {
 
     const root =
@@ -6859,11 +6252,8 @@ function teleportPlayerTo(
         const direction =
             new THREE.Vector3()
                 .subVectors(
-
                     lookAtPosition,
-
                     position
-
                 );
 
 
@@ -6878,11 +6268,8 @@ function teleportPlayerTo(
 
             root.rotation.y =
                 Math.atan2(
-
                     direction.x,
-
                     direction.z
-
                 );
         }
     }
@@ -6895,10 +6282,8 @@ function teleportPlayerTo(
 
     const footOffset =
         Number.isFinite(
-
             physicsManager
                 .characterFootOffset
-
         )
             ?
             physicsManager
@@ -6922,11 +6307,8 @@ function teleportPlayerTo(
 
 
     body?.setTranslation?.(
-
         physicsPosition,
-
         true
-
     );
 
 
@@ -6952,7 +6334,7 @@ function teleportPlayerTo(
 
 
 /* =========================================================
-   BOSS TRANSITION ERROR
+   TRANSITION ERROR
 ========================================================= */
 
 function handleBossTransitionError(
@@ -6960,11 +6342,8 @@ function handleBossTransitionError(
 ) {
 
     console.error(
-
         "[Nova] Boss transition failed:",
-
         error
-
     );
 
 
@@ -7000,11 +6379,8 @@ function handleBossTransitionError(
 
 
     setBossLoading(
-
         100,
-
         "No se pudo completar la transición."
-
     );
 
 
@@ -7121,10 +6497,6 @@ async function beginBossTransition() {
         "none";
 
 
-    /* =====================================================
-       HE IS COMING
-    ====================================================== */
-
     showCinematicText(
         "ÉL VIENE POR TI"
     );
@@ -7143,10 +6515,6 @@ async function beginBossTransition() {
     );
 
 
-    /* =====================================================
-       LOADING
-    ====================================================== */
-
     showBossOverlay();
 
 
@@ -7162,11 +6530,8 @@ async function beginBossTransition() {
 
 
     setBossLoading(
-
         5,
-
         "Aislando Zona A..."
-
     );
 
 
@@ -7176,32 +6541,18 @@ async function beginBossTransition() {
     await nextFrame();
 
 
-    /* =====================================================
-       PRELOAD
-    ====================================================== */
-
     setBossLoading(
-
         12,
-
         "Sincronizando recursos precargados..."
-
     );
 
 
     await preloadBossEncounter();
 
 
-    /* =====================================================
-       ENVIRONMENT
-    ====================================================== */
-
     setBossLoading(
-
         28,
-
         "Activando Sector Core..."
-
     );
 
 
@@ -7220,16 +6571,9 @@ async function beginBossTransition() {
     await nextFrame();
 
 
-    /* =====================================================
-       PHYSICS
-    ====================================================== */
-
     setBossLoading(
-
         45,
-
         "Construyendo colisiones..."
-
     );
 
 
@@ -7257,16 +6601,9 @@ async function beginBossTransition() {
     );
 
 
-    /* =====================================================
-       SPAWN
-    ====================================================== */
-
     setBossLoading(
-
         63,
-
         "Localizando centro de combate..."
-
     );
 
 
@@ -7276,57 +6613,34 @@ async function beginBossTransition() {
         );
 
 
-    /* =====================================================
-       PERFORMANCE + LIGHTS
-    ====================================================== */
-
     activateBossEmergencyLighting(
-
         bossArena,
-
         spawns
-
     );
 
 
     setBossLoading(
-
         72,
-
         "Desplegando operador..."
-
     );
 
 
     teleportPlayerTo(
-
         spawns.player,
-
         spawns.boss
-
     );
 
 
     cameraManager.setTarget(
-
         playerController
             .getObject(),
-
         true
-
     );
 
 
-    /* =====================================================
-       BOSS
-    ====================================================== */
-
     setBossLoading(
-
         82,
-
         "Inicializando anomalía..."
-
     );
 
 
@@ -7381,24 +6695,14 @@ async function beginBossTransition() {
 
 
     playerController.setAimState(
-
         false,
-
         cameraAimDirection
-
     );
 
 
-    /* =====================================================
-       ONLINE
-    ====================================================== */
-
     setBossLoading(
-
         100,
-
         "SECTOR CORE ONLINE"
-
     );
 
 
@@ -7419,10 +6723,6 @@ async function beginBossTransition() {
     bossLoadingPanel.style.display =
         "none";
 
-
-    /* =====================================================
-       SURVIVE
-    ====================================================== */
 
     showCinematicText(
         "SOBREVIVE"
@@ -7452,14 +6752,11 @@ async function beginBossTransition() {
 
 
     showNotification(
-
         "ALERTA MÁXIMA · ANOMALÍA CORE"
-
     );
 
 
     setTimeout(
-
         () => {
 
             if (
@@ -7471,9 +6768,7 @@ async function beginBossTransition() {
                     .requestPointerLock();
             }
         },
-
         500
-
     );
 }
 
@@ -7492,37 +6787,24 @@ function finishBossEncounter() {
     }
 
 
-    /*
-     * boss.js llama este callback cuando
-     * terminó realmente su Death.
-     */
     runEndingSequence()
         .catch(
-
             error => {
 
                 console.error(
-
                     "[Nova] Error en cinemática final:",
-
                     error
-
                 );
 
 
-                /*
-                 * Si algo falla, no dejamos atrapado
-                 * al jugador.
-                 */
                 fleeToMenu();
             }
-
         );
 }
 
 
 /* =========================================================
-   NOTIFICATION
+   NOTIFICATIONS
 ========================================================= */
 
 let notificationTimeout =
@@ -7562,16 +6844,13 @@ function showNotification(
 
     notificationTimeout =
         setTimeout(
-
             () => {
 
                 notification.classList.remove(
                     "visible"
                 );
             },
-
             2800
-
         );
 }
 
@@ -7606,12 +6885,9 @@ function updateFPSCounter(
 
 
     displayedFPS =
-
         displayedFPS *
         0.60
-
         +
-
         measuredFPS *
         0.40;
 
@@ -7627,23 +6903,14 @@ function updateFPSCounter(
 
 
     fpsCounter.style.color =
-
         fps >= 55
-
             ?
-
             "#8effa8"
-
             :
-
             fps >= 40
-
                 ?
-
                 "#ffd75e"
-
                 :
-
                 "#ff635e";
 
 
@@ -7698,33 +6965,19 @@ function updateAdaptiveQuality(
 
 
     const minimum =
-
         bossPerformanceMode
-
             ?
-
-            PERFORMANCE
-                .bossMinPixelRatio
-
+            PERFORMANCE.bossMinPixelRatio
             :
-
-            PERFORMANCE
-                .minPixelRatio;
+            PERFORMANCE.minPixelRatio;
 
 
     const maximum =
-
         bossPerformanceMode
-
             ?
-
-            PERFORMANCE
-                .bossMaxPixelRatio
-
+            PERFORMANCE.bossMaxPixelRatio
             :
-
-            PERFORMANCE
-                .maxPixelRatio;
+            PERFORMANCE.maxPixelRatio;
 
 
     let newRatio =
@@ -7738,12 +6991,9 @@ function updateAdaptiveQuality(
 
         newRatio =
             Math.max(
-
                 minimum,
-
                 currentPixelRatio -
                 0.055
-
             );
     }
 
@@ -7754,22 +7004,17 @@ function updateAdaptiveQuality(
 
         newRatio =
             Math.min(
-
                 maximum,
-
                 currentPixelRatio +
                 0.025
-
             );
     }
 
 
     if (
         Math.abs(
-
             newRatio -
             currentPixelRatio
-
         ) >
         0.001
     ) {
@@ -7784,13 +7029,9 @@ function updateAdaptiveQuality(
 
 
         renderer.setSize(
-
             window.innerWidth,
-
             window.innerHeight,
-
             false
-
         );
     }
 
@@ -7805,15 +7046,12 @@ function updateAdaptiveQuality(
 
 
 /* =========================================================
-   SHADOW SYSTEM
+   SHADOWS
 ========================================================= */
 
 function updateShadowSystem(
-
     deltaTime,
-
     playerPosition
-
 ) {
 
     if (
@@ -7842,27 +7080,19 @@ function updateShadowSystem(
 
 
         mainLight.position.set(
-
             playerPosition.x +
             14,
-
             playerPosition.y +
             24,
-
             playerPosition.z +
             10
-
         );
 
 
         mainLight.target.position.set(
-
             playerPosition.x,
-
             playerPosition.y,
-
             playerPosition.z
-
         );
 
 
@@ -7891,13 +7121,10 @@ function updateShadowSystem(
 ========================================================= */
 
 window.addEventListener(
-
     "resize",
-
     () => {
 
         camera.aspect =
-
             window.innerWidth /
             window.innerHeight;
 
@@ -7911,14 +7138,10 @@ window.addEventListener(
 
 
         renderer.setSize(
-
             window.innerWidth,
-
             window.innerHeight
-
         );
     }
-
 );
 
 
@@ -7927,11 +7150,8 @@ window.addEventListener(
 ========================================================= */
 
 function update(
-
     deltaTime,
-
     elapsedTime
-
 ) {
 
     updateFPSCounter(
@@ -7958,7 +7178,6 @@ function update(
     ) {
 
         const bossFight =
-
             currentState ===
             GAME_STATE.BOSS_FIGHT;
 
@@ -7993,10 +7212,6 @@ function update(
             cameraMode ===
             "FPS";
 
-
-        /* =================================================
-           CAMERA MODE
-        ================================================= */
 
         if (
             firstPerson !==
@@ -8048,12 +7263,9 @@ function update(
 
         playerController
             .setAimState(
-
                 firstPerson ||
                 aiming,
-
                 cameraAimDirection
-
             );
 
 
@@ -8062,29 +7274,22 @@ function update(
         ================================================= */
 
         playerController.update(
-
             deltaTime,
-
             cameraForward,
-
             cameraRight
-
         );
 
 
         physicsManager
             .moveCharacter(
-
                 playerController
                     .getDesiredMovement(),
-
                 deltaTime
-
             );
 
 
         /* =================================================
-           NORMAL ENEMY PRE-PHYSICS
+           ENEMIES
         ================================================= */
 
         if (
@@ -8099,7 +7304,7 @@ function update(
 
 
         /* =================================================
-           ONE PHYSICS STEP
+           ONE RAPIER STEP
         ================================================= */
 
         physicsManager.step(
@@ -8109,10 +7314,8 @@ function update(
 
         physicsManager
             .syncCharacter(
-
                 playerController
                     .getObject()
-
             );
 
 
@@ -8188,7 +7391,7 @@ function update(
 
 
         /* =================================================
-           LIGHT
+           PLAYER LIGHT
         ================================================= */
 
         const playerPosition =
@@ -8197,29 +7400,22 @@ function update(
 
 
         playerLight.position.set(
-
             playerPosition.x,
-
             playerPosition.y +
             1.65,
-
             playerPosition.z +
             0.40
-
         );
 
 
         updateShadowSystem(
-
             deltaTime,
-
             playerPosition
-
         );
 
 
         /* =================================================
-           DEBUG HUD
+           HUD
         ================================================= */
 
         debugTimer +=
@@ -8228,9 +7424,7 @@ function update(
 
         if (
             spawnDebug
-
             &&
-
             debugTimer >=
             PERFORMANCE.debugInterval
         ) {
@@ -8240,24 +7434,16 @@ function update(
 
 
             const threatText =
-
                 bossFight
-
                     ?
-
                     ` · BOSS HP ${Math.ceil(bossManager.getHealth())}`
-
                     :
-
                     ` · WAVE ${waveManager.getWave()}/5 · HOSTILES ${enemyManager.getAliveCount()}`;
 
 
             spawnDebug.textContent =
-
                 `${cameraMode}`
-
                 +
-
                 (
                     aiming
                         ?
@@ -8265,17 +7451,11 @@ function update(
                         :
                         ""
                 )
-
                 +
-
                 ` · HP ${Math.ceil(playerHealth.getHealth())}`
-
                 +
-
                 ` · ${weaponManager.getCurrentWeapon().toUpperCase()}`
-
                 +
-
                 threatText;
         }
     }
@@ -8283,9 +7463,6 @@ function update(
 
     /* =====================================================
        INTRO
-
-       El escenario ya está cargado detrás.
-       No hacemos simulación de combate.
     ====================================================== */
 
     else if (
@@ -8355,6 +7532,19 @@ function update(
 
 
     /* =====================================================
+       ZONE A SIREN
+
+       Corre incluso durante la intro detrás de la
+       pantalla negra.
+    ====================================================== */
+
+    zoneAAtmosphere.update(
+        deltaTime,
+        elapsedTime
+    );
+
+
+    /* =====================================================
        BOSS SIREN
     ====================================================== */
 
@@ -8363,27 +7553,41 @@ function update(
     ) {
 
         updateBossEmergencyLighting(
-
             deltaTime,
-
             elapsedTime
-
         );
     }
 
-    else {
 
-        emergencyLight.intensity =
+    /* =====================================================
+       ZONE A GLOBAL RED PULSE
+    ====================================================== */
 
-            25
+    if (
+        zoneAAtmosphere.active
+        &&
+        !bossSiren.active
+    ) {
 
+        emergencyLight.visible =
+            true;
+
+
+        const zonePulse =
+            0.5
             +
-
             Math.sin(
                 elapsedTime *
-                1.3
+                2.2
             ) *
-            3;
+            0.5;
+
+
+        emergencyLight.intensity =
+            7
+            +
+            zonePulse *
+            3.5;
     }
 
 
@@ -8394,7 +7598,7 @@ function update(
 
 
 /* =========================================================
-   MAIN LOOP
+   LOOP
 ========================================================= */
 
 function animate() {
@@ -8406,45 +7610,30 @@ function animate() {
 
     const deltaTime =
         Math.min(
-
             clock.getDelta(),
-
             0.05
-
         );
 
 
     update(
-
         deltaTime,
-
         clock.elapsedTime
-
     );
 
 
     renderer.render(
-
         scene,
-
         camera
-
     );
 }
 
 
 /* =========================================================
-   F9 DEBUG · BOSS FIGHT
-
-   1. Entra a Zona A.
-   2. Deja terminar la intro.
-   3. Cuando puedas moverte, presiona F9.
+   F9 DEBUG
 ========================================================= */
 
 window.addEventListener(
-
     "keydown",
-
     event => {
 
         if (
@@ -8466,9 +7655,7 @@ window.addEventListener(
         ) {
 
             console.warn(
-
                 "[DEBUG] F9 disponible después de la intro."
-
             );
 
 
@@ -8477,36 +7664,29 @@ window.addEventListener(
 
 
         console.warn(
-
             "[DEBUG] F9 → Boss Fight"
-
         );
 
 
         beginBossTransition()
             .catch(
-
                 error => {
 
                     handleBossTransitionError(
                         error
                     );
                 }
-
             );
     }
-
 );
 
 
 /* =========================================================
-   ESC · TRANSITION ERROR
+   ESC TRANSITION ERROR
 ========================================================= */
 
 window.addEventListener(
-
     "keydown",
-
     event => {
 
         if (
@@ -8526,25 +7706,18 @@ window.addEventListener(
             fleeToMenu();
         }
     }
-
 );
 
 
 /* =========================================================
    AUTO RETRY
-
-   Reintentar = nueva partida.
-   Por lo tanto vuelve a mostrar la intro.
 ========================================================= */
 
 const autoRetryZoneA =
-
     sessionStorage.getItem(
         "nova_retry_zone_a"
     )
-
     ===
-
     "true";
 
 
@@ -8561,12 +7734,10 @@ if (
 
 
     requestAnimationFrame(
-
         async () => {
 
             await enterZoneA();
         }
-
     );
 }
 
@@ -8590,18 +7761,12 @@ animate();
 
 
 console.log(
-
     "%cNOVA CATALYST",
-
     "color:#d72924;font-size:24px;font-weight:bold;"
-
 );
 
 
 console.log(
-
-    "%cPre-Alpha Story Flow · Build v0.24.0",
-
+    "%cZone A Aftermath · Build v0.26.0",
     "color:#8effa8;"
-
 );
