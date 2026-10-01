@@ -1,9 +1,6 @@
 <!DOCTYPE html>
-
 <html lang="es">
-
 <head>
-
     <meta charset="UTF-8">
 
     <meta
@@ -21,7 +18,7 @@
         content="Derek Alejandro Vargas Meneses"
     >
 
-    <title>Nova Catalyst | Pre-Alpha v.01</title>
+    <title>Nova Catalyst | Pre-Alpha v0.2.0</title>
 
 
     <!-- =====================================================
@@ -92,19 +89,15 @@
     ====================================================== -->
 
     <script type="importmap">
-
         {
             "imports": {
-
                 "three":
                 "https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js",
 
                 "three/addons/":
                 "https://cdn.jsdelivr.net/npm/three@0.186.0/examples/jsm/"
-
             }
         }
-
     </script>
 
 </head>
@@ -190,6 +183,21 @@
 
 
                 <button
+                    id="btn-patch-notes"
+                    class="nova-button patch-notes-menu-button"
+                    type="button"
+                >
+                    <span>
+                        NOTAS DEL PARCHE
+                    </span>
+
+                    <span class="menu-badge">
+                        NUEVO
+                    </span>
+                </button>
+
+
+                <button
                     id="btn-about"
                     class="nova-button"
                     type="button"
@@ -205,14 +213,302 @@
         <!-- VERSIÓN -->
 
         <div class="version-info">
-            Pre-Alpha v.01
+            Pre-Alpha v0.2.0
         </div>
 
 
         <!-- BUILD -->
 
         <div class="build-info">
-            BUILD v0.29 · NOVA ATLAS
+            BUILD · COMBAT POLISH UPDATE
+        </div>
+
+    </section>
+
+
+    <!-- =====================================================
+         NOTAS DEL PARCHE
+    ====================================================== -->
+
+    <section
+        id="patch-notes-screen"
+        class="screen hidden-screen"
+    >
+
+        <div class="interface-panel patch-notes-panel">
+
+            <div class="panel-classification">
+                NOVA ATLAS // REGISTRO DE ACTUALIZACIONES
+            </div>
+
+
+            <div class="patch-notes-heading">
+
+                <div>
+
+                    <h2>
+                        NOTAS DEL PARCHE
+                    </h2>
+
+                    <p class="patch-notes-intro">
+                        Historial de cambios y evolución de Nova Catalyst.
+                    </p>
+
+                </div>
+
+
+                <span class="patch-status patch-status-current">
+                    PARCHE ACTUAL
+                </span>
+
+            </div>
+
+
+            <div class="panel-divider"></div>
+
+
+            <!-- =================================================
+                 PARCHE ACTUAL
+            ================================================== -->
+
+            <article class="patch-entry patch-entry-current">
+
+                <div class="patch-entry-header">
+
+                    <div>
+
+                        <div class="patch-version">
+                            PRE-ALPHA v0.2.0
+                        </div>
+
+                        <h3 class="patch-title">
+                            COMBAT POLISH UPDATE
+                        </h3>
+
+                    </div>
+
+
+                    <span class="patch-entry-state">
+                        EN DESARROLLO
+                    </span>
+
+                </div>
+
+
+                <p class="patch-entry-summary">
+
+                    Primera actualización posterior a la versión académica.
+
+                    Este parche está dedicado a mejorar la sensación del combate
+                    en Zona A sin alterar innecesariamente el balance que ya funciona.
+
+                </p>
+
+
+                <div class="patch-grid">
+
+
+                    <!-- YA IMPLEMENTADO -->
+
+                    <div class="patch-section">
+
+                        <h3>
+                            NUEVO
+                        </h3>
+
+
+                        <ul class="patch-list">
+
+                            <li>
+                                Menú de Notas del Parche dentro del juego.
+                            </li>
+
+                            <li>
+                                Historial de versiones accesible desde el menú principal.
+                            </li>
+
+                            <li>
+                                Nuevo esquema de versionado para futuras actualizaciones.
+                            </li>
+
+                        </ul>
+
+                    </div>
+
+
+                    <!-- OBJETIVOS -->
+
+                    <div class="patch-section">
+
+                        <h3>
+                            OBJETIVOS DEL PARCHE
+                        </h3>
+
+
+                        <ul class="patch-list patch-list-pending">
+
+                            <li>
+                                Hitmarker y marcador especial de eliminación.
+                            </li>
+
+                            <li>
+                                Recoil visual diferenciado por arma.
+                            </li>
+
+                            <li>
+                                Mejor feedback de impactos y partículas.
+                            </li>
+
+                            <li>
+                                Reacciones más claras de los enemigos al recibir daño.
+                            </li>
+
+                            <li>
+                                Feedback de cámara para disparos y explosiones.
+                            </li>
+
+                        </ul>
+
+                    </div>
+
+                </div>
+
+            </article>
+
+
+            <!-- =================================================
+                 HISTORIAL
+            ================================================== -->
+
+            <div class="patch-history-label">
+                HISTORIAL
+            </div>
+
+
+            <article class="patch-entry patch-entry-legacy">
+
+                <div class="patch-entry-header">
+
+                    <div>
+
+                        <div class="patch-version">
+                            PRE-ALPHA v0.1.0
+                        </div>
+
+                        <h3 class="patch-title">
+                            ACADEMIC RELEASE
+                        </h3>
+
+                    </div>
+
+
+                    <span
+                        class="
+                            patch-entry-state
+                            patch-entry-state-stable
+                        "
+                    >
+                        ESTABLE
+                    </span>
+
+                </div>
+
+
+                <p class="patch-entry-summary">
+
+                    Primera versión completa de Nova Catalyst
+                    y versión presentada como proyecto académico.
+
+                </p>
+
+
+                <div class="patch-grid">
+
+
+                    <div class="patch-section">
+
+                        <h3>
+                            CONTENIDO PRINCIPAL
+                        </h3>
+
+
+                        <ul class="patch-list">
+
+                            <li>
+                                Zona A con cinco oleadas de enemigos.
+                            </li>
+
+                            <li>
+                                Boss Fight en Sector Core.
+                            </li>
+
+                            <li>
+                                Pistola, SMG y escopeta.
+                            </li>
+
+                            <li>
+                                Pickups de armas, munición y salud.
+                            </li>
+
+                            <li>
+                                Física y colisiones mediante Rapier 3D.
+                            </li>
+
+                        </ul>
+
+                    </div>
+
+
+                    <div class="patch-section">
+
+                        <h3>
+                            SISTEMAS
+                        </h3>
+
+
+                        <ul class="patch-list">
+
+                            <li>
+                                Cámara TPS/FPS y sistema de apuntado.
+                            </li>
+
+                            <li>
+                                Música, ambientación y efectos de sonido completos.
+                            </li>
+
+                            <li>
+                                HUD, pausa, Game Over, reintento y victoria.
+                            </li>
+
+                            <li>
+                                Barriles explosivos y objetos físicos interactivos.
+                            </li>
+
+                            <li>
+                                Cinemáticas de introducción y final.
+                            </li>
+
+                        </ul>
+
+                    </div>
+
+                </div>
+
+            </article>
+
+
+            <div class="panel-actions">
+
+                <button
+                    id="btn-back-from-patch-notes"
+                    class="nova-button nova-button-small"
+                    type="button"
+                >
+                    VOLVER
+                </button>
+
+            </div>
+
         </div>
 
     </section>
@@ -243,23 +539,29 @@
 
 
             <p>
+
                 La estación espacial Nova Atlas
                 ha dejado de responder.
+
             </p>
 
 
             <p>
+
                 Una infección desconocida se ha
                 propagado por el complejo y gran
                 parte de su tripulación ha sido
                 transformada en entidades hostiles.
+
             </p>
 
 
             <p>
+
                 Eres uno de los últimos guardias
                 de seguridad con vida dentro de
                 la estación.
+
             </p>
 
 
@@ -347,7 +649,7 @@
                     </span>
 
                     <p>
-                        Pre-Alpha v.01
+                        Pre-Alpha v0.2.0
                     </p>
 
                 </div>
@@ -557,6 +859,117 @@
 
 
     <!-- =====================================================
+         NAVEGACIÓN · NOTAS DEL PARCHE
+    ====================================================== -->
+
+    <script>
+
+        const novaMainMenu =
+            document.getElementById(
+                "main-menu"
+            );
+
+
+        const novaPatchNotesScreen =
+            document.getElementById(
+                "patch-notes-screen"
+            );
+
+
+        const novaPatchNotesButton =
+            document.getElementById(
+                "btn-patch-notes"
+            );
+
+
+        const novaPatchNotesBackButton =
+            document.getElementById(
+                "btn-back-from-patch-notes"
+            );
+
+
+        function openNovaPatchNotes() {
+
+            novaMainMenu.classList.remove(
+                "screen-visible"
+            );
+
+            novaMainMenu.classList.add(
+                "hidden-screen"
+            );
+
+
+            novaPatchNotesScreen.classList.remove(
+                "hidden-screen"
+            );
+
+            novaPatchNotesScreen.classList.add(
+                "screen-visible"
+            );
+
+        }
+
+
+        function closeNovaPatchNotes() {
+
+            novaPatchNotesScreen.classList.remove(
+                "screen-visible"
+            );
+
+            novaPatchNotesScreen.classList.add(
+                "hidden-screen"
+            );
+
+
+            novaMainMenu.classList.remove(
+                "hidden-screen"
+            );
+
+            novaMainMenu.classList.add(
+                "screen-visible"
+            );
+
+        }
+
+
+        novaPatchNotesButton?.addEventListener(
+            "click",
+            openNovaPatchNotes
+        );
+
+
+        novaPatchNotesBackButton?.addEventListener(
+            "click",
+            closeNovaPatchNotes
+        );
+
+
+        window.addEventListener(
+            "keydown",
+            event => {
+
+                if (
+                    event.code ===
+                    "Escape"
+                    &&
+                    novaPatchNotesScreen
+                        ?.classList
+                        .contains(
+                            "screen-visible"
+                        )
+                ) {
+
+                    closeNovaPatchNotes();
+
+                }
+
+            }
+        );
+
+    </script>
+
+
+    <!-- =====================================================
          NOVA CATALYST
     ====================================================== -->
 
@@ -567,5 +980,4 @@
 
 
 </body>
-
 </html>
