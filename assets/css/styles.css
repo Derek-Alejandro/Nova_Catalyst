@@ -982,18 +982,53 @@ body {
 }
 
 
+/* =========================================================
+   TEXTO CENTRAL
+========================================================= */
+
 .patch-notes-menu-button
 >
 span:first-child {
 
+    position:
+        absolute;
+
+    left:
+        50%;
+
+    top:
+        50%;
+
+    transform:
+        translate(
+            -50%,
+            -50%
+        );
+
     width:
-        100%;
+        max-content;
+
+    margin:
+        0;
+
+    padding:
+        0;
 
     text-align:
         center;
 
+    white-space:
+        nowrap;
+
+    pointer-events:
+        none;
+
 }
 
+
+/* =========================================================
+   ETIQUETA NUEVO
+========================================================= */
 
 .menu-badge {
 
@@ -1007,14 +1042,17 @@ span:first-child {
         50%;
 
     transform:
-        translateY(-50%);
+        translateY(
+            -50%
+        );
 
     padding:
         3px 7px;
 
     border:
 
-        1px solid
+        1px
+        solid
         rgba(
             215,
             41,
@@ -1046,11 +1084,13 @@ span:first-child {
     letter-spacing:
         0.10em;
 
+    line-height:
+        1.2;
+
     pointer-events:
         none;
 
 }
-
 
 /* =========================================================
    VERSIÓN
